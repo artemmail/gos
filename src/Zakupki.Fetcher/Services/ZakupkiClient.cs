@@ -157,8 +157,8 @@ public class ZakupkiClient
             var escapedDocType = SecurityElement.Escape(documentType) ?? string.Empty;
             var regionString = region.ToString("D2", CultureInfo.InvariantCulture);
 
-            return $"""<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="{SoapNs}" xmlns:ws="{WsNs}">
+            return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<soapenv:Envelope xmlns:soapenv=""{SoapNs}"" xmlns:ws=""{WsNs}"">
   <soapenv:Header>
     <individualPerson_token>{escapedToken}</individualPerson_token>
   </soapenv:Header>
@@ -179,7 +179,7 @@ public class ZakupkiClient
       </selectionParams>
     </ws:getDocsByOrgRegionRequest>
   </soapenv:Body>
-</soapenv:Envelope>""";
+</soapenv:Envelope>";
         }
 
         public static string BuildGetDocsByReestrNumber(string token, string reestrNumber)
@@ -189,8 +189,8 @@ public class ZakupkiClient
             var escapedToken = SecurityElement.Escape(token) ?? string.Empty;
             var escapedReestr = SecurityElement.Escape(reestrNumber) ?? string.Empty;
 
-            return $"""<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="{SoapNs}" xmlns:ws="{WsNs}">
+            return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<soapenv:Envelope xmlns:soapenv=""{SoapNs}"" xmlns:ws=""{WsNs}"">
   <soapenv:Header>
     <individualPerson_token>{escapedToken}</individualPerson_token>
   </soapenv:Header>
@@ -207,7 +207,7 @@ public class ZakupkiClient
       </selectionParams>
     </ws:getDocsByReestrNumberRequest>
   </soapenv:Body>
-</soapenv:Envelope>""";
+</soapenv:Envelope>";
         }
     }
 
