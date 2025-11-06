@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Zakupki.Fetcher;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
 
