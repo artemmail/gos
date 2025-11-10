@@ -582,22 +582,23 @@ namespace Zakupki.EF2020
     {
         private static readonly IReadOnlyList<Okpd2> EmptyItems = Array.Empty<Okpd2>();
 
-        private List<object> _rawItems = new();
-        private IReadOnlyList<Okpd2>? _itemsCache;
-        private string? _undefinedCache;
+        private List<Okpd2>? _rawOkpd2;
+        private List<string>? _rawUndefined;
 
         [JsonIgnore]
-        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common, Type = typeof(Okpd2))]
-        [XmlElement(ElementName = "undefined", Namespace = Ns.Common, Type = typeof(string))]
-        public List<object> RawItems
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
+        public List<Okpd2> RawOkpd2
         {
-            get => _rawItems;
-            set
-            {
-                _rawItems = value ?? new List<object>();
-                _itemsCache = null;
-                _undefinedCache = null;
-            }
+            get => _rawOkpd2 ??= new List<Okpd2>();
+            set => _rawOkpd2 = value ?? new List<Okpd2>();
+        }
+
+        [JsonIgnore]
+        [XmlElement(ElementName = "undefined", Namespace = Ns.Common)]
+        public List<string> RawUndefined
+        {
+            get => _rawUndefined ??= new List<string>();
+            set => _rawUndefined = value ?? new List<string>();
         }
 
         [XmlIgnore]
@@ -605,29 +606,13 @@ namespace Zakupki.EF2020
         {
             get
             {
-                if (_itemsCache is not null)
+                var source = _rawOkpd2;
+                if (source is { Count: > 0 })
                 {
-                    return _itemsCache;
+                    return source;
                 }
 
-                if (_rawItems.Count == 0)
-                {
-                    _itemsCache = EmptyItems;
-                    return _itemsCache;
-                }
-
-                var results = new List<Okpd2>(_rawItems.Count);
-
-                foreach (var entry in _rawItems)
-                {
-                    if (entry is Okpd2 okpd2)
-                    {
-                        results.Add(okpd2);
-                    }
-                }
-
-                _itemsCache = results.Count > 0 ? results : EmptyItems;
-                return _itemsCache;
+                return EmptyItems;
             }
         }
 
@@ -636,22 +621,21 @@ namespace Zakupki.EF2020
         {
             get
             {
-                if (_undefinedCache is not null)
+                var source = _rawUndefined;
+                if (source is null)
                 {
-                    return _undefinedCache;
+                    return null;
                 }
 
-                foreach (var entry in _rawItems)
+                foreach (var value in source)
                 {
-                    if (entry is string value && value.Length > 0)
+                    if (!string.IsNullOrEmpty(value))
                     {
-                        _undefinedCache = value;
-                        return _undefinedCache;
+                        return value;
                     }
                 }
 
-                _undefinedCache = null;
-                return _undefinedCache;
+                return null;
             }
         }
     }
