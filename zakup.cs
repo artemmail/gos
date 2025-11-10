@@ -366,6 +366,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "account", Namespace = Ns.EPtypes)]
         public BankAccount Account { get; set; }
 
+        [XmlElement(ElementName = "accountBudget", Namespace = Ns.EPtypes)]
+        public AccountBudget AccountBudget { get; set; }
+
         [XmlElement(ElementName = "procedureInfo", Namespace = Ns.EPtypes)]
         public string ProcedureInfo { get; set; }
 
@@ -389,6 +392,51 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "corrAccountNumber", Namespace = Ns.Common)]
         public string CorrAccountNumber { get; set; }
+    }
+
+    public class AccountBudget
+    {
+        [XmlElement(ElementName = "accountBudgetAdmin", Namespace = Ns.EPtypes)]
+        public AccountBudgetAdmin AccountBudgetAdmin { get; set; }
+    }
+
+    public class AccountBudgetAdmin
+    {
+        [XmlElement(ElementName = "anotherAdmin", Namespace = Ns.EPtypes)]
+        public bool AnotherAdmin { get; set; }
+
+        [XmlElement(ElementName = "INN", Namespace = Ns.EPtypes)]
+        public string INN { get; set; }
+
+        [XmlElement(ElementName = "KPP", Namespace = Ns.EPtypes)]
+        public string KPP { get; set; }
+
+        [XmlElement(ElementName = "KBK", Namespace = Ns.EPtypes)]
+        public string KBK { get; set; }
+
+        [XmlElement(ElementName = "OKTMOInfo", Namespace = Ns.EPtypes)]
+        public OktmoInfo OktmoInfo { get; set; }
+
+        [XmlElement(ElementName = "bankAccount", Namespace = Ns.EPtypes)]
+        public string BankAccount { get; set; }
+
+        [XmlElement(ElementName = "ksNumber", Namespace = Ns.EPtypes)]
+        public string KsNumber { get; set; }
+
+        [XmlElement(ElementName = "bik", Namespace = Ns.EPtypes)]
+        public string Bik { get; set; }
+
+        [XmlElement(ElementName = "counterpartyName", Namespace = Ns.EPtypes)]
+        public string CounterpartyName { get; set; }
+    }
+
+    public class OktmoInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
     }
 
     public class InnerContractConditionsInfo
