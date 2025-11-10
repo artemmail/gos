@@ -771,11 +771,17 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "sum", Namespace = Ns.Common)]
         public decimal Sum { get; set; }
 
+        [XmlElement(ElementName = "isMedicalProduct", Namespace = Ns.Common)]
+        public bool? IsMedicalProduct { get; set; }
+
         [XmlElement(ElementName = "type", Namespace = Ns.Common)]
         public string Type { get; set; }
 
         [XmlElement(ElementName = "hierarchyType", Namespace = Ns.Common)]
         public string HierarchyType { get; set; }
+
+        [XmlElement(ElementName = "restrictionsInfo", Namespace = Ns.Common)]
+        public RestrictionsInfo RestrictionsInfo { get; set; }
     }
 
     public class RestrictionsInfo
@@ -807,8 +813,158 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "versionNumber", Namespace = Ns.Base)]
         public int VersionNumber { get; set; }
 
+        [XmlElement(ElementName = "characteristics", Namespace = Ns.Common)]
+        public KtruCharacteristics Characteristics { get; set; }
+
         [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
         public Okpd2 Okpd2 { get; set; }
+    }
+
+    public class KtruCharacteristics
+    {
+        [XmlElement(ElementName = "characteristicsUsingReferenceInfo", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceInfo> ReferenceInfos { get; set; }
+
+        [XmlElement(ElementName = "characteristicsUsingTextForm", Namespace = Ns.Common)]
+        public List<KtruCharacteristicTextForm> TextForms { get; set; }
+
+        [XmlElement(ElementName = "addCharacteristicInfoReason", Namespace = Ns.Common)]
+        public string AddCharacteristicInfoReason { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceInfo
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "code", Namespace = Ns.Common)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
+        public string Type { get; set; }
+
+        [XmlElement(ElementName = "kind", Namespace = Ns.Common)]
+        public string Kind { get; set; }
+
+        [XmlElement(ElementName = "values", Namespace = Ns.Common)]
+        public KtruCharacteristicReferenceValues Values { get; set; }
+
+        [XmlElement(ElementName = "characteristicsFillingInstruction", Namespace = Ns.Common)]
+        public CharacteristicsFillingInstruction CharacteristicsFillingInstruction { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceValues
+    {
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceValue> Items { get; set; }
+
+        [XmlElement(ElementName = "valueSet", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceValueSet> Sets { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceValue
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei Okei { get; set; }
+
+        [XmlElement(ElementName = "valueFormat", Namespace = Ns.Common)]
+        public string ValueFormat { get; set; }
+
+        [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
+        public KtruCharacteristicRangeSet RangeSet { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceValueSet
+    {
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei Okei { get; set; }
+
+        [XmlElement(ElementName = "valueFormat", Namespace = Ns.Common)]
+        public string ValueFormat { get; set; }
+
+        [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
+        public KtruCharacteristicRangeSet RangeSet { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
+
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceValue> Items { get; set; }
+    }
+
+    public class KtruCharacteristicRangeSet
+    {
+        [XmlElement(ElementName = "valueRange", Namespace = Ns.Common)]
+        public List<KtruCharacteristicValueRange> Items { get; set; }
+    }
+
+    public class KtruCharacteristicValueRange
+    {
+        [XmlElement(ElementName = "minMathNotation", Namespace = Ns.Common)]
+        public string MinMathNotation { get; set; }
+
+        [XmlElement(ElementName = "min", Namespace = Ns.Common)]
+        public string Min { get; set; }
+
+        [XmlElement(ElementName = "maxMathNotation", Namespace = Ns.Common)]
+        public string MaxMathNotation { get; set; }
+
+        [XmlElement(ElementName = "max", Namespace = Ns.Common)]
+        public string Max { get; set; }
+    }
+
+    public class CharacteristicsFillingInstruction
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
+    }
+
+    public class KtruCharacteristicTextForm
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "code", Namespace = Ns.Common)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
+        public string Type { get; set; }
+
+        [XmlElement(ElementName = "characteristicsFillingInstruction", Namespace = Ns.Common)]
+        public CharacteristicsFillingInstruction CharacteristicsFillingInstruction { get; set; }
+
+        [XmlElement(ElementName = "values", Namespace = Ns.Common)]
+        public KtruCharacteristicTextValues Values { get; set; }
+    }
+
+    public class KtruCharacteristicTextValues
+    {
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<KtruCharacteristicTextValue> Items { get; set; }
+    }
+
+    public class KtruCharacteristicTextValue
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
     }
 
     public class Okpd2
