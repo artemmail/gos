@@ -355,6 +355,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "maxPriceInfo", Namespace = Ns.EPtypes)]
         public MaxPriceInfo MaxPriceInfo { get; set; }
 
+        [XmlElement(ElementName = "standardContractNumber", Namespace = Ns.EPtypes)]
+        public string? StandardContractNumber { get; set; }
+
         [XmlElement(ElementName = "contractMultiInfo", Namespace = Ns.EPtypes)]
         public ContractMultiInfo ContractMultiInfo { get; set; }
 
