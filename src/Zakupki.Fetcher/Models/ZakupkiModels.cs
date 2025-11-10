@@ -494,6 +494,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "provisionWarranty", Namespace = Ns.EPtypes)]
         public ProvisionWarranty ProvisionWarranty { get; set; }
 
+        [XmlElement(ElementName = "bankSupportContractRequiredInfo", Namespace = Ns.EPtypes)]
+        public BankSupportContractRequiredInfo? BankSupportContractRequiredInfo { get; set; }
+
         [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
         public string AddInfo { get; set; }
     }
@@ -1063,6 +1066,33 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "account", Namespace = Ns.Common)]
         public BankAccount Account { get; set; }
+    }
+
+    public class BankSupportContractRequiredInfo
+    {
+        [XmlElement(ElementName = "treasurySupportContractInfo", Namespace = Ns.Common)]
+        public TreasurySupportContractInfo? TreasurySupportContractInfo { get; set; }
+    }
+
+    public class TreasurySupportContractInfo
+    {
+        [XmlElement(ElementName = "treasurySupportContractRequired", Namespace = Ns.Common)]
+        public bool TreasurySupportContractRequired { get; set; }
+
+        [XmlElement(ElementName = "treasurySupportContractType", Namespace = Ns.Common)]
+        public string? TreasurySupportContractType { get; set; }
+
+        [XmlElement(ElementName = "treasurySupportContractConditions", Namespace = Ns.Common)]
+        public TreasurySupportContractConditions? TreasurySupportContractConditions { get; set; }
+    }
+
+    public class TreasurySupportContractConditions
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Common)]
+        public string? Code { get; set; }
+
+        [XmlElement(ElementName = "nameReason", Namespace = Ns.Common)]
+        public string? NameReason { get; set; }
     }
 
     // ====   ( ) ====
@@ -1911,6 +1941,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
         public decimal? Value { get; set; }
+
+        [XmlElement(ElementName = "volumeTextForm", Namespace = Ns.Common)]
+        public string? VolumeTextForm { get; set; }
 
         [XmlElement(ElementName = "undefined", Namespace = Ns.Common)]
         public bool? Undefined { get; set; }
