@@ -1115,6 +1115,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "volumeSpecifyingMethod", Namespace = Ns.Common)]
         public string VolumeSpecifyingMethod { get; set; }
 
+        [XmlElement(ElementName = "trademarkInfo", Namespace = Ns.Common)]
+        public PurchaseObjectTrademarkInfo? TrademarkInfo { get; set; }
+
         [XmlElement(ElementName = "quantity", Namespace = Ns.Common)]
         public Quantity Quantity { get; set; }
 
@@ -1132,6 +1135,15 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "restrictionsInfo", Namespace = Ns.Common)]
         public RestrictionsInfo RestrictionsInfo { get; set; }
+    }
+
+    public class PurchaseObjectTrademarkInfo
+    {
+        [XmlElement(ElementName = "trademark", Namespace = Ns.Common)]
+        public string? Trademark { get; set; }
+
+        [XmlElement(ElementName = "isEquivalentDeliveryAllowed", Namespace = Ns.Common)]
+        public bool? IsEquivalentDeliveryAllowed { get; set; }
     }
 
     public class CustomerQuantity
@@ -1513,6 +1525,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
         public string QualityDescription { get; set; }
+
+        [XmlElement(ElementName = "valueSet", Namespace = Ns.Common)]
+        public KtruCharacteristicReferenceValueSet? ValueSet { get; set; }
     }
 
     public class KtruCharacteristicReferenceValueSet
@@ -1528,6 +1543,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
         public string QualityDescription { get; set; }
+
+        [XmlElement(ElementName = "concreteValue", Namespace = Ns.Common)]
+        public List<string>? ConcreteValues { get; set; }
 
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
         public List<KtruCharacteristicReferenceValue> Items { get; set; }
