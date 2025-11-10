@@ -1773,6 +1773,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "availAbsEvaluation", Namespace = Ns.EPtypes)]
         public string AvailAbsEvaluation { get; set; }
 
+        [XmlElement(ElementName = "limitMin", Namespace = Ns.EPtypes)]
+        public decimal? LimitMin { get; set; }
+
         [XmlElement(ElementName = "limitMax", Namespace = Ns.EPtypes)]
         public decimal? LimitMax { get; set; }
     }
