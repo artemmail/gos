@@ -376,7 +376,7 @@ namespace Zakupki.EF2020
     public class MaxPriceInfo
     {
         [XmlElement(ElementName = "maxPrice", Namespace = Ns.EPtypes)]
-        public decimal MaxPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
 
         [XmlElement(ElementName = "currency", Namespace = Ns.EPtypes)]
         public Currency Currency { get; set; }
@@ -818,7 +818,7 @@ namespace Zakupki.EF2020
     public class MaxPriceOnly
     {
         [XmlElement(ElementName = "maxPrice", Namespace = Ns.EPtypes)]
-        public decimal MaxPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
     }
 
     public class WarrantyInfo
@@ -883,7 +883,7 @@ namespace Zakupki.EF2020
         public List<PurchaseObject> Items { get; set; }
 
         [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
-        public decimal TotalSum { get; set; }
+        public decimal? TotalSum { get; set; }
 
         [XmlElement(ElementName = "quantityUndefined", Namespace = Ns.EPtypes)]
         public bool QuantityUndefined { get; set; }
@@ -907,7 +907,7 @@ namespace Zakupki.EF2020
         public Okei Okei { get; set; }
 
         [XmlElement(ElementName = "price", Namespace = Ns.Common)]
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
 
         [XmlElement(ElementName = "volumeSpecifyingMethod", Namespace = Ns.Common)]
         public string VolumeSpecifyingMethod { get; set; }
@@ -916,7 +916,7 @@ namespace Zakupki.EF2020
         public Quantity Quantity { get; set; }
 
         [XmlElement(ElementName = "sum", Namespace = Ns.Common)]
-        public decimal Sum { get; set; }
+        public decimal? Sum { get; set; }
 
         [XmlElement(ElementName = "type", Namespace = Ns.Common)]
         public string Type { get; set; }
@@ -1117,7 +1117,7 @@ namespace Zakupki.EF2020
     public class Quantity
     {
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
-        public decimal Value { get; set; }
+        public decimal? Value { get; set; }
     }
 
     // ==== // () ====
@@ -1214,7 +1214,7 @@ namespace Zakupki.EF2020
     public class CriterionValueInfo
     {
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
-        public decimal Value { get; set; }
+        public decimal? Value { get; set; }
     }
 
     public class QualitativeCriterionInfo
@@ -1244,7 +1244,7 @@ namespace Zakupki.EF2020
         public PurchaseObjectCharsInfo PurchaseObjectCharsInfo { get; set; }
 
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
-        public decimal Value { get; set; }
+        public decimal? Value { get; set; }
 
         [XmlElement(ElementName = "detailIndicatorsInfo", Namespace = Ns.EPtypes)]
         public DetailIndicatorsInfo DetailIndicatorsInfo { get; set; }
@@ -1274,7 +1274,7 @@ namespace Zakupki.EF2020
         public IndicatorNameInfo IndicatorInfo { get; set; }
 
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
-        public decimal Value { get; set; }
+        public decimal? Value { get; set; }
 
         [XmlElement(ElementName = "orderEvalIndicatorsInfo", Namespace = Ns.EPtypes)]
         public OrderEvalIndicatorsInfo OrderEvalIndicatorsInfo { get; set; }
