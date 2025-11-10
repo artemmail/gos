@@ -11,14 +11,33 @@ namespace Zakupki.EF2020
     [XmlRoot(ElementName = "export", Namespace = Ns.Export)]
     public class Export
     {
-        [XmlElement(ElementName = "epNotificationEF2020", Namespace = Ns.Export, Type = typeof(EpNotificationEf2020))]
-        [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export, Type = typeof(EpNotificationEok2020))]
-        [XmlElement(ElementName = "epNotificationEZK2020", Namespace = Ns.Export, Type = typeof(EpNotificationEzk2020))]
-        [XmlElement(ElementName = "epNotificationOK2020", Namespace = Ns.Export, Type = typeof(EpNotificationOk2020))]
-        public EpNotificationEf2020? EpNotification { get; set; }
+        [XmlElement(ElementName = "epNotificationEF2020", Namespace = Ns.Export)]
+        public EpNotificationEf2020 EpNotification { get; set; }
+
+        [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export)]
+        public EpNotificationEok2020 EpNotificationEok2020 { get; set; }
+
+        [XmlElement(ElementName = "epNotificationEZK2020", Namespace = Ns.Export)]
+        public EpNotificationEzk2020 EpNotificationEzk2020 { get; set; }
 
         [XmlIgnore]
-        public EpNotificationEf2020? AnyNotification => EpNotification;
+        public EpNotificationEf2020? AnyNotification
+        {
+            get
+            {
+                if (EpNotification != null)
+                {
+                    return EpNotification;
+                }
+
+                if (EpNotificationEok2020 != null)
+                {
+                    return EpNotificationEok2020;
+                }
+
+                return EpNotificationEzk2020;
+            }
+        }
     }
 
     // ====  ====
@@ -66,10 +85,6 @@ namespace Zakupki.EF2020
     }
 
     public class EpNotificationEzk2020 : EpNotificationEf2020
-    {
-    }
-
-    public class EpNotificationOk2020 : EpNotificationEf2020
     {
     }
 
@@ -1131,9 +1146,6 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "drugPurchaseObjectsInfo", Namespace = Ns.EPtypes)]
         public DrugPurchaseObjectsInfo DrugPurchaseObjectsInfo { get; set; }
-
-        [XmlElement(ElementName = "notDrugPurchaseParentObjectsInfo", Namespace = Ns.EPtypes)]
-        public NotDrugPurchaseParentObjectsInfo NotDrugPurchaseParentObjectsInfo { get; set; }
     }
 
     public class NotDrugPurchaseObjectsInfo
@@ -1146,48 +1158,6 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "quantityUndefined", Namespace = Ns.EPtypes)]
         public bool QuantityUndefined { get; set; }
-    }
-
-    public class NotDrugPurchaseParentObjectsInfo
-    {
-        [XmlElement(ElementName = "purchaseObject", Namespace = Ns.Common)]
-        public List<NotDrugParentPurchaseObject> Items { get; set; }
-
-        [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
-        public decimal? TotalSum { get; set; }
-    }
-
-    public class NotDrugParentPurchaseObject
-    {
-        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
-        public string Sid { get; set; }
-
-        [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
-        public string ExternalSid { get; set; }
-
-        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
-        public Okpd2 Okpd2 { get; set; }
-
-        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
-        public string Name { get; set; }
-
-        [XmlElement(ElementName = "customers", Namespace = Ns.Common)]
-        public ParentCustomers Customers { get; set; }
-
-        [XmlElement(ElementName = "sum", Namespace = Ns.Common)]
-        public decimal? Sum { get; set; }
-
-        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
-        public string Type { get; set; }
-
-        [XmlElement(ElementName = "hierarchyType", Namespace = Ns.Common)]
-        public string HierarchyType { get; set; }
-    }
-
-    public class ParentCustomers
-    {
-        [XmlElement(ElementName = "customer", Namespace = Ns.Common)]
-        public List<Customer> Items { get; set; }
     }
 
     public class PurchaseObject
@@ -2068,45 +2038,12 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "responsibleDecisionInfo", Namespace = Ns.EPtypes)]
         public ResponsibleDecisionInfo? ResponsibleDecisionInfo { get; set; }
-
-        [XmlElement(ElementName = "authorityPrescriptionInfo", Namespace = Ns.EPtypes)]
-        public AuthorityPrescriptionInfo? AuthorityPrescriptionInfo { get; set; }
     }
 
     public class ResponsibleDecisionInfo
     {
         [XmlElement(ElementName = "decisionDate", Namespace = Ns.EPtypes, DataType = "string")]
         public string? DecisionDateRaw { get; set; }
-    }
-
-    public class AuthorityPrescriptionInfo
-    {
-        [XmlElement(ElementName = "externalPrescription", Namespace = Ns.EPtypes)]
-        public ExternalPrescription? ExternalPrescription { get; set; }
-    }
-
-    public class ExternalPrescription
-    {
-        [XmlElement(ElementName = "authorityName", Namespace = Ns.EPtypes)]
-        public string AuthorityName { get; set; }
-
-        [XmlElement(ElementName = "authorityType", Namespace = Ns.EPtypes)]
-        public string AuthorityType { get; set; }
-
-        [XmlElement(ElementName = "prescriptionProperty", Namespace = Ns.EPtypes)]
-        public PrescriptionProperty PrescriptionProperty { get; set; }
-    }
-
-    public class PrescriptionProperty
-    {
-        [XmlElement(ElementName = "docName", Namespace = Ns.Common)]
-        public string DocName { get; set; }
-
-        [XmlElement(ElementName = "docNumber", Namespace = Ns.Common)]
-        public string DocNumber { get; set; }
-
-        [XmlElement(ElementName = "docDate", Namespace = Ns.Common, DataType = "string")]
-        public string DocDateRaw { get; set; }
     }
 
     public class CriteriaInfo
@@ -2143,12 +2080,6 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
         public decimal? Value { get; set; }
-
-        [XmlElement(ElementName = "valueLess25MaxPrice", Namespace = Ns.EPtypes)]
-        public decimal? ValueLess25MaxPrice { get; set; }
-
-        [XmlElement(ElementName = "valueMore25MaxPrice", Namespace = Ns.EPtypes)]
-        public decimal? ValueMore25MaxPrice { get; set; }
     }
 
     public class QualitativeCriterionInfo
@@ -2271,7 +2202,7 @@ namespace Zakupki.EF2020
     // ====      ====
     internal static class Ns
     {
-        public const string Base   = "http://zakupki.gov.ru/oos/base/1";
+        public const string Base = "http://zakupki.gov.ru/oos/base/1";
         public const string Common = "http://zakupki.gov.ru/oos/common/1";
         public const string EPtypes = "http://zakupki.gov.ru/oos/EPtypes/1";
         public const string Export = "http://zakupki.gov.ru/oos/export/1";
