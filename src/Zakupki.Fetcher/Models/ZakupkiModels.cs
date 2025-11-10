@@ -998,6 +998,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "KTRU", Namespace = Ns.Common)]
         public Ktru Ktru { get; set; }
 
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
+        public Okpd2 Okpd2 { get; set; }
+
         [XmlElement(ElementName = "name", Namespace = Ns.Common)]
         public string Name { get; set; }
 
@@ -1565,6 +1568,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "availAbsEvaluation", Namespace = Ns.EPtypes)]
         public string AvailAbsEvaluation { get; set; }
+
+        [XmlElement(ElementName = "limitMax", Namespace = Ns.EPtypes)]
+        public decimal? LimitMax { get; set; }
     }
 
     public class IndicatorNameInfo
