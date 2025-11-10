@@ -344,6 +344,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "warrantyInfo", Namespace = Ns.EPtypes)]
         public WarrantyInfo WarrantyInfo { get; set; }
+
+        [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
+        public string AddInfo { get; set; }
     }
 
     public class Customer
