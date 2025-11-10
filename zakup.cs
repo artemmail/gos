@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace Zakupki.EF2020
@@ -276,6 +277,36 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "isControlP1Ch5St99", Namespace = Ns.EPtypes)]
         public bool IsControlP1Ch5St99 { get; set; }
+
+        [XmlElement(ElementName = "serviceMarks", Namespace = Ns.EPtypes)]
+        public ServiceMarks? ServiceMarks { get; set; }
+
+        [XmlAnyElement]
+        public XmlElement[]? AdditionalElements { get; set; }
+    }
+
+    public class ServiceMarks
+    {
+        [XmlElement(ElementName = "serviceMark", Namespace = Ns.EPtypes)]
+        public List<ServiceMark>? Items { get; set; }
+
+        [XmlAnyElement]
+        public XmlElement[]? AdditionalElements { get; set; }
+    }
+
+    public class ServiceMark
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string? Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string? Name { get; set; }
+
+        [XmlElement(ElementName = "value", Namespace = Ns.Base)]
+        public string? Value { get; set; }
+
+        [XmlAnyElement]
+        public XmlElement[]? AdditionalElements { get; set; }
     }
 
     // ==== notificationInfo ====
