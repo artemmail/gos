@@ -915,6 +915,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "KVRsInfo", Namespace = Ns.EPtypes)]
         public StageKvrInfos KvrInfos { get; set; }
+
+        [XmlElement(ElementName = "targetArticlesInfo", Namespace = Ns.EPtypes)]
+        public StageTargetArticlesInfo TargetArticlesInfo { get; set; }
     }
 
     public class StageKvrInfos
@@ -939,6 +942,45 @@ namespace Zakupki.EF2020
     }
 
     public class StageKvrYearsInfo
+    {
+        [XmlElement(ElementName = "total", Namespace = Ns.Common)]
+        public decimal? Total { get; set; }
+
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.Common)]
+        public decimal? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "firstYear", Namespace = Ns.Common)]
+        public decimal? FirstYear { get; set; }
+
+        [XmlElement(ElementName = "secondYear", Namespace = Ns.Common)]
+        public decimal? SecondYear { get; set; }
+
+        [XmlElement(ElementName = "subsecYears", Namespace = Ns.Common)]
+        public decimal? SubsequentYears { get; set; }
+    }
+
+    public class StageTargetArticlesInfo
+    {
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.Common)]
+        public int? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "targetArticleInfo", Namespace = Ns.Common)]
+        public List<StageTargetArticleInfo> Items { get; set; }
+
+        [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
+        public decimal? TotalSum { get; set; }
+    }
+
+    public class StageTargetArticleInfo
+    {
+        [XmlElement(ElementName = "targetArticle", Namespace = Ns.Common)]
+        public string TargetArticle { get; set; }
+
+        [XmlElement(ElementName = "targetArticleYearsInfo", Namespace = Ns.Common)]
+        public StageTargetArticleYearsInfo TargetArticleYearsInfo { get; set; }
+    }
+
+    public class StageTargetArticleYearsInfo
     {
         [XmlElement(ElementName = "total", Namespace = Ns.Common)]
         public decimal? Total { get; set; }
@@ -1603,9 +1645,27 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "valueRange", Namespace = Ns.Common)]
         public List<KtruCharacteristicValueRange> Items { get; set; }
+
+        [XmlElement(ElementName = "outValueRange", Namespace = Ns.Common)]
+        public List<KtruCharacteristicOutValueRange> OutValueRanges { get; set; }
     }
 
     public class KtruCharacteristicValueRange
+    {
+        [XmlElement(ElementName = "minMathNotation", Namespace = Ns.Common)]
+        public string MinMathNotation { get; set; }
+
+        [XmlElement(ElementName = "min", Namespace = Ns.Common)]
+        public string Min { get; set; }
+
+        [XmlElement(ElementName = "maxMathNotation", Namespace = Ns.Common)]
+        public string MaxMathNotation { get; set; }
+
+        [XmlElement(ElementName = "max", Namespace = Ns.Common)]
+        public string Max { get; set; }
+    }
+
+    public class KtruCharacteristicOutValueRange
     {
         [XmlElement(ElementName = "minMathNotation", Namespace = Ns.Common)]
         public string MinMathNotation { get; set; }
@@ -1774,9 +1834,27 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "valueRange", Namespace = Ns.Common)]
         public List<Okpd2CharacteristicValueRange> Items { get; set; }
+
+        [XmlElement(ElementName = "outValueRange", Namespace = Ns.Common)]
+        public List<Okpd2CharacteristicOutValueRange> OutValueRanges { get; set; }
     }
 
     public class Okpd2CharacteristicValueRange
+    {
+        [XmlElement(ElementName = "minMathNotation", Namespace = Ns.Common)]
+        public string MinMathNotation { get; set; }
+
+        [XmlElement(ElementName = "min", Namespace = Ns.Common)]
+        public string Min { get; set; }
+
+        [XmlElement(ElementName = "maxMathNotation", Namespace = Ns.Common)]
+        public string MaxMathNotation { get; set; }
+
+        [XmlElement(ElementName = "max", Namespace = Ns.Common)]
+        public string Max { get; set; }
+    }
+
+    public class Okpd2CharacteristicOutValueRange
     {
         [XmlElement(ElementName = "minMathNotation", Namespace = Ns.Common)]
         public string MinMathNotation { get; set; }
