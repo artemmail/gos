@@ -421,6 +421,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "warrantyInfo", Namespace = Ns.EPtypes)]
         public WarrantyInfo WarrantyInfo { get; set; }
 
+        [XmlElement(ElementName = "provisionWarranty", Namespace = Ns.EPtypes)]
+        public ProvisionWarranty ProvisionWarranty { get; set; }
+
         [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
         public string AddInfo { get; set; }
     }
@@ -920,6 +923,21 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "warrantyTerm", Namespace = Ns.EPtypes)]
         public string WarrantyTerm { get; set; }
+    }
+
+    public class ProvisionWarranty
+    {
+        [XmlElement(ElementName = "amount", Namespace = Ns.Common)]
+        public decimal? Amount { get; set; }
+
+        [XmlElement(ElementName = "part", Namespace = Ns.Common)]
+        public decimal? Part { get; set; }
+
+        [XmlElement(ElementName = "procedureInfo", Namespace = Ns.Common)]
+        public string ProcedureInfo { get; set; }
+
+        [XmlElement(ElementName = "account", Namespace = Ns.Common)]
+        public BankAccount Account { get; set; }
     }
 
     // ====   ( ) ====
