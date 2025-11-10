@@ -123,6 +123,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "purchaseObjectInfo", Namespace = Ns.EPtypes)]
         public string PurchaseObjectInfo { get; set; }
+
+        [XmlElement(ElementName = "article15FeaturesInfo", Namespace = Ns.EPtypes)]
+        public string? Article15FeaturesInfo { get; set; }
     }
 
     public class PlacingWay
@@ -602,6 +605,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "mustPublicDiscussion", Namespace = Ns.EPtypes)]
         public bool MustPublicDiscussion { get; set; }
 
+        [XmlElement(ElementName = "publicDiscussionInfo", Namespace = Ns.EPtypes)]
+        public PublicDiscussionInfo? PublicDiscussionInfo { get; set; }
+
         [XmlElement(ElementName = "advancePaymentSum", Namespace = Ns.EPtypes)]
         public AdvancePaymentSum AdvancePaymentSum { get; set; }
 
@@ -1070,8 +1076,26 @@ namespace Zakupki.EF2020
 
     public class BankSupportContractRequiredInfo
     {
+        [XmlElement(ElementName = "bankSupportContractRequired", Namespace = Ns.Common)]
+        public bool? BankSupportContractRequired { get; set; }
+
         [XmlElement(ElementName = "treasurySupportContractInfo", Namespace = Ns.Common)]
         public TreasurySupportContractInfo? TreasurySupportContractInfo { get; set; }
+    }
+
+    public class PublicDiscussionInfo
+    {
+        [XmlElement(ElementName = "publicDiscussionInEISInfo", Namespace = Ns.Common)]
+        public PublicDiscussionInEisInfo? PublicDiscussionInEisInfo { get; set; }
+    }
+
+    public class PublicDiscussionInEisInfo
+    {
+        [XmlElement(ElementName = "publicDiscussionInEIS", Namespace = Ns.Common)]
+        public bool PublicDiscussionInEis { get; set; }
+
+        [XmlElement(ElementName = "publicDiscussionNum", Namespace = Ns.Common)]
+        public string? PublicDiscussionNum { get; set; }
     }
 
     public class TreasurySupportContractInfo
