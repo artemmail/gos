@@ -1621,6 +1621,15 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
         public string QualityDescription { get; set; }
+
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei? Okei { get; set; }
+
+        [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
+        public KtruCharacteristicRangeSet? RangeSet { get; set; }
+
+        [XmlElement(ElementName = "valueSet", Namespace = Ns.Common)]
+        public KtruCharacteristicReferenceValueSet? ValueSet { get; set; }
     }
 
     public class Okpd2
