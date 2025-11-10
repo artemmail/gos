@@ -6,6 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../zakup.cs" Link="Models/zakup.cs" />
+    <Compile Include="../Zakupki.Fetcher/Models/ZakupkiModels.cs" Link="Models/ZakupkiModels.cs" />
   </ItemGroup>
 </Project>

@@ -14,6 +14,12 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export)]
         public EpNotificationEok2020 EpNotificationEok2020 { get; set; }
+
+        [XmlElement(ElementName = "epNotificationEZK2020", Namespace = Ns.Export)]
+        public EpNotificationEzk2020 EpNotificationEzk2020 { get; set; }
+
+        [XmlIgnore]
+        public EpNotificationEf2020? AnyNotification => EpNotification ?? EpNotificationEok2020 ?? EpNotificationEzk2020;
     }
 
     // ====  ====
@@ -45,9 +51,18 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "notificationInfo", Namespace = Ns.EPtypes)]
         public NotificationInfo NotificationInfo { get; set; }
+
+        [XmlElement(ElementName = "printFormFieldsInfo", Namespace = Ns.EPtypes)]
+        public PrintFormFieldsInfo PrintFormFieldsInfo { get; set; }
     }
 
     public class EpNotificationEok2020 : EpNotificationEf2020
+    {
+        [XmlAttribute("schemeVersion")]
+        public string SchemeVersion { get; set; }
+    }
+
+    public class EpNotificationEzk2020 : EpNotificationEf2020
     {
         [XmlAttribute("schemeVersion")]
         public string SchemeVersion { get; set; }
@@ -189,6 +204,12 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "url", Namespace = Ns.Common)]
         public string Url { get; set; }
+    }
+
+    public class PrintFormFieldsInfo
+    {
+        [XmlElement(ElementName = "is449Features", Namespace = Ns.EPtypes)]
+        public bool Is449Features { get; set; }
     }
 
     // ====  ====
@@ -533,6 +554,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
         public List<Okpd2> Items { get; set; }
+
+        [XmlElement(ElementName = "undefined", Namespace = Ns.Common)]
+        public string Undefined { get; set; }
     }
 
     public class KvrInfoContainer
@@ -591,6 +615,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "budgetFinancingsInfo", Namespace = Ns.EPtypes)]
         public BudgetFinancingsInfo BudgetFinancingsInfo { get; set; }
 
+        [XmlElement(ElementName = "nonbudgetFinancingsInfo", Namespace = Ns.EPtypes)]
+        public NonbudgetFinancingsInfo NonbudgetFinancingsInfo { get; set; }
+
         [XmlElement(ElementName = "currentYear", Namespace = Ns.EPtypes)]
         public int? CurrentYear { get; set; }
 
@@ -608,6 +635,12 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "OKTMOInfo", Namespace = Ns.EPtypes)]
         public OktmoInfo OktmoInfo { get; set; }
+    }
+
+    public class NonbudgetFinancingsInfo
+    {
+        [XmlElement(ElementName = "selfFunds", Namespace = Ns.EPtypes)]
+        public bool SelfFunds { get; set; }
     }
 
     public class BudgetInfo
@@ -662,6 +695,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "budgetFinancingsInfo", Namespace = Ns.EPtypes)]
         public StageBudgetFinancingsInfo BudgetFinancingsInfo { get; set; }
+
+        [XmlElement(ElementName = "nonbudgetFinancingInfo", Namespace = Ns.EPtypes)]
+        public StageNonbudgetFinancingInfo NonbudgetFinancingInfo { get; set; }
     }
 
     public class TermsInfo
@@ -683,6 +719,54 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "paymentYearInfo", Namespace = Ns.EPtypes)]
         public PaymentYearInfo PaymentYearInfo { get; set; }
+    }
+
+    public class StageNonbudgetFinancingInfo
+    {
+        [XmlElement(ElementName = "paymentYearInfo", Namespace = Ns.EPtypes)]
+        public PaymentYearInfo PaymentYearInfo { get; set; }
+
+        [XmlElement(ElementName = "KVRsInfo", Namespace = Ns.EPtypes)]
+        public StageKvrInfos KvrInfos { get; set; }
+    }
+
+    public class StageKvrInfos
+    {
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.Common)]
+        public int? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "KVRInfo", Namespace = Ns.Common)]
+        public List<StageKvrInfo> Items { get; set; }
+
+        [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
+        public decimal? TotalSum { get; set; }
+    }
+
+    public class StageKvrInfo
+    {
+        [XmlElement(ElementName = "KVR", Namespace = Ns.Common)]
+        public Kvr Kvr { get; set; }
+
+        [XmlElement(ElementName = "KVRYearsInfo", Namespace = Ns.Common)]
+        public StageKvrYearsInfo KvrYearsInfo { get; set; }
+    }
+
+    public class StageKvrYearsInfo
+    {
+        [XmlElement(ElementName = "total", Namespace = Ns.Common)]
+        public decimal? Total { get; set; }
+
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.Common)]
+        public decimal? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "firstYear", Namespace = Ns.Common)]
+        public decimal? FirstYear { get; set; }
+
+        [XmlElement(ElementName = "secondYear", Namespace = Ns.Common)]
+        public decimal? SecondYear { get; set; }
+
+        [XmlElement(ElementName = "subsecYears", Namespace = Ns.Common)]
+        public decimal? SubsequentYears { get; set; }
     }
 
     public class PaymentYearInfo
@@ -824,6 +908,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "hierarchyType", Namespace = Ns.Common)]
         public string HierarchyType { get; set; }
 
+        [XmlElement(ElementName = "isMedicalProduct", Namespace = Ns.Common)]
+        public bool IsMedicalProduct { get; set; }
+
         [XmlElement(ElementName = "restrictionsInfo", Namespace = Ns.Common)]
         public RestrictionsInfo RestrictionsInfo { get; set; }
     }
@@ -857,8 +944,137 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "versionNumber", Namespace = Ns.Base)]
         public int VersionNumber { get; set; }
 
+        [XmlElement(ElementName = "characteristics", Namespace = Ns.Common)]
+        public KtruCharacteristics Characteristics { get; set; }
+
         [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
         public Okpd2 Okpd2 { get; set; }
+    }
+
+    public class KtruCharacteristics
+    {
+        [XmlElement(ElementName = "characteristicsUsingReferenceInfo", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceInfo> ReferenceInfos { get; set; }
+
+        [XmlElement(ElementName = "characteristicsUsingTextForm", Namespace = Ns.Common)]
+        public List<KtruCharacteristicTextForm> TextForms { get; set; }
+
+        [XmlElement(ElementName = "addCharacteristicInfoReason", Namespace = Ns.Common)]
+        public string AddCharacteristicInfoReason { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceInfo
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "code", Namespace = Ns.Common)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
+        public string Type { get; set; }
+
+        [XmlElement(ElementName = "kind", Namespace = Ns.Common)]
+        public string Kind { get; set; }
+
+        [XmlElement(ElementName = "values", Namespace = Ns.Common)]
+        public KtruCharacteristicReferenceValues Values { get; set; }
+
+        [XmlElement(ElementName = "characteristicsFillingInstruction", Namespace = Ns.Common)]
+        public CharacteristicsFillingInstruction CharacteristicsFillingInstruction { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceValues
+    {
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceValue> Items { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceValue
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei Okei { get; set; }
+
+        [XmlElement(ElementName = "valueFormat", Namespace = Ns.Common)]
+        public string ValueFormat { get; set; }
+
+        [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
+        public KtruCharacteristicRangeSet RangeSet { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
+    }
+
+    public class KtruCharacteristicRangeSet
+    {
+        [XmlElement(ElementName = "valueRange", Namespace = Ns.Common)]
+        public List<KtruCharacteristicValueRange> Items { get; set; }
+    }
+
+    public class KtruCharacteristicValueRange
+    {
+        [XmlElement(ElementName = "minMathNotation", Namespace = Ns.Common)]
+        public string MinMathNotation { get; set; }
+
+        [XmlElement(ElementName = "min", Namespace = Ns.Common)]
+        public string Min { get; set; }
+
+        [XmlElement(ElementName = "maxMathNotation", Namespace = Ns.Common)]
+        public string MaxMathNotation { get; set; }
+
+        [XmlElement(ElementName = "max", Namespace = Ns.Common)]
+        public string Max { get; set; }
+    }
+
+    public class CharacteristicsFillingInstruction
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
+    }
+
+    public class KtruCharacteristicTextForm
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "code", Namespace = Ns.Common)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
+        public string Type { get; set; }
+
+        [XmlElement(ElementName = "characteristicsFillingInstruction", Namespace = Ns.Common)]
+        public CharacteristicsFillingInstruction CharacteristicsFillingInstruction { get; set; }
+
+        [XmlElement(ElementName = "values", Namespace = Ns.Common)]
+        public KtruCharacteristicTextValues Values { get; set; }
+    }
+
+    public class KtruCharacteristicTextValues
+    {
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<KtruCharacteristicTextValue> Items { get; set; }
+    }
+
+    public class KtruCharacteristicTextValue
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
     }
 
     public class Okpd2
