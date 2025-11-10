@@ -624,6 +624,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "notRelativeTermsInfo", Namespace = Ns.Common)]
         public NotRelativeTermsInfo NotRelativeTermsInfo { get; set; }
+
+        [XmlElement(ElementName = "relativeTermsInfo", Namespace = Ns.Common)]
+        public RelativeTermsInfo RelativeTermsInfo { get; set; }
     }
 
     public class NotRelativeTermsInfo
@@ -636,6 +639,21 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "endDate", Namespace = Ns.Common, DataType = "string")]
         public string EndDateRaw { get; set; }
+    }
+
+    public class RelativeTermsInfo
+    {
+        [XmlElement(ElementName = "start", Namespace = Ns.Common)]
+        public decimal? Start { get; set; }
+
+        [XmlElement(ElementName = "startDayType", Namespace = Ns.Common)]
+        public string StartDayType { get; set; }
+
+        [XmlElement(ElementName = "term", Namespace = Ns.Common)]
+        public decimal? Term { get; set; }
+
+        [XmlElement(ElementName = "termDayType", Namespace = Ns.Common)]
+        public string TermDayType { get; set; }
     }
 
     public class FinancingSourcesInfo
@@ -735,6 +753,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "notRelativeTermsInfo", Namespace = Ns.Common)]
         public NotRelativeTermsInfo NotRelativeTermsInfo { get; set; }
+
+        [XmlElement(ElementName = "relativeTermsInfo", Namespace = Ns.Common)]
+        public RelativeTermsInfo RelativeTermsInfo { get; set; }
     }
 
     public class StageBudgetFinancingsInfo
