@@ -386,6 +386,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "currency", Namespace = Ns.EPtypes)]
         public Currency Currency { get; set; }
+
+        [XmlElement(ElementName = "isContractPriceFormula", Namespace = Ns.EPtypes)]
+        public bool? IsContractPriceFormula { get; set; }
     }
 
     public class Currency
@@ -531,6 +534,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "advancePaymentSum", Namespace = Ns.EPtypes)]
         public AdvancePaymentSum AdvancePaymentSum { get; set; }
+
+        [XmlElement(ElementName = "contractPriceFormula", Namespace = Ns.EPtypes)]
+        public string? ContractPriceFormula { get; set; }
 
         [XmlElement(ElementName = "IKZInfo", Namespace = Ns.EPtypes)]
         public IkzInfo IkzInfo { get; set; }
@@ -917,6 +923,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "maxPrice", Namespace = Ns.EPtypes)]
         public decimal? MaxPrice { get; set; }
+
+        [XmlElement(ElementName = "isContractPriceFormula", Namespace = Ns.EPtypes)]
+        public bool? IsContractPriceFormula { get; set; }
     }
 
     public class WarrantyInfo
@@ -1408,6 +1417,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
         public decimal? Value { get; set; }
+
+        [XmlElement(ElementName = "undefined", Namespace = Ns.Common)]
+        public bool? Undefined { get; set; }
     }
 
     // ==== // () ====
