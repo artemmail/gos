@@ -5,7 +5,7 @@ using System.Xml.Serialization;
 
 namespace Zakupki.EF2020
 {
-    // ==== Корневой элемент <ns3:export ...> ====
+    // ==== ГЉГ®Г°Г­ГҐГўГ®Г© ГЅГ«ГҐГ¬ГҐГ­ГІ <ns3:export ...> ====
     [XmlRoot(ElementName = "export", Namespace = Ns.Export)]
     public class Export
     {
@@ -13,7 +13,7 @@ namespace Zakupki.EF2020
         public EpNotificationEf2020 EpNotification { get; set; }
     }
 
-    // ==== Уведомление ====
+    // ==== Г“ГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГҐ ====
     public class EpNotificationEf2020
     {
         [XmlElement(ElementName = "id", Namespace = Ns.EPtypes)]
@@ -44,7 +44,7 @@ namespace Zakupki.EF2020
         public NotificationInfo NotificationInfo { get; set; }
     }
 
-    // ==== Блок: commonInfo ====
+    // ==== ГЃГ«Г®ГЄ: commonInfo ====
     public class CommonInfo
     {
         [XmlElement(ElementName = "purchaseNumber", Namespace = Ns.EPtypes)]
@@ -99,7 +99,7 @@ namespace Zakupki.EF2020
         public string Url { get; set; }
     }
 
-    // ==== Блок: ответственный ====
+    // ==== ГЃГ«Г®ГЄ: Г®ГІГўГҐГІГ±ГІГўГҐГ­Г­Г»Г© ====
     public class PurchaseResponsibleInfo
     {
         [XmlElement(ElementName = "responsibleOrgInfo", Namespace = Ns.EPtypes)]
@@ -155,6 +155,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "contactPhone", Namespace = Ns.EPtypes)]
         public string ContactPhone { get; set; }
+
+        [XmlElement(ElementName = "contactFax", Namespace = Ns.EPtypes)]
+        public string ContactFax { get; set; }
     }
 
     public class ContactPersonInfo
@@ -169,14 +172,14 @@ namespace Zakupki.EF2020
         public string MiddleName { get; set; }
     }
 
-    // ==== Печатная форма ====
+    // ==== ГЏГҐГ·Г ГІГ­Г Гї ГґГ®Г°Г¬Г  ====
     public class PrintFormInfo
     {
         [XmlElement(ElementName = "url", Namespace = Ns.Common)]
         public string Url { get; set; }
     }
 
-    // ==== Вложения ====
+    // ==== Г‚Г«Г®Г¦ГҐГ­ГЁГї ====
     public class AttachmentsInfo
     {
         [XmlElement(ElementName = "attachmentInfo", Namespace = Ns.Common)]
@@ -229,7 +232,7 @@ namespace Zakupki.EF2020
         public string Value { get; set; }
     }
 
-    // ==== Служебные признаки ====
+    // ==== Г‘Г«ГіГ¦ГҐГЎГ­Г»ГҐ ГЇГ°ГЁГ§Г­Г ГЄГЁ ====
     public class ServiceSigns
     {
         [XmlElement(ElementName = "isIncludeKOKS", Namespace = Ns.EPtypes)]
@@ -269,7 +272,7 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "collectingInfo", Namespace = Ns.EPtypes)]
         public CollectingInfo CollectingInfo { get; set; }
 
-        // даты в формате YYYY-MM-DD+TZ (без времени) — храним как raw
+        // Г¤Г ГІГ» Гў ГґГ®Г°Г¬Г ГІГҐ YYYY-MM-DD+TZ (ГЎГҐГ§ ГўГ°ГҐГ¬ГҐГ­ГЁ) В— ГµГ°Г Г­ГЁГ¬ ГЄГ ГЄ raw
         [XmlElement(ElementName = "biddingDate", Namespace = Ns.EPtypes, DataType = "string")]
         public string BiddingDateRaw { get; set; }
 
@@ -291,8 +294,8 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "maxPriceInfo", Namespace = Ns.EPtypes)]
         public MaxPriceInfo MaxPriceInfo { get; set; }
 
-        // ниже — большой блок (ИКЗ, план-график, план платежей и т.п.).
-        // для минимума оставлены самые полезные поля; при необходимости расширяйте.
+        // Г­ГЁГ¦ГҐ В— ГЎГ®Г«ГјГёГ®Г© ГЎГ«Г®ГЄ (Г€ГЉГ‡, ГЇГ«Г Г­-ГЈГ°Г ГґГЁГЄ, ГЇГ«Г Г­ ГЇГ«Г ГІГҐГ¦ГҐГ© ГЁ ГІ.ГЇ.).
+        // Г¤Г«Гї Г¬ГЁГ­ГЁГ¬ГіГ¬Г  Г®Г±ГІГ ГўГ«ГҐГ­Г» Г±Г Г¬Г»ГҐ ГЇГ®Г«ГҐГ§Г­Г»ГҐ ГЇГ®Г«Гї; ГЇГ°ГЁ Г­ГҐГ®ГЎГµГ®Г¤ГЁГ¬Г®Г±ГІГЁ Г°Г Г±ГёГЁГ°ГїГ©ГІГҐ.
         [XmlElement(ElementName = "deliveryPlacesInfo", Namespace = Ns.EPtypes)]
         public DeliveryPlacesInfo DeliveryPlacesInfo { get; set; }
 
@@ -318,7 +321,7 @@ namespace Zakupki.EF2020
         public string Name { get; set; }
     }
 
-    // ==== Требования к заказчику / обеспечение и т.п. ====
+    // ==== Г’Г°ГҐГЎГ®ГўГ Г­ГЁГї ГЄ Г§Г ГЄГ Г§Г·ГЁГЄГі / Г®ГЎГҐГ±ГЇГҐГ·ГҐГ­ГЁГҐ ГЁ ГІ.ГЇ. ====
     public class CustomerRequirementsInfo
     {
         [XmlElement(ElementName = "customerRequirementInfo", Namespace = Ns.EPtypes)]
@@ -409,7 +412,7 @@ namespace Zakupki.EF2020
         public string WarrantyTerm { get; set; }
     }
 
-    // ==== Место поставки (укороченная модель) ====
+    // ==== ГЊГҐГ±ГІГ® ГЇГ®Г±ГІГ ГўГЄГЁ (ГіГЄГ®Г°Г®Г·ГҐГ­Г­Г Гї Г¬Г®Г¤ГҐГ«Гј) ====
     public class DeliveryPlacesInfo
     {
         [XmlElement(ElementName = "byGARInfo", Namespace = Ns.EPtypes)]
@@ -452,7 +455,7 @@ namespace Zakupki.EF2020
         public string GarAddress { get; set; }
     }
 
-    // ==== Объекты закупки (недраг.) ====
+    // ==== ГЋГЎГєГҐГЄГІГ» Г§Г ГЄГіГЇГЄГЁ (Г­ГҐГ¤Г°Г ГЈ.) ====
     public class PurchaseObjectsInfo
     {
         [XmlElement(ElementName = "notDrugPurchaseObjectsInfo", Namespace = Ns.EPtypes)]
@@ -552,7 +555,7 @@ namespace Zakupki.EF2020
         public decimal Value { get; set; }
     }
 
-    // ==== Преференции/требования/флаги (укорочено) ====
+    // ==== ГЏГ°ГҐГґГҐГ°ГҐГ­Г¶ГЁГЁ/ГІГ°ГҐГЎГ®ГўГ Г­ГЁГї/ГґГ«Г ГЈГЁ (ГіГЄГ®Г°Г®Г·ГҐГ­Г®) ====
     public class PreferensesInfo
     {
         [XmlElement(ElementName = "preferenseInfo", Namespace = Ns.EPtypes)]
@@ -613,7 +616,7 @@ namespace Zakupki.EF2020
         public bool PurchaseObjectsCh9St37 { get; set; }
     }
 
-    // ==== Простая обертка для пространств имен ====
+    // ==== ГЏГ°Г®Г±ГІГ Гї Г®ГЎГҐГ°ГІГЄГ  Г¤Г«Гї ГЇГ°Г®Г±ГІГ°Г Г­Г±ГІГў ГЁГ¬ГҐГ­ ====
     internal static class Ns
     {
         public const string Base   = "http://zakupki.gov.ru/oos/base/1";
@@ -622,11 +625,11 @@ namespace Zakupki.EF2020
         public const string Export = "http://zakupki.gov.ru/oos/export/1";
     }
 
-    // ==== Загрузчик ====
+    // ==== Г‡Г ГЈГ°ГіГ§Г·ГЁГЄ ====
     public static class ZakupkiLoader
     {
         /// <summary>
-        /// Десериализует файл/поток с XML (epNotificationEF2020 внутри export).
+        /// Г„ГҐГ±ГҐГ°ГЁГ Г«ГЁГ§ГіГҐГІ ГґГ Г©Г«/ГЇГ®ГІГ®ГЄ Г± XML (epNotificationEF2020 ГўГ­ГіГІГ°ГЁ export).
         /// </summary>
         public static Export LoadFromFile(string path)
         {
@@ -639,7 +642,7 @@ namespace Zakupki.EF2020
             var rootType = typeof(Export);
             var serializer = new XmlSerializer(rootType);
 
-            // Важно: указываем известные типы (не обязательно, но ускоряет инициализацию)
+            // Г‚Г Г¦Г­Г®: ГіГЄГ Г§Г»ГўГ ГҐГ¬ ГЁГ§ГўГҐГ±ГІГ­Г»ГҐ ГІГЁГЇГ» (Г­ГҐ Г®ГЎГїГ§Г ГІГҐГ«ГјГ­Г®, Г­Г® ГіГ±ГЄГ®Г°ГїГҐГІ ГЁГ­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГѕ)
             return (Export)serializer.Deserialize(stream);
         }
     }
