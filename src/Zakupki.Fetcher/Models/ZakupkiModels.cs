@@ -1207,6 +1207,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "volumeSpecifyingMethod", Namespace = Ns.Common)]
         public string VolumeSpecifyingMethod { get; set; }
 
+        [XmlElement(ElementName = "serviceMarks", Namespace = Ns.Common)]
+        public List<string>? ServiceMarks { get; set; }
+
         [XmlElement(ElementName = "trademarkInfo", Namespace = Ns.Common)]
         public PurchaseObjectTrademarkInfo? TrademarkInfo { get; set; }
 
