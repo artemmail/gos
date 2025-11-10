@@ -1108,9 +1108,26 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
         public Okei Okei { get; set; }
 
+        [XmlIgnore]
+        public List<CustomerQuantity>? CustomerQuantities { get; set; }
+
         [XmlArray(ElementName = "customerQuantities", Namespace = Ns.Common)]
         [XmlArrayItem(ElementName = "customerQuantity", Namespace = Ns.Common)]
-        public List<CustomerQuantity>? CustomerQuantities { get; set; }
+        [JsonIgnore]
+        public List<CustomerQuantity>? CustomerQuantitiesLegacy
+        {
+            get => CustomerQuantities;
+            set => CustomerQuantities = value;
+        }
+
+        [XmlArray(ElementName = "customerQuantitiesCH", Namespace = Ns.Common)]
+        [XmlArrayItem(ElementName = "customerQuantityCH", Namespace = Ns.Common)]
+        [JsonIgnore]
+        public List<CustomerQuantity>? CustomerQuantitiesCh
+        {
+            get => CustomerQuantities;
+            set => CustomerQuantities = value;
+        }
 
         [XmlElement(ElementName = "price", Namespace = Ns.Common)]
         public decimal? Price { get; set; }
@@ -1136,6 +1153,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "isMedicalProduct", Namespace = Ns.Common)]
         public bool IsMedicalProduct { get; set; }
 
+        [XmlElement(ElementName = "parentPurchaseObject", Namespace = Ns.Common)]
+        public ParentPurchaseObject? ParentPurchaseObject { get; set; }
+
         [XmlElement(ElementName = "restrictionsInfo", Namespace = Ns.Common)]
         public RestrictionsInfo RestrictionsInfo { get; set; }
     }
@@ -1156,6 +1176,12 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "quantity", Namespace = Ns.Common)]
         public decimal? Quantity { get; set; }
+    }
+
+    public class ParentPurchaseObject
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
     }
 
     public class RestrictionsInfo
