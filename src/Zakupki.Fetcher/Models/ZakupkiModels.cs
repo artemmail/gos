@@ -1211,6 +1211,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "isNarcotic", Namespace = Ns.Common)]
         public bool IsNarcotic { get; set; }
 
+        [XmlElement(ElementName = "quantityUndefined", Namespace = Ns.Common)]
+        public DrugPurchaseObjectQuantityUndefinedInfo QuantityUndefinedInfo { get; set; }
+
         [XmlElement(ElementName = "drugQuantityCustomersInfo", Namespace = Ns.Common)]
         public DrugQuantityCustomersInfo DrugQuantityCustomersInfo { get; set; }
 
@@ -1349,6 +1352,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
         public string Sid { get; set; }
 
+        [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        public string ExternalSid { get; set; }
+
         [XmlElement(ElementName = "MNNInfo", Namespace = Ns.Common)]
         public DrugMnnInfo MnnInfo { get; set; }
 
@@ -1432,6 +1438,33 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "total", Namespace = Ns.Common)]
         public decimal? Total { get; set; }
+    }
+
+    public class DrugPurchaseObjectQuantityUndefinedInfo
+    {
+        [XmlElement(ElementName = "quantityUndefined", Namespace = Ns.Common)]
+        public bool QuantityUndefined { get; set; }
+
+        [XmlElement(ElementName = "price", Namespace = Ns.Common)]
+        public decimal? Price { get; set; }
+
+        [XmlElement(ElementName = "drugPurchaseObjectCustomersInfo", Namespace = Ns.Common)]
+        public DrugPurchaseObjectCustomersInfo DrugPurchaseObjectCustomersInfo { get; set; }
+    }
+
+    public class DrugPurchaseObjectCustomersInfo
+    {
+        [XmlElement(ElementName = "drugPurchaseObjectCustomerInfo", Namespace = Ns.Common)]
+        public List<DrugPurchaseObjectCustomerInfo> Items { get; set; }
+    }
+
+    public class DrugPurchaseObjectCustomerInfo
+    {
+        [XmlElement(ElementName = "customer", Namespace = Ns.Common)]
+        public Customer Customer { get; set; }
+
+        [XmlElement(ElementName = "drugPurchaseObjectIsPurchased", Namespace = Ns.Common)]
+        public bool DrugPurchaseObjectIsPurchased { get; set; }
     }
 
     public class DrugQuantityCustomerInfo
