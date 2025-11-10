@@ -154,7 +154,7 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "responsibleInfo", Namespace = Ns.EPtypes)]
         public ResponsibleInfo ResponsibleInfo { get; set; }
 
-        [XmlElement(ElementName = "specializedOrgInfo", Namespace = Ns.EPtypes)]
+        [XmlElement(ElementName = "specializedOrgInfo", Namespace = Ns.EPtypes, IsNullable = true)]
         public SpecializedOrgInfo? SpecializedOrgInfo { get; set; }
     }
 

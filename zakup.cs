@@ -113,9 +113,39 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "responsibleInfo", Namespace = Ns.EPtypes)]
         public ResponsibleInfo ResponsibleInfo { get; set; }
+
+        [XmlElement(ElementName = "specializedOrgInfo", Namespace = Ns.EPtypes)]
+        public SpecializedOrgInfo SpecializedOrgInfo { get; set; }
     }
 
     public class ResponsibleOrgInfo
+    {
+        [XmlElement(ElementName = "regNum", Namespace = Ns.EPtypes)]
+        public string RegNum { get; set; }
+
+        [XmlElement(ElementName = "consRegistryNum", Namespace = Ns.EPtypes)]
+        public string ConsRegistryNum { get; set; }
+
+        [XmlElement(ElementName = "fullName", Namespace = Ns.EPtypes)]
+        public string FullName { get; set; }
+
+        [XmlElement(ElementName = "shortName", Namespace = Ns.EPtypes)]
+        public string ShortName { get; set; }
+
+        [XmlElement(ElementName = "postAddress", Namespace = Ns.EPtypes)]
+        public string PostAddress { get; set; }
+
+        [XmlElement(ElementName = "factAddress", Namespace = Ns.EPtypes)]
+        public string FactAddress { get; set; }
+
+        [XmlElement(ElementName = "INN", Namespace = Ns.EPtypes)]
+        public string INN { get; set; }
+
+        [XmlElement(ElementName = "KPP", Namespace = Ns.EPtypes)]
+        public string KPP { get; set; }
+    }
+
+    public class SpecializedOrgInfo
     {
         [XmlElement(ElementName = "regNum", Namespace = Ns.EPtypes)]
         public string RegNum { get; set; }
