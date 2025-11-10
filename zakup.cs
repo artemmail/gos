@@ -591,6 +591,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "drugPurchaseObjectsInfo", Namespace = Ns.EPtypes)]
         public DrugPurchaseObjectsInfo DrugPurchaseObjectsInfo { get; set; }
+
+        [XmlElement(ElementName = "notDrugPurchaseParentObjectsInfo", Namespace = Ns.EPtypes)]
+        public NotDrugPurchaseParentObjectsInfo NotDrugPurchaseParentObjectsInfo { get; set; }
     }
 
     public class NotDrugPurchaseObjectsInfo
@@ -603,6 +606,43 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "quantityUndefined", Namespace = Ns.EPtypes)]
         public bool QuantityUndefined { get; set; }
+    }
+
+    public class NotDrugPurchaseParentObjectsInfo
+    {
+        [XmlElement(ElementName = "purchaseObject", Namespace = Ns.Common)]
+        public List<NotDrugParentPurchaseObject> Items { get; set; }
+
+        [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
+        public decimal TotalSum { get; set; }
+    }
+
+    public class NotDrugParentPurchaseObject
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        public string ExternalSid { get; set; }
+
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
+        public Okpd2 Okpd2 { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlArray(ElementName = "customers", Namespace = Ns.Common)]
+        [XmlArrayItem(ElementName = "customer", Namespace = Ns.Common)]
+        public List<Customer> Customers { get; set; }
+
+        [XmlElement(ElementName = "sum", Namespace = Ns.Common)]
+        public decimal Sum { get; set; }
+
+        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
+        public string Type { get; set; }
+
+        [XmlElement(ElementName = "hierarchyType", Namespace = Ns.Common)]
+        public string HierarchyType { get; set; }
     }
 
     public class DrugPurchaseObjectsInfo
@@ -1123,12 +1163,45 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "responsibleDecisionInfo", Namespace = Ns.EPtypes)]
         public ResponsibleDecisionInfo? ResponsibleDecisionInfo { get; set; }
+
+        [XmlElement(ElementName = "authorityPrescriptionInfo", Namespace = Ns.EPtypes)]
+        public AuthorityPrescriptionInfo? AuthorityPrescriptionInfo { get; set; }
     }
 
     public class ResponsibleDecisionInfo
     {
         [XmlElement(ElementName = "decisionDate", Namespace = Ns.EPtypes, DataType = "string")]
         public string? DecisionDateRaw { get; set; }
+    }
+
+    public class AuthorityPrescriptionInfo
+    {
+        [XmlElement(ElementName = "externalPrescription", Namespace = Ns.EPtypes)]
+        public ExternalPrescription? ExternalPrescription { get; set; }
+    }
+
+    public class ExternalPrescription
+    {
+        [XmlElement(ElementName = "authorityName", Namespace = Ns.EPtypes)]
+        public string AuthorityName { get; set; }
+
+        [XmlElement(ElementName = "authorityType", Namespace = Ns.EPtypes)]
+        public string AuthorityType { get; set; }
+
+        [XmlElement(ElementName = "prescriptionProperty", Namespace = Ns.EPtypes)]
+        public PrescriptionProperty PrescriptionProperty { get; set; }
+    }
+
+    public class PrescriptionProperty
+    {
+        [XmlElement(ElementName = "docName", Namespace = Ns.Common)]
+        public string DocName { get; set; }
+
+        [XmlElement(ElementName = "docNumber", Namespace = Ns.Common)]
+        public string DocNumber { get; set; }
+
+        [XmlElement(ElementName = "docDate", Namespace = Ns.Common, DataType = "string")]
+        public string DocDateRaw { get; set; }
     }
 
     // ==== Ïðîñòàÿ îáåðòêà äëÿ ïðîñòðàíñòâ èìåí ====
