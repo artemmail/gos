@@ -457,6 +457,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "isContractPriceFormula", Namespace = Ns.EPtypes)]
         public bool? IsContractPriceFormula { get; set; }
+
+        [XmlElement(ElementName = "interbudgetaryTransfer", Namespace = Ns.EPtypes)]
+        public bool? InterbudgetaryTransfer { get; set; }
     }
 
     public class Currency
