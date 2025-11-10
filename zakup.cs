@@ -46,6 +46,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "notificationInfo", Namespace = Ns.EPtypes)]
         public NotificationInfo NotificationInfo { get; set; }
+
+        [XmlElement(ElementName = "modificationInfo", Namespace = Ns.EPtypes)]
+        public ModificationInfo? ModificationInfo { get; set; }
     }
 
     // ==== Áëîê: commonInfo ====
@@ -1102,6 +1105,27 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "purchaseObjectsCh9St37", Namespace = Ns.EPtypes)]
         public bool PurchaseObjectsCh9St37 { get; set; }
+    }
+
+    public class ModificationInfo
+    {
+        [XmlElement(ElementName = "info", Namespace = Ns.EPtypes)]
+        public string? Info { get; set; }
+
+        [XmlElement(ElementName = "reasonInfo", Namespace = Ns.EPtypes)]
+        public ModificationReasonInfo? ReasonInfo { get; set; }
+    }
+
+    public class ModificationReasonInfo
+    {
+        [XmlElement(ElementName = "responsibleDecisionInfo", Namespace = Ns.EPtypes)]
+        public ResponsibleDecisionInfo? ResponsibleDecisionInfo { get; set; }
+    }
+
+    public class ResponsibleDecisionInfo
+    {
+        [XmlElement(ElementName = "decisionDate", Namespace = Ns.EPtypes, DataType = "string")]
+        public string? DecisionDateRaw { get; set; }
     }
 
     // ==== Ïðîñòàÿ îáåðòêà äëÿ ïðîñòðàíñòâ èìåí ====
