@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Xml;
+using System.Xml.Serialization;
 using Zakupki.EF2020;
 
 namespace Zakupki.XmlToJson;
@@ -80,9 +82,21 @@ internal static class Program
 
                 try
                 {
-                    var export = ZakupkiLoader.LoadFromFile(file);
-                    notices.Add(new NoticeDocument(relativePath, export, null));
-                    successCount++;
+                    var (export, validationIssues) = LoadExportWithValidation(file);
+                    string? errorMessage = null;
+
+                    if (validationIssues.Count > 0)
+                    {
+                        errorMessage = BuildValidationMessage(validationIssues);
+                        Console.Error.WriteLine($"Validation issue in '{relativePath}': {errorMessage}");
+                    }
+
+                    notices.Add(new NoticeDocument(relativePath, export, errorMessage));
+
+                    if (errorMessage is null)
+                    {
+                        successCount++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -264,5 +278,115 @@ internal static class Program
     private static string[] SplitTsvLine(string line)
     {
         return line.Split('\t');
+    }
+
+    private static (Export Export, IReadOnlyList<string> ValidationIssues) LoadExportWithValidation(string file)
+    {
+        using var stream = File.OpenRead(file);
+        var serializer = new XmlSerializer(typeof(Export));
+        var issues = new List<string>();
+        var issueSet = new HashSet<string>(StringComparer.Ordinal);
+
+        void AddIssue(string issue)
+        {
+            if (issueSet.Add(issue))
+            {
+                issues.Add(issue);
+            }
+        }
+
+        var events = new XmlDeserializationEvents
+        {
+            OnUnknownAttribute = (_, args) =>
+            {
+                if (args.Attr is null)
+                {
+                    return;
+                }
+
+                var ownerName = args.Attr.OwnerElement?.Name;
+                var location = FormatLocation(args.LineNumber, args.LinePosition);
+                var attributeInfo = ownerName is { Length: > 0 }
+                    ? $"attribute '{args.Attr.Name}' on element '{ownerName}'"
+                    : $"attribute '{args.Attr.Name}'";
+                AddIssue($"Unknown {attributeInfo}{location}");
+            },
+            OnUnknownElement = (_, args) =>
+            {
+                if (args.Element is null)
+                {
+                    return;
+                }
+
+                var location = FormatLocation(args.LineNumber, args.LinePosition);
+                AddIssue($"Unknown element '{args.Element.Name}'{location}");
+            },
+            OnUnknownNode = (_, args) =>
+            {
+                if (args.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                {
+                    return;
+                }
+
+                if (args.NodeType != XmlNodeType.Element)
+                {
+                    return;
+                }
+
+                var name = !string.IsNullOrEmpty(args.Name) ? args.Name : args.LocalName;
+                if (string.IsNullOrEmpty(name))
+                {
+                    return;
+                }
+
+                var location = FormatLocation(args.LineNumber, args.LinePosition);
+                AddIssue($"Unknown node '{name}'{location}");
+            }
+        };
+
+        var readerSettings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            CloseInput = false,
+            IgnoreComments = false,
+            IgnoreProcessingInstructions = false,
+            IgnoreWhitespace = false
+        };
+
+        using var reader = XmlReader.Create(stream, readerSettings);
+        var data = serializer.Deserialize(reader, events) as Export
+            ?? throw new InvalidDataException("The XML file did not contain a valid export document.");
+
+        return (data, issues);
+    }
+
+    private static string FormatLocation(int lineNumber, int linePosition)
+    {
+        return lineNumber > 0 && linePosition > 0
+            ? $" at line {lineNumber}, position {linePosition}"
+            : string.Empty;
+    }
+
+    private static string BuildValidationMessage(IReadOnlyList<string> issues)
+    {
+        const int MaxExamples = 5;
+
+        if (issues.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var examples = issues.Take(MaxExamples).ToArray();
+        var builder = new StringBuilder();
+        builder.Append($"Encountered {issues.Count} unknown XML item(s)");
+        builder.Append(": ");
+        builder.Append(string.Join("; ", examples));
+
+        if (issues.Count > MaxExamples)
+        {
+            builder.Append($"; … ({issues.Count - MaxExamples} more)");
+        }
+
+        return builder.ToString();
     }
 }
