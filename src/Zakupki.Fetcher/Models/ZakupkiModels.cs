@@ -1132,6 +1132,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "drugInfo", Namespace = Ns.Common)]
         public List<DrugInfo> Items { get; set; }
+
+        [XmlElement(ElementName = "drugInterchangeInfo", Namespace = Ns.Common)]
+        public List<DrugInterchangeInfo> DrugInterchangeInfos { get; set; }
     }
 
     public class DrugInfo
@@ -1171,6 +1174,87 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "limPriceValuePerUnit", Namespace = Ns.Common)]
         public decimal? LimPriceValuePerUnit { get; set; }
+    }
+
+    public class DrugInterchangeInfo
+    {
+        [XmlElement(ElementName = "drugInterchangeReferenceInfo", Namespace = Ns.Common)]
+        public DrugInterchangeReferenceInfo ReferenceInfo { get; set; }
+    }
+
+    public class DrugInterchangeReferenceInfo
+    {
+        [XmlElement(ElementName = "isInterchange", Namespace = Ns.Common)]
+        public bool IsInterchange { get; set; }
+
+        [XmlElement(ElementName = "interchangeGroupInfo", Namespace = Ns.Common)]
+        public DrugInterchangeGroupInfo InterchangeGroupInfo { get; set; }
+
+        [XmlElement(ElementName = "drugInfo", Namespace = Ns.Common)]
+        public List<DrugInterchangeDrugInfo> DrugInfos { get; set; }
+    }
+
+    public class DrugInterchangeGroupInfo
+    {
+        [XmlElement(ElementName = "groupCode", Namespace = Ns.Common)]
+        public string GroupCode { get; set; }
+
+        [XmlElement(ElementName = "groupName", Namespace = Ns.Common)]
+        public string GroupName { get; set; }
+
+        [XmlElement(ElementName = "groupOKEI", Namespace = Ns.Common)]
+        public DrugInterchangeGroupOkei GroupOkei { get; set; }
+    }
+
+    public class DrugInterchangeGroupOkei
+    {
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei Okei { get; set; }
+    }
+
+    public class DrugInterchangeDrugInfo
+    {
+        [XmlElement(ElementName = "drugInfoUsingReferenceInfo", Namespace = Ns.Common)]
+        public DrugInterchangeDrugInfoUsingReferenceInfo DrugInfoUsingReferenceInfo { get; set; }
+
+        [XmlElement(ElementName = "drugQuantity", Namespace = Ns.Common)]
+        public decimal? DrugQuantity { get; set; }
+
+        [XmlElement(ElementName = "quantityMultiplier", Namespace = Ns.Common)]
+        public decimal? QuantityMultiplier { get; set; }
+
+        [XmlElement(ElementName = "averagePriceValue", Namespace = Ns.Common)]
+        public decimal? AveragePriceValue { get; set; }
+    }
+
+    public class DrugInterchangeDrugInfoUsingReferenceInfo
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "MNNInfo", Namespace = Ns.Common)]
+        public DrugMnnInfo MnnInfo { get; set; }
+
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
+        public Okpd2 Okpd2 { get; set; }
+
+        [XmlElement(ElementName = "KTRU", Namespace = Ns.Common)]
+        public Ktru Ktru { get; set; }
+
+        [XmlElement(ElementName = "medicamentalFormInfo", Namespace = Ns.Common)]
+        public MedicamentalFormInfo MedicamentalFormInfo { get; set; }
+
+        [XmlElement(ElementName = "dosageInfo", Namespace = Ns.Common)]
+        public DosageInfo DosageInfo { get; set; }
+
+        [XmlElement(ElementName = "manualUserOKEI", Namespace = Ns.Common)]
+        public ManualUserOkei ManualUserOkei { get; set; }
+
+        [XmlElement(ElementName = "basicUnit", Namespace = Ns.Common)]
+        public bool BasicUnit { get; set; }
     }
 
     public class DrugMnnInfo
