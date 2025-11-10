@@ -463,6 +463,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "KPP", Namespace = Ns.EPtypes)]
         public string Kpp { get; set; }
 
+        [XmlElement(ElementName = "KBK", Namespace = Ns.EPtypes)]
+        public string Kbk { get; set; }
+
         [XmlElement(ElementName = "OKTMOInfo", Namespace = Ns.EPtypes)]
         public OktmoInfo OktmoInfo { get; set; }
 
