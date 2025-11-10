@@ -19,7 +19,23 @@ namespace Zakupki.EF2020
         public EpNotificationEzk2020 EpNotificationEzk2020 { get; set; }
 
         [XmlIgnore]
-        public EpNotificationEf2020? AnyNotification => EpNotification ?? EpNotificationEok2020 ?? EpNotificationEzk2020;
+        public EpNotificationEf2020? AnyNotification
+        {
+            get
+            {
+                if (EpNotification != null)
+                {
+                    return EpNotification;
+                }
+
+                if (EpNotificationEok2020 != null)
+                {
+                    return EpNotificationEok2020;
+                }
+
+                return EpNotificationEzk2020;
+            }
+        }
     }
 
     // ====  ====
