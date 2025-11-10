@@ -24,7 +24,8 @@ public class NoticeProcessor
     {
         var baseDir = string.IsNullOrWhiteSpace(_options.OutputDirectory) ? "out" : _options.OutputDirectory!;
         var export = document.ExportModel;
-        var purchaseNumber = export?.EpNotification?.CommonInfo?.PurchaseNumber;
+        var notification = export?.AnyNotification;
+        var purchaseNumber = notification?.CommonInfo?.PurchaseNumber;
         var safePurchase = !string.IsNullOrWhiteSpace(purchaseNumber)
             ? FileNameHelper.SanitizeDirectoryName(purchaseNumber!)
             : "unknown";
@@ -39,7 +40,7 @@ public class NoticeProcessor
 
         await AppendManifestAsync(targetDir, document, export, cancellationToken);
 
-        if (_options.DownloadAttachments && export?.EpNotification?.AttachmentsInfo?.Items is { Count: > 0 } attachments)
+        if (_options.DownloadAttachments && notification?.AttachmentsInfo?.Items is { Count: > 0 } attachments)
         {
             foreach (var attachment in attachments)
             {
@@ -62,10 +63,11 @@ public class NoticeProcessor
             builder.AppendLine("DocumentType\tRegion\tDate\tSource\tEntry\tPurchaseNumber\tPublishDate\tHref\tAttachments");
         }
 
-        var purchaseNumber = export?.EpNotification?.CommonInfo?.PurchaseNumber ?? string.Empty;
-        var publishDate = export?.EpNotification?.CommonInfo?.PublishDtInEis.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty;
-        var href = export?.EpNotification?.CommonInfo?.Href ?? string.Empty;
-        var attachments = export?.EpNotification?.AttachmentsInfo?.Items?
+        var notification = export?.AnyNotification;
+        var purchaseNumber = notification?.CommonInfo?.PurchaseNumber ?? string.Empty;
+        var publishDate = notification?.CommonInfo?.PublishDtInEis.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty;
+        var href = notification?.CommonInfo?.Href ?? string.Empty;
+        var attachments = notification?.AttachmentsInfo?.Items?
             .Where(a => !string.IsNullOrWhiteSpace(a.FileName))
             .Select(a => FileNameHelper.StripTabs(a.FileName))
             .ToArray() ?? Array.Empty<string>();
