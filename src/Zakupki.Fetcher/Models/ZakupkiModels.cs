@@ -721,6 +721,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "termsInfo", Namespace = Ns.EPtypes)]
         public TermsInfo TermsInfo { get; set; }
 
+        [XmlElement(ElementName = "financeInfo", Namespace = Ns.EPtypes)]
+        public FinanceInfo FinanceInfo { get; set; }
+
         [XmlElement(ElementName = "budgetFinancingsInfo", Namespace = Ns.EPtypes)]
         public StageBudgetFinancingsInfo BudgetFinancingsInfo { get; set; }
 
@@ -1167,6 +1170,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "addRequirements", Namespace = Ns.Common)]
         public AddRequirements AddRequirements { get; set; }
+
+        [XmlElement(ElementName = "content", Namespace = Ns.Common)]
+        public string Content { get; set; }
     }
 
     public class AddRequirements
@@ -1255,11 +1261,23 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "purchaseObjectCharsInfo", Namespace = Ns.EPtypes)]
         public PurchaseObjectCharsInfo PurchaseObjectCharsInfo { get; set; }
 
+        [XmlElement(ElementName = "qualPurchaseParticipantsInfo", Namespace = Ns.EPtypes)]
+        public QualPurchaseParticipantsInfo QualPurchaseParticipantsInfo { get; set; }
+
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
         public decimal? Value { get; set; }
 
         [XmlElement(ElementName = "detailIndicatorsInfo", Namespace = Ns.EPtypes)]
         public DetailIndicatorsInfo DetailIndicatorsInfo { get; set; }
+    }
+
+    public class QualPurchaseParticipantsInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
     }
 
     public class PurchaseObjectCharsInfo
@@ -1299,6 +1317,18 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "manualEnteredName", Namespace = Ns.EPtypes)]
         public string ManualEnteredName { get; set; }
+
+        [XmlElement(ElementName = "indicatorDictInfo", Namespace = Ns.EPtypes)]
+        public IndicatorDictInfo IndicatorDictInfo { get; set; }
+    }
+
+    public class IndicatorDictInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
     }
 
     public class OrderEvalIndicatorsInfo
