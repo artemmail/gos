@@ -1614,6 +1614,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
         public Okpd2CharacteristicRangeSet RangeSet { get; set; }
+
+        [XmlElement(ElementName = "valueSet", Namespace = Ns.Common)]
+        public Okpd2CharacteristicValueSet ValueSet { get; set; }
     }
 
     public class Okpd2CharacteristicValueSet
@@ -1632,6 +1635,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
         public List<Okpd2CharacteristicValue> Items { get; set; }
+
+        [XmlElement(ElementName = "concreteValue", Namespace = Ns.Common)]
+        public List<string> ConcreteValues { get; set; }
     }
 
     public class Okpd2CharacteristicRangeSet
