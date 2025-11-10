@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Zakupki.EF2020;
@@ -20,6 +22,8 @@ internal static class Program
 
     public static int Main(string[] args)
     {
+        Console.OutputEncoding = Encoding.UTF8;
+
         var inputDirectory = args.Length > 0
             ? args[0]
             : Path.Combine(Environment.CurrentDirectory, "out");
@@ -93,12 +97,13 @@ internal static class Program
         var jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.Never
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
         jsonOptions.Converters.Add(new JsonStringEnumConverter());
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? inputDirectory);
-        File.WriteAllText(outputPath, JsonSerializer.Serialize(purchases, jsonOptions));
+        File.WriteAllText(outputPath, JsonSerializer.Serialize(purchases, jsonOptions), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         Console.WriteLine($"Processed {totalXml} XML files across {purchases.Count} purchase folders, successfully parsed {successCount}.");
         Console.WriteLine($"JSON output saved to '{outputPath}'.");
@@ -129,7 +134,7 @@ internal static class Program
 
     private static ManifestData ParseManifest(string manifestPath)
     {
-        var lines = File.ReadAllLines(manifestPath);
+        var lines = File.ReadAllLines(manifestPath, Encoding.UTF8);
         var metaRows = new List<Dictionary<string, string?>>(capacity: 1);
         var fileRows = new List<ManifestFile>();
 
