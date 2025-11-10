@@ -421,6 +421,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "contractConditionsInfo", Namespace = Ns.EPtypes)]
         public InnerContractConditionsInfo InnerContractConditionsInfo { get; set; }
 
+        [XmlElement(ElementName = "contractPriceFormula", Namespace = Ns.EPtypes)]
+        public string? ContractPriceFormula { get; set; }
+
         [XmlElement(ElementName = "warrantyInfo", Namespace = Ns.EPtypes)]
         public WarrantyInfo WarrantyInfo { get; set; }
 
@@ -534,9 +537,6 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "advancePaymentSum", Namespace = Ns.EPtypes)]
         public AdvancePaymentSum AdvancePaymentSum { get; set; }
-
-        [XmlElement(ElementName = "contractPriceFormula", Namespace = Ns.EPtypes)]
-        public string? ContractPriceFormula { get; set; }
 
         [XmlElement(ElementName = "IKZInfo", Namespace = Ns.EPtypes)]
         public IkzInfo IkzInfo { get; set; }
