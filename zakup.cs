@@ -791,6 +791,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "isImposibilityProhibition", Namespace = Ns.Common)]
         public bool IsImposibilityProhibition { get; set; }
+
+        [XmlElement(ElementName = "reasonImposibilityProhibition", Namespace = Ns.Common)]
+        public string? ReasonImposibilityProhibition { get; set; }
     }
 
     public class Ktru
