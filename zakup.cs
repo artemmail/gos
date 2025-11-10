@@ -16,6 +16,9 @@ namespace Zakupki.EF2020
     // ==== Óâåäîìëåíèå ====
     public class EpNotificationEf2020
     {
+        [XmlAttribute("schemeVersion")]
+        public string? SchemeVersion { get; set; }
+
         [XmlElement(ElementName = "id", Namespace = Ns.EPtypes)]
         public string Id { get; set; }
 
@@ -158,6 +161,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "contactFax", Namespace = Ns.EPtypes)]
         public string ContactFax { get; set; }
+
+        [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
+        public string? AddInfo { get; set; }
     }
 
     public class ContactPersonInfo
@@ -467,7 +473,7 @@ namespace Zakupki.EF2020
     public class DeliveryPlacesInfo
     {
         [XmlElement(ElementName = "byGARInfo", Namespace = Ns.EPtypes)]
-        public ByGarInfo ByGarInfo { get; set; }
+        public List<ByGarInfo> Items { get; set; }
     }
 
     public class ByGarInfo
