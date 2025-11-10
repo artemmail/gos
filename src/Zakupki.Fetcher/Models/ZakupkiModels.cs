@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json.Serialization;
 using System.Xml;
 using System.Xml.Serialization;
+using Zakupki.EF2020;
 
 namespace Zakupki.EF2020
 {
@@ -2116,7 +2117,14 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
         public decimal? Value { get; set; }
+
+        [XmlElement(ElementName = "valueLess25MaxPrice", Namespace = Ns.EPtypes)]
+        public decimal? ValueLess25MaxPrice { get; set; }
+
+        [XmlElement(ElementName = "valueMore25MaxPrice", Namespace = Ns.EPtypes)]
+        public decimal? ValueMore25MaxPrice { get; set; }
     }
+
 
     public class QualitativeCriterionInfo
     {
@@ -2266,3 +2274,4 @@ namespace Zakupki.EF2020
         }
     }
 }
+
