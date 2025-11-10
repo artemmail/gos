@@ -1439,6 +1439,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
         public List<KtruCharacteristicReferenceValue> Items { get; set; }
+
+        [XmlElement(ElementName = "valueSet", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceValueSet> Sets { get; set; }
     }
 
     public class KtruCharacteristicReferenceValue
@@ -1457,6 +1460,24 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
         public string QualityDescription { get; set; }
+    }
+
+    public class KtruCharacteristicReferenceValueSet
+    {
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei Okei { get; set; }
+
+        [XmlElement(ElementName = "valueFormat", Namespace = Ns.Common)]
+        public string ValueFormat { get; set; }
+
+        [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
+        public KtruCharacteristicRangeSet RangeSet { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
+
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<KtruCharacteristicReferenceValue> Items { get; set; }
     }
 
     public class KtruCharacteristicRangeSet
@@ -1568,6 +1589,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.Common)]
         public List<Okpd2CharacteristicValue> Items { get; set; }
+
+        [XmlElement(ElementName = "valueSet", Namespace = Ns.Common)]
+        public List<Okpd2CharacteristicValueSet> Sets { get; set; }
     }
 
     public class Okpd2CharacteristicValue
@@ -1586,6 +1610,24 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
         public Okpd2CharacteristicRangeSet RangeSet { get; set; }
+    }
+
+    public class Okpd2CharacteristicValueSet
+    {
+        [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
+        public Okei Okei { get; set; }
+
+        [XmlElement(ElementName = "valueFormat", Namespace = Ns.Common)]
+        public string ValueFormat { get; set; }
+
+        [XmlElement(ElementName = "rangeSet", Namespace = Ns.Common)]
+        public Okpd2CharacteristicRangeSet RangeSet { get; set; }
+
+        [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
+        public string QualityDescription { get; set; }
+
+        [XmlElement(ElementName = "value", Namespace = Ns.Common)]
+        public List<Okpd2CharacteristicValue> Items { get; set; }
     }
 
     public class Okpd2CharacteristicRangeSet
