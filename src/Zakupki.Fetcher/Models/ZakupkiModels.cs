@@ -11,33 +11,14 @@ namespace Zakupki.EF2020
     [XmlRoot(ElementName = "export", Namespace = Ns.Export)]
     public class Export
     {
-        [XmlElement(ElementName = "epNotificationEF2020", Namespace = Ns.Export)]
-        public EpNotificationEf2020 EpNotification { get; set; }
-
-        [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export)]
-        public EpNotificationEok2020 EpNotificationEok2020 { get; set; }
-
-        [XmlElement(ElementName = "epNotificationEZK2020", Namespace = Ns.Export)]
-        public EpNotificationEzk2020 EpNotificationEzk2020 { get; set; }
+        [XmlElement(ElementName = "epNotificationEF2020", Namespace = Ns.Export, Type = typeof(EpNotificationEf2020))]
+        [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export, Type = typeof(EpNotificationEok2020))]
+        [XmlElement(ElementName = "epNotificationEZK2020", Namespace = Ns.Export, Type = typeof(EpNotificationEzk2020))]
+        [XmlElement(ElementName = "epNotificationOK2020", Namespace = Ns.Export, Type = typeof(EpNotificationOk2020))]
+        public EpNotificationEf2020? EpNotification { get; set; }
 
         [XmlIgnore]
-        public EpNotificationEf2020? AnyNotification
-        {
-            get
-            {
-                if (EpNotification != null)
-                {
-                    return EpNotification;
-                }
-
-                if (EpNotificationEok2020 != null)
-                {
-                    return EpNotificationEok2020;
-                }
-
-                return EpNotificationEzk2020;
-            }
-        }
+        public EpNotificationEf2020? AnyNotification => EpNotification;
     }
 
     // ====  ====
@@ -85,6 +66,10 @@ namespace Zakupki.EF2020
     }
 
     public class EpNotificationEzk2020 : EpNotificationEf2020
+    {
+    }
+
+    public class EpNotificationOk2020 : EpNotificationEf2020
     {
     }
 
