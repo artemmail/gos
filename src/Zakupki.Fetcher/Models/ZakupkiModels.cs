@@ -11,6 +11,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "epNotificationEF2020", Namespace = Ns.Export)]
         public EpNotificationEf2020 EpNotification { get; set; }
+
+        [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export)]
+        public EpNotificationEok2020 EpNotificationEok2020 { get; set; }
     }
 
     // ====  ====
@@ -44,6 +47,12 @@ namespace Zakupki.EF2020
         public NotificationInfo NotificationInfo { get; set; }
     }
 
+    public class EpNotificationEok2020 : EpNotificationEf2020
+    {
+        [XmlAttribute("schemeVersion")]
+        public string SchemeVersion { get; set; }
+    }
+
     // ==== : commonInfo ====
     public class CommonInfo
     {
@@ -55,6 +64,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "plannedPublishDate", Namespace = Ns.EPtypes, DataType = "string")]
         public string PlannedPublishDateRaw { get; set; }
+
+        [XmlElement(ElementName = "directDT", Namespace = Ns.EPtypes)]
+        public DateTime? DirectDt { get; set; }
 
         [XmlElement(ElementName = "publishDTInEIS", Namespace = Ns.EPtypes)]
         public DateTime PublishDtInEis { get; set; }
@@ -265,6 +277,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "flags", Namespace = Ns.EPtypes)]
         public Flags Flags { get; set; }
+
+        [XmlElement(ElementName = "criteriaInfo", Namespace = Ns.EPtypes)]
+        public CriteriaInfo CriteriaInfo { get; set; }
     }
 
     public class ProcedureInfo
@@ -278,6 +293,15 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "summarizingDate", Namespace = Ns.EPtypes, DataType = "string")]
         public string SummarizingDateRaw { get; set; }
+
+        [XmlElement(ElementName = "firstPartsDate", Namespace = Ns.EPtypes, DataType = "string")]
+        public string FirstPartsDateRaw { get; set; }
+
+        [XmlElement(ElementName = "submissionProcedureDate", Namespace = Ns.EPtypes, DataType = "string")]
+        public string SubmissionProcedureDateRaw { get; set; }
+
+        [XmlElement(ElementName = "secondPartsDate", Namespace = Ns.EPtypes, DataType = "string")]
+        public string SecondPartsDateRaw { get; set; }
     }
 
     public class CollectingInfo
@@ -294,6 +318,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "maxPriceInfo", Namespace = Ns.EPtypes)]
         public MaxPriceInfo MaxPriceInfo { get; set; }
 
+        [XmlElement(ElementName = "contractMultiInfo", Namespace = Ns.EPtypes)]
+        public ContractMultiInfo ContractMultiInfo { get; set; }
+
         //     (, -,    ..).
         //      ;   .
         [XmlElement(ElementName = "deliveryPlacesInfo", Namespace = Ns.EPtypes)]
@@ -301,6 +328,12 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "isOneSideRejectionSt95", Namespace = Ns.EPtypes)]
         public bool IsOneSideRejectionSt95 { get; set; }
+    }
+
+    public class ContractMultiInfo
+    {
+        [XmlElement(ElementName = "notProvided", Namespace = Ns.EPtypes)]
+        public bool NotProvided { get; set; }
     }
 
     public class MaxPriceInfo
@@ -366,11 +399,56 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "account", Namespace = Ns.EPtypes)]
         public BankAccount Account { get; set; }
 
+        [XmlElement(ElementName = "accountBudget", Namespace = Ns.EPtypes)]
+        public AccountBudget AccountBudget { get; set; }
+
         [XmlElement(ElementName = "procedureInfo", Namespace = Ns.EPtypes)]
         public string ProcedureInfo { get; set; }
 
         [XmlElement(ElementName = "part", Namespace = Ns.EPtypes)]
         public decimal? Part { get; set; }
+    }
+
+    public class AccountBudget
+    {
+        [XmlElement(ElementName = "accountBudgetAdmin", Namespace = Ns.EPtypes)]
+        public AccountBudgetAdmin AccountBudgetAdmin { get; set; }
+    }
+
+    public class AccountBudgetAdmin
+    {
+        [XmlElement(ElementName = "anotherAdmin", Namespace = Ns.EPtypes)]
+        public bool AnotherAdmin { get; set; }
+
+        [XmlElement(ElementName = "INN", Namespace = Ns.EPtypes)]
+        public string Inn { get; set; }
+
+        [XmlElement(ElementName = "KPP", Namespace = Ns.EPtypes)]
+        public string Kpp { get; set; }
+
+        [XmlElement(ElementName = "OKTMOInfo", Namespace = Ns.EPtypes)]
+        public OktmoInfo OktmoInfo { get; set; }
+
+        [XmlElement(ElementName = "bankAccount", Namespace = Ns.EPtypes)]
+        public string BankAccount { get; set; }
+
+        [XmlElement(ElementName = "ksNumber", Namespace = Ns.EPtypes)]
+        public string KsNumber { get; set; }
+
+        [XmlElement(ElementName = "bik", Namespace = Ns.EPtypes)]
+        public string Bik { get; set; }
+
+        [XmlElement(ElementName = "counterpartyName", Namespace = Ns.EPtypes)]
+        public string CounterpartyName { get; set; }
+    }
+
+    public class OktmoInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
     }
 
     public class BankAccount
@@ -398,6 +476,243 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "mustPublicDiscussion", Namespace = Ns.EPtypes)]
         public bool MustPublicDiscussion { get; set; }
+
+        [XmlElement(ElementName = "advancePaymentSum", Namespace = Ns.EPtypes)]
+        public AdvancePaymentSum AdvancePaymentSum { get; set; }
+
+        [XmlElement(ElementName = "IKZInfo", Namespace = Ns.EPtypes)]
+        public IkzInfo IkzInfo { get; set; }
+
+        [XmlElement(ElementName = "tenderPlan2020Info", Namespace = Ns.EPtypes)]
+        public TenderPlan2020Info TenderPlan2020Info { get; set; }
+
+        [XmlElement(ElementName = "contractExecutionPaymentPlan", Namespace = Ns.EPtypes)]
+        public ContractExecutionPaymentPlan ContractExecutionPaymentPlan { get; set; }
+
+        [XmlElement(ElementName = "BOInfo", Namespace = Ns.EPtypes)]
+        public BoInfo BoInfo { get; set; }
+
+        [XmlElement(ElementName = "deliveryPlacesInfo", Namespace = Ns.EPtypes)]
+        public DeliveryPlacesInfo DeliveryPlacesInfo { get; set; }
+
+        [XmlElement(ElementName = "isOneSideRejectionSt95", Namespace = Ns.EPtypes)]
+        public bool IsOneSideRejectionSt95 { get; set; }
+    }
+
+    public class AdvancePaymentSum
+    {
+        [XmlElement(ElementName = "sumInPercents", Namespace = Ns.EPtypes)]
+        public decimal? SumInPercents { get; set; }
+    }
+
+    public class IkzInfo
+    {
+        [XmlElement(ElementName = "purchaseCode", Namespace = Ns.EPtypes)]
+        public string PurchaseCode { get; set; }
+
+        [XmlElement(ElementName = "publishYear", Namespace = Ns.EPtypes)]
+        public int PublishYear { get; set; }
+
+        [XmlElement(ElementName = "OKPD2Info", Namespace = Ns.EPtypes)]
+        public Okpd2InfoContainer Okpd2Info { get; set; }
+
+        [XmlElement(ElementName = "KVRInfo", Namespace = Ns.EPtypes)]
+        public KvrInfoContainer KvrInfo { get; set; }
+
+        [XmlElement(ElementName = "customerCode", Namespace = Ns.EPtypes)]
+        public string CustomerCode { get; set; }
+
+        [XmlElement(ElementName = "purchaseNumber", Namespace = Ns.EPtypes)]
+        public string PurchaseNumber { get; set; }
+
+        [XmlElement(ElementName = "purchaseOrderNumber", Namespace = Ns.EPtypes)]
+        public string PurchaseOrderNumber { get; set; }
+    }
+
+    public class Okpd2InfoContainer
+    {
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
+        public List<Okpd2> Items { get; set; }
+    }
+
+    public class KvrInfoContainer
+    {
+        [XmlElement(ElementName = "KVR", Namespace = Ns.Common)]
+        public List<Kvr> Items { get; set; }
+    }
+
+    public class Kvr
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
+    }
+
+    public class TenderPlan2020Info
+    {
+        [XmlElement(ElementName = "plan2020Number", Namespace = Ns.Common)]
+        public string Plan2020Number { get; set; }
+
+        [XmlElement(ElementName = "position2020Number", Namespace = Ns.Common)]
+        public string Position2020Number { get; set; }
+    }
+
+    public class ContractExecutionPaymentPlan
+    {
+        [XmlElement(ElementName = "contractExecutionTermsInfo", Namespace = Ns.EPtypes)]
+        public ContractExecutionTermsInfo ContractExecutionTermsInfo { get; set; }
+
+        [XmlElement(ElementName = "financingSourcesInfo", Namespace = Ns.EPtypes)]
+        public FinancingSourcesInfo FinancingSourcesInfo { get; set; }
+
+        [XmlElement(ElementName = "stagesInfo", Namespace = Ns.EPtypes)]
+        public StagesInfo StagesInfo { get; set; }
+    }
+
+    public class ContractExecutionTermsInfo
+    {
+        [XmlElement(ElementName = "notRelativeTermsInfo", Namespace = Ns.Common)]
+        public NotRelativeTermsInfo NotRelativeTermsInfo { get; set; }
+    }
+
+    public class NotRelativeTermsInfo
+    {
+        [XmlElement(ElementName = "isFromConclusionDate", Namespace = Ns.Common)]
+        public bool IsFromConclusionDate { get; set; }
+
+        [XmlElement(ElementName = "endDate", Namespace = Ns.Common, DataType = "string")]
+        public string EndDateRaw { get; set; }
+    }
+
+    public class FinancingSourcesInfo
+    {
+        [XmlElement(ElementName = "budgetFinancingsInfo", Namespace = Ns.EPtypes)]
+        public BudgetFinancingsInfo BudgetFinancingsInfo { get; set; }
+
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.EPtypes)]
+        public int? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "financeInfo", Namespace = Ns.EPtypes)]
+        public FinanceInfo FinanceInfo { get; set; }
+    }
+
+    public class BudgetFinancingsInfo
+    {
+        [XmlElement(ElementName = "budgetInfo", Namespace = Ns.EPtypes)]
+        public BudgetInfo BudgetInfo { get; set; }
+
+        [XmlElement(ElementName = "budgetLevelInfo", Namespace = Ns.EPtypes)]
+        public BudgetLevelInfo BudgetLevelInfo { get; set; }
+
+        [XmlElement(ElementName = "OKTMOInfo", Namespace = Ns.EPtypes)]
+        public OktmoInfo OktmoInfo { get; set; }
+    }
+
+    public class BudgetInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
+    }
+
+    public class BudgetLevelInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
+    }
+
+    public class FinanceInfo
+    {
+        [XmlElement(ElementName = "total", Namespace = Ns.EPtypes)]
+        public decimal? Total { get; set; }
+
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.EPtypes)]
+        public decimal? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "firstYear", Namespace = Ns.EPtypes)]
+        public decimal? FirstYear { get; set; }
+
+        [XmlElement(ElementName = "secondYear", Namespace = Ns.EPtypes)]
+        public decimal? SecondYear { get; set; }
+
+        [XmlElement(ElementName = "subsecYears", Namespace = Ns.EPtypes)]
+        public decimal? SubsequentYears { get; set; }
+    }
+
+    public class StagesInfo
+    {
+        [XmlElement(ElementName = "stageInfo", Namespace = Ns.EPtypes)]
+        public List<StageInfo> Items { get; set; }
+    }
+
+    public class StageInfo
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.EPtypes)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "termsInfo", Namespace = Ns.EPtypes)]
+        public TermsInfo TermsInfo { get; set; }
+
+        [XmlElement(ElementName = "budgetFinancingsInfo", Namespace = Ns.EPtypes)]
+        public StageBudgetFinancingsInfo BudgetFinancingsInfo { get; set; }
+    }
+
+    public class TermsInfo
+    {
+        [XmlElement(ElementName = "notRelativeTermsInfo", Namespace = Ns.Common)]
+        public NotRelativeTermsInfo NotRelativeTermsInfo { get; set; }
+    }
+
+    public class StageBudgetFinancingsInfo
+    {
+        [XmlElement(ElementName = "budgetFinancingInfo", Namespace = Ns.EPtypes)]
+        public List<BudgetFinancingInfo> Items { get; set; }
+    }
+
+    public class BudgetFinancingInfo
+    {
+        [XmlElement(ElementName = "KBK", Namespace = Ns.EPtypes)]
+        public string Kbk { get; set; }
+
+        [XmlElement(ElementName = "paymentYearInfo", Namespace = Ns.EPtypes)]
+        public PaymentYearInfo PaymentYearInfo { get; set; }
+    }
+
+    public class PaymentYearInfo
+    {
+        [XmlElement(ElementName = "total", Namespace = Ns.EPtypes)]
+        public decimal? Total { get; set; }
+
+        [XmlElement(ElementName = "currentYear", Namespace = Ns.EPtypes)]
+        public decimal? CurrentYear { get; set; }
+
+        [XmlElement(ElementName = "firstYear", Namespace = Ns.EPtypes)]
+        public decimal? FirstYear { get; set; }
+
+        [XmlElement(ElementName = "secondYear", Namespace = Ns.EPtypes)]
+        public decimal? SecondYear { get; set; }
+
+        [XmlElement(ElementName = "subsecYears", Namespace = Ns.EPtypes)]
+        public decimal? SubsequentYears { get; set; }
+    }
+
+    public class BoInfo
+    {
+        [XmlElement(ElementName = "BONumber", Namespace = Ns.EPtypes)]
+        public string BoNumber { get; set; }
+
+        [XmlElement(ElementName = "BODate", Namespace = Ns.EPtypes)]
+        public DateTime? BoDate { get; set; }
+
+        [XmlElement(ElementName = "inputBOFlag", Namespace = Ns.EPtypes)]
+        public string InputBoFlag { get; set; }
     }
 
     public class MaxPriceOnly
@@ -508,6 +823,24 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "hierarchyType", Namespace = Ns.Common)]
         public string HierarchyType { get; set; }
+
+        [XmlElement(ElementName = "restrictionsInfo", Namespace = Ns.Common)]
+        public RestrictionsInfo RestrictionsInfo { get; set; }
+    }
+
+    public class RestrictionsInfo
+    {
+        [XmlElement(ElementName = "isProhibitionForeignPurchaseObjects", Namespace = Ns.Common)]
+        public bool IsProhibitionForeignPurchaseObjects { get; set; }
+
+        [XmlElement(ElementName = "isRestrictForeignPurchaseObjects", Namespace = Ns.Common)]
+        public bool IsRestrictForeignPurchaseObjects { get; set; }
+
+        [XmlElement(ElementName = "isPreferenseRFPurchaseObjects", Namespace = Ns.Common)]
+        public bool IsPreferenseRfPurchaseObjects { get; set; }
+
+        [XmlElement(ElementName = "isImposibilityProhibition", Namespace = Ns.Common)]
+        public bool IsImposibilityProhibition { get; set; }
     }
 
     public class Ktru
@@ -614,6 +947,123 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "purchaseObjectsCh9St37", Namespace = Ns.EPtypes)]
         public bool PurchaseObjectsCh9St37 { get; set; }
+
+        [XmlElement(ElementName = "competitionCh19St48", Namespace = Ns.EPtypes)]
+        public bool CompetitionCh19St48 { get; set; }
+    }
+
+    public class CriteriaInfo
+    {
+        [XmlElement(ElementName = "isCertainWorks", Namespace = Ns.EPtypes)]
+        public bool IsCertainWorks { get; set; }
+
+        [XmlElement(ElementName = "criterionInfo", Namespace = Ns.EPtypes)]
+        public List<CriterionInfo> Items { get; set; }
+    }
+
+    public class CriterionInfo
+    {
+        [XmlElement(ElementName = "costCriterionInfo", Namespace = Ns.EPtypes)]
+        public CostCriterionInfo CostCriterionInfo { get; set; }
+
+        [XmlElement(ElementName = "qualitativeCriterionInfo", Namespace = Ns.EPtypes)]
+        public QualitativeCriterionInfo QualitativeCriterionInfo { get; set; }
+    }
+
+    public class CostCriterionInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.EPtypes)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "valueInfo", Namespace = Ns.EPtypes)]
+        public CriterionValueInfo ValueInfo { get; set; }
+    }
+
+    public class CriterionValueInfo
+    {
+        [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
+        public decimal Value { get; set; }
+    }
+
+    public class QualitativeCriterionInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.EPtypes)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "valueInfo", Namespace = Ns.EPtypes)]
+        public CriterionValueInfo ValueInfo { get; set; }
+
+        [XmlElement(ElementName = "indicatorsInfo", Namespace = Ns.EPtypes)]
+        public IndicatorsInfo IndicatorsInfo { get; set; }
+    }
+
+    public class IndicatorsInfo
+    {
+        [XmlElement(ElementName = "indicatorInfo", Namespace = Ns.EPtypes)]
+        public List<IndicatorInfo> Items { get; set; }
+    }
+
+    public class IndicatorInfo
+    {
+        [XmlElement(ElementName = "sId", Namespace = Ns.EPtypes)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "purchaseObjectCharsInfo", Namespace = Ns.EPtypes)]
+        public PurchaseObjectCharsInfo PurchaseObjectCharsInfo { get; set; }
+
+        [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
+        public decimal Value { get; set; }
+
+        [XmlElement(ElementName = "detailIndicatorsInfo", Namespace = Ns.EPtypes)]
+        public DetailIndicatorsInfo DetailIndicatorsInfo { get; set; }
+    }
+
+    public class PurchaseObjectCharsInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
+    }
+
+    public class DetailIndicatorsInfo
+    {
+        [XmlElement(ElementName = "detailIndicatorInfo", Namespace = Ns.EPtypes)]
+        public List<DetailIndicatorInfo> Items { get; set; }
+    }
+
+    public class DetailIndicatorInfo
+    {
+        [XmlElement(ElementName = "sId", Namespace = Ns.EPtypes)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "indicatorInfo", Namespace = Ns.EPtypes)]
+        public IndicatorNameInfo IndicatorInfo { get; set; }
+
+        [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
+        public decimal Value { get; set; }
+
+        [XmlElement(ElementName = "orderEvalIndicatorsInfo", Namespace = Ns.EPtypes)]
+        public OrderEvalIndicatorsInfo OrderEvalIndicatorsInfo { get; set; }
+
+        [XmlElement(ElementName = "availAbsEvaluation", Namespace = Ns.EPtypes)]
+        public string AvailAbsEvaluation { get; set; }
+    }
+
+    public class IndicatorNameInfo
+    {
+        [XmlElement(ElementName = "manualEnteredName", Namespace = Ns.EPtypes)]
+        public string ManualEnteredName { get; set; }
+    }
+
+    public class OrderEvalIndicatorsInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
     }
 
     // ====      ====
