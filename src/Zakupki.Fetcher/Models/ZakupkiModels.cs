@@ -1425,6 +1425,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "preferenseRequirementInfo", Namespace = Ns.Common)]
         public PreferenseRequirementInfo PreferenseRequirementInfo { get; set; }
 
+        [XmlElement(ElementName = "reqValue", Namespace = Ns.Common)]
+        public decimal? ReqValue { get; set; }
+
         [XmlElement(ElementName = "addRequirements", Namespace = Ns.Common)]
         public AddRequirements AddRequirements { get; set; }
 
