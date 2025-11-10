@@ -625,6 +625,9 @@ namespace Zakupki.EF2020
         [XmlElement(ElementName = "isFromConclusionDate", Namespace = Ns.Common)]
         public bool IsFromConclusionDate { get; set; }
 
+        [XmlElement(ElementName = "startDate", Namespace = Ns.Common, DataType = "string")]
+        public string StartDateRaw { get; set; }
+
         [XmlElement(ElementName = "endDate", Namespace = Ns.Common, DataType = "string")]
         public string EndDateRaw { get; set; }
     }
