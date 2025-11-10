@@ -1429,28 +1429,6 @@
                     <ns4:totalSum>388050008.2</ns4:totalSum>
                     <ns5:quantityUndefined>false</ns5:quantityUndefined>
                 </ns5:notDrugPurchaseObjectsInfo>
-                <ns5:notDrugPurchaseParentObjectsInfo>
-                    <ns4:purchaseObject>
-                        <ns4:sid>195583391</ns4:sid>
-                        <ns4:externalSid>225857269</ns4:externalSid>
-                        <ns4:OKPD2>
-                            <ns2:OKPDCode>82.19.11.000</ns2:OKPDCode>
-                            <ns2:OKPDName>Услуги по размножению документов</ns2:OKPDName>
-                        </ns4:OKPD2>
-                        <ns4:name>Организация и предоставление бесперебойной работы сервиса печати, копирования и сканирования на оборудовании Заказчика</ns4:name>
-                        <ns4:customers>
-                            <ns4:customer>
-                                <ns2:regNum>03732006409</ns2:regNum>
-                                <ns2:consRegistryNum>452J3358</ns2:consRegistryNum>
-                                <ns2:fullName>ГОСУДАРСТВЕННОЕ КАЗЕННОЕ УЧРЕЖДЕНИЕ ГОРОДА МОСКВЫ "ИНФОРМАЦИОННЫЙ ГОРОД"</ns2:fullName>
-                            </ns4:customer>
-                        </ns4:customers>
-                        <ns4:sum>388050008.2</ns4:sum>
-                        <ns4:type>SERVICE</ns4:type>
-                        <ns4:hierarchyType>P</ns4:hierarchyType>
-                    </ns4:purchaseObject>
-                    <ns4:totalSum>388050008.2</ns4:totalSum>
-                </ns5:notDrugPurchaseParentObjectsInfo>
             </ns5:purchaseObjectsInfo>
             <ns5:requirementsInfo>
                 <ns5:requirementInfo>

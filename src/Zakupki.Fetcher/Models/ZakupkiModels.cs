@@ -1174,6 +1174,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "drugPurchaseObjectsInfo", Namespace = Ns.EPtypes)]
         public DrugPurchaseObjectsInfo DrugPurchaseObjectsInfo { get; set; }
+
+        [XmlElement(ElementName = "notDrugPurchaseParentObjectsInfo", Namespace = Ns.EPtypes)]
+        public NotDrugPurchaseParentObjectsInfo? NotDrugPurchaseParentObjectsInfo { get; set; }
     }
 
     public class NotDrugPurchaseObjectsInfo
@@ -1186,6 +1189,48 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "quantityUndefined", Namespace = Ns.EPtypes)]
         public bool QuantityUndefined { get; set; }
+    }
+
+    public class NotDrugPurchaseParentObjectsInfo
+    {
+        [XmlElement(ElementName = "purchaseObject", Namespace = Ns.Common)]
+        public List<NotDrugParentPurchaseObject> Items { get; set; }
+
+        [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
+        public decimal? TotalSum { get; set; }
+    }
+
+    public class NotDrugParentPurchaseObject
+    {
+        [XmlElement(ElementName = "sid", Namespace = Ns.Common)]
+        public string Sid { get; set; }
+
+        [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        public string ExternalSid { get; set; }
+
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
+        public Okpd2 Okpd2 { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Common)]
+        public string Name { get; set; }
+
+        [XmlElement(ElementName = "customers", Namespace = Ns.Common)]
+        public ParentCustomers Customers { get; set; }
+
+        [XmlElement(ElementName = "sum", Namespace = Ns.Common)]
+        public decimal? Sum { get; set; }
+
+        [XmlElement(ElementName = "type", Namespace = Ns.Common)]
+        public string Type { get; set; }
+
+        [XmlElement(ElementName = "hierarchyType", Namespace = Ns.Common)]
+        public string HierarchyType { get; set; }
+    }
+
+    public class ParentCustomers
+    {
+        [XmlElement(ElementName = "customer", Namespace = Ns.Common)]
+        public List<Customer> Items { get; set; }
     }
 
     public class PurchaseObject
