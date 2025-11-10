@@ -958,16 +958,17 @@ namespace Zakupki.EF2020
         public bool? IsContractPriceFormula { get; set; }
     }
 
+    [XmlType(Namespace = Ns.EPtypes)]
     public class WarrantyInfo
     {
         [XmlElement(ElementName = "warrantyServiceRequirement", Namespace = Ns.EPtypes)]
-        public string WarrantyServiceRequirement { get; set; }
+        public string? WarrantyServiceRequirement { get; set; }
 
         [XmlElement(ElementName = "manufacturersWarrantyRequirement", Namespace = Ns.EPtypes)]
-        public string ManufacturersWarrantyRequirement { get; set; }
+        public string? ManufacturersWarrantyRequirement { get; set; }
 
         [XmlElement(ElementName = "warrantyTerm", Namespace = Ns.EPtypes)]
-        public string WarrantyTerm { get; set; }
+        public string? WarrantyTerm { get; set; }
     }
 
     public class ProvisionWarranty
