@@ -155,6 +155,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "contactPhone", Namespace = Ns.EPtypes)]
         public string ContactPhone { get; set; }
+
+        [XmlElement(ElementName = "contactFax", Namespace = Ns.EPtypes)]
+        public string ContactFax { get; set; }
     }
 
     public class ContactPersonInfo
