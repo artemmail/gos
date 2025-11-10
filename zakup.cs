@@ -463,6 +463,7 @@ namespace Zakupki.EF2020
         public decimal MaxPrice { get; set; }
     }
 
+    [XmlType(Namespace = Ns.EPtypes)]
     public class WarrantyInfo
     {
         [XmlElement(ElementName = "warrantyServiceRequirement", Namespace = Ns.EPtypes)]
