@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json.Serialization;
 using System.Xml.Serialization;
 
 namespace Zakupki.EF2020
@@ -577,11 +578,80 @@ namespace Zakupki.EF2020
 
     public class Okpd2InfoContainer
     {
-        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common)]
-        public List<Okpd2> Items { get; set; }
+        private static readonly IReadOnlyList<Okpd2> EmptyItems = Array.Empty<Okpd2>();
 
-        [XmlElement(ElementName = "undefined", Namespace = Ns.Common)]
-        public string Undefined { get; set; }
+        private List<object> _rawItems = new();
+        private IReadOnlyList<Okpd2>? _itemsCache;
+        private string? _undefinedCache;
+
+        [JsonIgnore]
+        [XmlElement(ElementName = "OKPD2", Namespace = Ns.Common, Type = typeof(Okpd2))]
+        [XmlElement(ElementName = "undefined", Namespace = Ns.Common, Type = typeof(string))]
+        public List<object> RawItems
+        {
+            get => _rawItems;
+            set
+            {
+                _rawItems = value ?? new List<object>();
+                _itemsCache = null;
+                _undefinedCache = null;
+            }
+        }
+
+        [XmlIgnore]
+        public IReadOnlyList<Okpd2> Items
+        {
+            get
+            {
+                if (_itemsCache is not null)
+                {
+                    return _itemsCache;
+                }
+
+                if (_rawItems.Count == 0)
+                {
+                    _itemsCache = EmptyItems;
+                    return _itemsCache;
+                }
+
+                var results = new List<Okpd2>(_rawItems.Count);
+
+                foreach (var entry in _rawItems)
+                {
+                    if (entry is Okpd2 okpd2)
+                    {
+                        results.Add(okpd2);
+                    }
+                }
+
+                _itemsCache = results.Count > 0 ? results : EmptyItems;
+                return _itemsCache;
+            }
+        }
+
+        [XmlIgnore]
+        public string? Undefined
+        {
+            get
+            {
+                if (_undefinedCache is not null)
+                {
+                    return _undefinedCache;
+                }
+
+                foreach (var entry in _rawItems)
+                {
+                    if (entry is string value && value.Length > 0)
+                    {
+                        _undefinedCache = value;
+                        return _undefinedCache;
+                    }
+                }
+
+                _undefinedCache = null;
+                return _undefinedCache;
+            }
+        }
     }
 
     public class KvrInfoContainer
