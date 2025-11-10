@@ -1176,7 +1176,7 @@ namespace Zakupki.EF2020
         public DrugPurchaseObjectsInfo DrugPurchaseObjectsInfo { get; set; }
 
         [XmlElement(ElementName = "notDrugPurchaseParentObjectsInfo", Namespace = Ns.EPtypes)]
-        public NotDrugPurchaseParentObjectsInfo? NotDrugPurchaseParentObjectsInfo { get; set; }
+        public object? NotDrugPurchaseParentObjectsInfo { get; set; }
     }
 
     public class NotDrugPurchaseObjectsInfo
