@@ -1507,8 +1507,20 @@ namespace Zakupki.EF2020
 
     public class MedicamentalFormInfo
     {
+        [XmlElement(ElementName = "medicamentalForm", Namespace = Ns.Common)]
+        public MedicamentalFormReference MedicamentalForm { get; set; }
+
         [XmlElement(ElementName = "medicamentalFormName", Namespace = Ns.Common)]
         public string MedicamentalFormName { get; set; }
+    }
+
+    public class MedicamentalFormReference
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Base)]
+        public string Code { get; set; }
+
+        [XmlElement(ElementName = "name", Namespace = Ns.Base)]
+        public string Name { get; set; }
     }
 
     public class DosageInfo
