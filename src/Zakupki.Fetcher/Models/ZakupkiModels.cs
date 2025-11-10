@@ -2080,6 +2080,12 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "value", Namespace = Ns.EPtypes)]
         public decimal? Value { get; set; }
+
+        [XmlElement(ElementName = "valueLess25MaxPrice", Namespace = Ns.EPtypes)]
+        public decimal? ValueLess25MaxPrice { get; set; }
+
+        [XmlElement(ElementName = "valueMore25MaxPrice", Namespace = Ns.EPtypes)]
+        public decimal? ValueMore25MaxPrice { get; set; }
     }
 
     public class QualitativeCriterionInfo
