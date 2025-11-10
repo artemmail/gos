@@ -1679,6 +1679,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "valueInfo", Namespace = Ns.EPtypes)]
         public CriterionValueInfo ValueInfo { get; set; }
+
+        [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
+        public string AddInfo { get; set; }
     }
 
     public class CriterionValueInfo
@@ -1697,6 +1700,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "indicatorsInfo", Namespace = Ns.EPtypes)]
         public IndicatorsInfo IndicatorsInfo { get; set; }
+
+        [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
+        public string AddInfo { get; set; }
     }
 
     public class IndicatorsInfo
@@ -1721,6 +1727,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "detailIndicatorsInfo", Namespace = Ns.EPtypes)]
         public DetailIndicatorsInfo DetailIndicatorsInfo { get; set; }
+
+        [XmlElement(ElementName = "addInfo", Namespace = Ns.EPtypes)]
+        public string AddInfo { get; set; }
     }
 
     public class QualPurchaseParticipantsInfo
