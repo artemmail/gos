@@ -75,6 +75,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "printFormFieldsInfo", Namespace = Ns.EPtypes)]
         public PrintFormFieldsInfo PrintFormFieldsInfo { get; set; }
+
+        [XmlElement(ElementName = "modificationInfo", Namespace = Ns.EPtypes)]
+        public ModificationInfo? ModificationInfo { get; set; }
     }
 
     public class EpNotificationEok2020 : EpNotificationEf2020
@@ -1838,6 +1841,27 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "competitionCh19St48", Namespace = Ns.EPtypes)]
         public bool CompetitionCh19St48 { get; set; }
+    }
+
+    public class ModificationInfo
+    {
+        [XmlElement(ElementName = "info", Namespace = Ns.EPtypes)]
+        public string? Info { get; set; }
+
+        [XmlElement(ElementName = "reasonInfo", Namespace = Ns.EPtypes)]
+        public ModificationReasonInfo? ReasonInfo { get; set; }
+    }
+
+    public class ModificationReasonInfo
+    {
+        [XmlElement(ElementName = "responsibleDecisionInfo", Namespace = Ns.EPtypes)]
+        public ResponsibleDecisionInfo? ResponsibleDecisionInfo { get; set; }
+    }
+
+    public class ResponsibleDecisionInfo
+    {
+        [XmlElement(ElementName = "decisionDate", Namespace = Ns.EPtypes, DataType = "string")]
+        public string? DecisionDateRaw { get; set; }
     }
 
     public class CriteriaInfo
