@@ -1200,7 +1200,10 @@ namespace Zakupki.EF2020
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "objectInfoUsingReferenceInfo", Namespace = Ns.Common)]
-        public DrugObjectInfoUsingReferenceInfo ObjectInfoUsingReferenceInfo { get; set; }
+        public DrugObjectInfoUsingReferenceInfo? ObjectInfoUsingReferenceInfo { get; set; }
+
+        [XmlElement(ElementName = "objectInfoUsingTextForm", Namespace = Ns.Common)]
+        public DrugObjectInfoUsingTextForm? ObjectInfoUsingTextForm { get; set; }
 
         [XmlElement(ElementName = "name", Namespace = Ns.Common)]
         public string Name { get; set; }
@@ -1228,6 +1231,12 @@ namespace Zakupki.EF2020
     }
 
     public class DrugObjectInfoUsingReferenceInfo
+    {
+        [XmlElement(ElementName = "drugsInfo", Namespace = Ns.Common)]
+        public DrugDrugsInfo DrugsInfo { get; set; }
+    }
+
+    public class DrugObjectInfoUsingTextForm
     {
         [XmlElement(ElementName = "drugsInfo", Namespace = Ns.Common)]
         public DrugDrugsInfo DrugsInfo { get; set; }
