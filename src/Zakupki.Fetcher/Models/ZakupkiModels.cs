@@ -1233,6 +1233,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "drugInterchangeReferenceInfo", Namespace = Ns.Common)]
         public DrugInterchangeReferenceInfo ReferenceInfo { get; set; }
+
+        [XmlElement(ElementName = "drugInterchangeManualInfo", Namespace = Ns.Common)]
+        public DrugInterchangeManualInfo ManualInfo { get; set; }
     }
 
     public class DrugInterchangeReferenceInfo
@@ -1242,6 +1245,15 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "interchangeGroupInfo", Namespace = Ns.Common)]
         public DrugInterchangeGroupInfo InterchangeGroupInfo { get; set; }
+
+        [XmlElement(ElementName = "drugInfo", Namespace = Ns.Common)]
+        public List<DrugInterchangeDrugInfo> DrugInfos { get; set; }
+    }
+
+    public class DrugInterchangeManualInfo
+    {
+        [XmlElement(ElementName = "isInterchange", Namespace = Ns.Common)]
+        public bool IsInterchange { get; set; }
 
         [XmlElement(ElementName = "drugInfo", Namespace = Ns.Common)]
         public List<DrugInterchangeDrugInfo> DrugInfos { get; set; }
