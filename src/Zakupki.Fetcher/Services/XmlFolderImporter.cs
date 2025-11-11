@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Zakupki.EF2020;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Utilities;
@@ -53,8 +54,47 @@ public sealed class XmlFolderImporter
             return true;
         }
 
+        var loadResult = await LoadDocumentsAsync(directory, files, cancellationToken);
         var processed = 0;
-        var skipped = 0;
+        var errors = loadResult.Errors;
+
+        foreach (var document in loadResult.Documents)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await _processor.ProcessAsync(document, cancellationToken);
+                processed++;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                errors++;
+                _logger.LogError(ex, "Failed to persist XML entry '{Entry}' from '{Directory}'", document.EntryName, directory);
+            }
+        }
+
+        _logger.LogInformation(
+            "Imported {Processed} XML file(s) from '{Directory}'. Skipped {Skipped} duplicates, encountered {Errors} error(s)",
+            processed,
+            directory,
+            loadResult.Duplicates,
+            errors);
+
+        return true;
+    }
+
+    private async Task<(List<NoticeDocument> Documents, int Duplicates, int Errors)> LoadDocumentsAsync(
+        string rootDirectory,
+        IReadOnlyList<string> files,
+        CancellationToken cancellationToken)
+    {
+        var documents = new List<NoticeDocument>(files.Count);
+        var duplicates = 0;
         var errors = 0;
         var seenHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -69,30 +109,40 @@ public sealed class XmlFolderImporter
 
                 if (!seenHashes.Add(hash))
                 {
-                    skipped++;
+                    duplicates++;
                     _logger.LogDebug("Skipping '{File}' because an identical file has already been scheduled for import", file);
                     continue;
                 }
 
                 if (await IsDuplicateAsync(hash, cancellationToken))
                 {
-                    skipped++;
+                    duplicates++;
                     _logger.LogInformation("Skipping '{File}' because an identical notice version already exists in the database", file);
                     continue;
                 }
 
-                var metadata = ExtractMetadata(directory, file);
-                var document = new NoticeDocument(
+                Export exportModel;
+                try
+                {
+                    using var stream = new MemoryStream(content);
+                    exportModel = ZakupkiLoader.LoadFromStream(stream);
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    _logger.LogError(ex, "Failed to deserialize XML file '{File}'", file);
+                    continue;
+                }
+
+                var metadata = ExtractMetadata(rootDirectory, file);
+                documents.Add(new NoticeDocument(
                     source: "LocalXml",
                     documentType: metadata.DocumentType,
                     region: metadata.Region,
                     period: metadata.Period,
                     entryName: metadata.EntryName,
                     content: content,
-                    exportModel: null);
-
-                await _processor.ProcessAsync(document, cancellationToken);
-                processed++;
+                    exportModel: exportModel));
             }
             catch (OperationCanceledException)
             {
@@ -101,18 +151,11 @@ public sealed class XmlFolderImporter
             catch (Exception ex)
             {
                 errors++;
-                _logger.LogError(ex, "Failed to import XML file '{File}'", file);
+                _logger.LogError(ex, "Failed to load XML file '{File}'", file);
             }
         }
 
-        _logger.LogInformation(
-            "Imported {Processed} XML file(s) from '{Directory}'. Skipped {Skipped} duplicates, encountered {Errors} error(s)",
-            processed,
-            directory,
-            skipped,
-            errors);
-
-        return true;
+        return (documents, duplicates, errors);
     }
 
     private async Task<bool> IsDuplicateAsync(string hash, CancellationToken cancellationToken)
