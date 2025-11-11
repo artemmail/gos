@@ -1,0 +1,90 @@
+<div class="full-height">
+  <mat-toolbar color="primary" class="toolbar">
+    <span>Zakupki Notices</span>
+  </mat-toolbar>
+
+  <div class="content-container">
+    <mat-card>
+      <div class="card-header">
+        <h1>Реестр извещений</h1>
+        <p class="subtitle">Поиск, сортировка и навигация по таблице данных о закупках</p>
+      </div>
+
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Поиск</mat-label>
+        <input matInput [formControl]="searchControl" placeholder="Введите номер закупки, площадку или название">
+        <button mat-icon-button matSuffix *ngIf="searchControl.value" (click)="searchControl.setValue('')" aria-label="Очистить поиск">
+          <mat-icon>close</mat-icon>
+        </button>
+      </mat-form-field>
+
+      <ng-container *ngIf="!errorMessage; else errorBlock">
+        <div class="table-wrapper">
+          <div class="loading-overlay" *ngIf="isLoading">
+            <mat-spinner diameter="48"></mat-spinner>
+          </div>
+
+          <table mat-table [dataSource]="notices" matSort matSortActive="publishDate" matSortDirection="desc" matSortDisableClear>
+            <ng-container matColumnDef="purchaseNumber">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseNumber">Номер закупки</th>
+              <td mat-cell *matCellDef="let element">{{ element.purchaseNumber }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="entryName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="entryName">Название</th>
+              <td mat-cell *matCellDef="let element" class="entry-name">{{ element.entryName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="publishDate">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="publishDate">Дата публикации</th>
+              <td mat-cell *matCellDef="let element">{{ element.publishDate | date: 'short' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="etpName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="etpName">Площадка</th>
+              <td mat-cell *matCellDef="let element">{{ element.etpName || '—' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="documentType">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="documentType">Тип документа</th>
+              <td mat-cell *matCellDef="let element">{{ element.documentType }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="source">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="source">Источник</th>
+              <td mat-cell *matCellDef="let element">{{ element.source }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="updatedAt">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="updatedAt">Обновлено</th>
+              <td mat-cell *matCellDef="let element">{{ element.updatedAt | date: 'short' }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+
+          <div class="empty-state" *ngIf="hasNoData">
+            <mat-icon fontIcon="search"></mat-icon>
+            <p>Нет данных по заданным условиям.</p>
+          </div>
+        </div>
+
+        <mat-paginator
+          [length]="totalCount"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 50, 100]"
+          showFirstLastButtons>
+        </mat-paginator>
+      </ng-container>
+    </mat-card>
+  </div>
+</div>
+
+<ng-template #errorBlock>
+  <div class="error-container">
+    <mat-icon fontIcon="error_outline"></mat-icon>
+    <p>{{ errorMessage }}</p>
+    <button mat-raised-button color="primary" (click)="loadNotices()">Повторить</button>
+  </div>
+</ng-template>
