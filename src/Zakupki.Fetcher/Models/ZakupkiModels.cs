@@ -1191,7 +1191,7 @@ namespace Zakupki.EF2020
         public DrugPurchaseObjectsInfo DrugPurchaseObjectsInfo { get; set; }
 
         [XmlElement(ElementName = "notDrugPurchaseParentObjectsInfo", Namespace = Ns.EPtypes)]
-        public object? NotDrugPurchaseParentObjectsInfo { get; set; }
+        public NotDrugPurchaseParentObjectsInfo NotDrugPurchaseParentObjectsInfo { get; set; }
     }
 
     public class NotDrugPurchaseObjectsInfo
@@ -1208,9 +1208,10 @@ namespace Zakupki.EF2020
 
     public class NotDrugPurchaseParentObjectsInfo
     {
-        [XmlElement(ElementName = "purchaseObject", Namespace = Ns.Common)]
+        
+        [XmlElement(ElementName = "purchaseObject"/*, Namespace = Ns.Common*/)]
         public List<NotDrugParentPurchaseObject> Items { get; set; }
-
+        
         [XmlElement(ElementName = "totalSum", Namespace = Ns.Common)]
         public decimal? TotalSum { get; set; }
     }
