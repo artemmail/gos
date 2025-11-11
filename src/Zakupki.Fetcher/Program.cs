@@ -1,12 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
@@ -24,10 +22,34 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
     options.UseSqlServer(connectionString));
+
 builder.Services.AddHostedService<DatabaseMigrationHostedService>();
 builder.Services.AddSingleton<NoticeProcessor>();
 builder.Services.AddSingleton<XmlFolderImporter>();
 builder.Services.AddHostedService<Worker>();
 
-var host = builder.Build();
-await host.RunAsync();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors();
+
+app.MapControllers();
+
+await app.RunAsync();
