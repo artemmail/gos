@@ -24,6 +24,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
     options.UseSqlServer(connectionString));
+builder.Services.AddHostedService<DatabaseMigrationHostedService>();
 builder.Services.AddSingleton<NoticeProcessor>();
 builder.Services.AddHostedService<Worker>();
 
