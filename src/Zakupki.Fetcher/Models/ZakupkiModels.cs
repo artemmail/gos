@@ -1528,6 +1528,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "averagePriceValue", Namespace = Ns.Common)]
         public decimal? AveragePriceValue { get; set; }
+
+        [XmlElement(ElementName = "externalDrugInfoLink", Namespace = Ns.Common)]
+        public string? ExternalDrugInfoLink { get; set; }
     }
 
     public class DrugInterchangeDrugInfoUsingReferenceInfo
@@ -2123,12 +2126,36 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "responsibleDecisionInfo", Namespace = Ns.EPtypes)]
         public ResponsibleDecisionInfo? ResponsibleDecisionInfo { get; set; }
+
+        [XmlElement(ElementName = "authorityPrescriptionInfo", Namespace = Ns.EPtypes)]
+        public AuthorityPrescriptionInfo? AuthorityPrescriptionInfo { get; set; }
     }
 
     public class ResponsibleDecisionInfo
     {
         [XmlElement(ElementName = "decisionDate", Namespace = Ns.EPtypes, DataType = "string")]
         public string? DecisionDateRaw { get; set; }
+    }
+
+    public class AuthorityPrescriptionInfo
+    {
+        [XmlElement(ElementName = "reestrPrescription", Namespace = Ns.EPtypes)]
+        public ReestrPrescription? ReestrPrescription { get; set; }
+    }
+
+    public class ReestrPrescription
+    {
+        [XmlElement(ElementName = "regNumber", Namespace = Ns.EPtypes)]
+        public string? RegNumber { get; set; }
+
+        [XmlElement(ElementName = "prescriptionNumber", Namespace = Ns.EPtypes)]
+        public string? PrescriptionNumber { get; set; }
+
+        [XmlElement(ElementName = "authorityName", Namespace = Ns.EPtypes)]
+        public string? AuthorityName { get; set; }
+
+        [XmlElement(ElementName = "docDate", Namespace = Ns.EPtypes)]
+        public DateTime? DocDate { get; set; }
     }
 
     public class CriteriaInfo
