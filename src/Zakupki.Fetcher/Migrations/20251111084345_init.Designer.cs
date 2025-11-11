@@ -13,7 +13,7 @@ namespace Zakupki.Fetcher.Migrations
 {
     [DbContext(typeof(NoticeDbContext))]
     [Migration("20251111084345_init")]
-    partial class init
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
