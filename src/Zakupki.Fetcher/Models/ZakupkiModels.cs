@@ -1191,7 +1191,7 @@ namespace Zakupki.EF2020
         public DrugPurchaseObjectsInfo DrugPurchaseObjectsInfo { get; set; }
 
         [XmlElement(ElementName = "notDrugPurchaseParentObjectsInfo", Namespace = Ns.EPtypes)]
-        public object? NotDrugPurchaseParentObjectsInfo { get; set; }
+        public NotDrugPurchaseParentObjectsInfo? NotDrugPurchaseParentObjectsInfo { get; set; }
     }
 
     public class NotDrugPurchaseObjectsInfo
@@ -2156,6 +2156,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "reestrPrescription", Namespace = Ns.EPtypes)]
         public ReestrPrescription? ReestrPrescription { get; set; }
+
+        [XmlElement(ElementName = "externalPrescription", Namespace = Ns.EPtypes)]
+        public ExternalPrescription? ExternalPrescription { get; set; }
     }
 
     public class ReestrPrescription
@@ -2171,6 +2174,30 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "docDate", Namespace = Ns.EPtypes)]
         public DateTime? DocDate { get; set; }
+    }
+
+    public class ExternalPrescription
+    {
+        [XmlElement(ElementName = "authorityName", Namespace = Ns.EPtypes)]
+        public string? AuthorityName { get; set; }
+
+        [XmlElement(ElementName = "authorityType", Namespace = Ns.EPtypes)]
+        public string? AuthorityType { get; set; }
+
+        [XmlElement(ElementName = "prescriptionProperty", Namespace = Ns.EPtypes)]
+        public ExternalPrescriptionProperty? PrescriptionProperty { get; set; }
+    }
+
+    public class ExternalPrescriptionProperty
+    {
+        [XmlElement(ElementName = "docName", Namespace = Ns.Common)]
+        public string? DocName { get; set; }
+
+        [XmlElement(ElementName = "docNumber", Namespace = Ns.Common)]
+        public string? DocNumber { get; set; }
+
+        [XmlElement(ElementName = "docDate", Namespace = Ns.Common)]
+        public string? DocDateRaw { get; set; }
     }
 
     public class CriteriaInfo
