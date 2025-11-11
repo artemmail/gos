@@ -15,25 +15,33 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly ZakupkiClient _client;
     private readonly NoticeProcessor _processor;
+    private readonly XmlFolderImporter _xmlImporter;
     private ZakupkiOptions Options { get; }
 
     public Worker(
         ILogger<Worker> logger,
         ZakupkiClient client,
         NoticeProcessor processor,
+        XmlFolderImporter xmlImporter,
         IOptions<ZakupkiOptions> options)
     {
         _logger = logger;
         _client = client;
         _processor = processor;
+        _xmlImporter = xmlImporter;
         Options = options.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var importedFromFolder = await _xmlImporter.ImportAsync(Options.XmlImportDirectory, stoppingToken);
+
         if (string.IsNullOrWhiteSpace(Options.Token))
         {
-            _logger.LogWarning("Zakupki token is not configured. Set Zakupki:Token in appsettings.json or environment variables.");
+            if (!importedFromFolder)
+            {
+                _logger.LogWarning("Zakupki token is not configured. Set Zakupki:Token in appsettings.json or environment variables.");
+            }
             return;
         }
 

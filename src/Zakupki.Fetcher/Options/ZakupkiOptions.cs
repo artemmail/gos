@@ -34,4 +34,6 @@ public class ZakupkiOptions
     public int IntervalMinutes { get; set; } = 0;
 
     public int MaxArchiveMegabytes { get; set; } = 100;
+
+    public string? XmlImportDirectory { get; set; }
 }
