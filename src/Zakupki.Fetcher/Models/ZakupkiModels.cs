@@ -1085,6 +1085,9 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "treasurySupportContractInfo", Namespace = Ns.Common)]
         public TreasurySupportContractInfo? TreasurySupportContractInfo { get; set; }
+
+        [XmlElement(ElementName = "removeTreasurySupportReasonsInfo", Namespace = Ns.Common)]
+        public RemoveTreasurySupportReasonsInfo? RemoveTreasurySupportReasonsInfo { get; set; }
     }
 
     public class PublicDiscussionInfo
@@ -1121,6 +1124,18 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "nameReason", Namespace = Ns.Common)]
         public string? NameReason { get; set; }
+    }
+
+    public class RemoveTreasurySupportReasonsInfo
+    {
+        [XmlElement(ElementName = "code", Namespace = Ns.Common)]
+        public string? Code { get; set; }
+
+        [XmlElement(ElementName = "nameReason", Namespace = Ns.Common)]
+        public string? NameReason { get; set; }
+
+        [XmlElement(ElementName = "descriptionReason", Namespace = Ns.Common)]
+        public string? DescriptionReason { get; set; }
     }
 
     // ====   ( ) ====
