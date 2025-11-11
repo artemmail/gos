@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs/operators';
 
 import { NoticesService } from './services/notices.service';
-import { NoticeListItem } from './models/notice.models';
+import { NoticeListItem, NoticeListResponse } from './models/notice.models';
 
 @Component({
   selector: 'app-root',
@@ -97,7 +97,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         finalize(() => (this.isLoading = false))
       )
       .subscribe({
-        next: response => {
+        next: (response: NoticeListResponse) => {
           this.notices = response.items;
           this.totalCount = response.totalCount;
           this.pageSize = response.pageSize;

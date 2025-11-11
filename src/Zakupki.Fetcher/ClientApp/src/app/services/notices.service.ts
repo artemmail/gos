@@ -14,8 +14,8 @@ export class NoticesService {
 
   getNotices(query: NoticeQuery): Observable<NoticeListResponse> {
     let params = new HttpParams()
-      .set('page', query.page)
-      .set('pageSize', query.pageSize);
+      .set('page', query.page.toString())
+      .set('pageSize', query.pageSize.toString());
 
     if (query.search) {
       params = params.set('search', query.search);
