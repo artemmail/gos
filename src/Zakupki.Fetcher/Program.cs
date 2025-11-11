@@ -26,6 +26,7 @@ builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddHostedService<DatabaseMigrationHostedService>();
 builder.Services.AddSingleton<NoticeProcessor>();
+builder.Services.AddSingleton<XmlFolderImporter>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

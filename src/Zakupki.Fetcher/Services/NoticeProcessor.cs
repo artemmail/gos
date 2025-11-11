@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +12,7 @@ using Zakupki.EF2020;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
+using Zakupki.Fetcher.Utilities;
 
 namespace Zakupki.Fetcher.Services;
 
@@ -174,7 +174,7 @@ public sealed class NoticeProcessor
         version.IsActive = true;
         version.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
         version.RawXml = document.Content;
-        version.Hash = ComputeHash(document.Content);
+        version.Hash = HashUtilities.ComputeSha256Hex(document.Content);
         version.LastSeenAt = now;
         version.SourceFileName = document.EntryName;
     }
@@ -255,7 +255,7 @@ public sealed class NoticeProcessor
             entity.Url = item.Url;
             entity.SourceFileName = sourceFileName;
             entity.LastSeenAt = now;
-            entity.ContentHash = ComputeHash(Encoding.UTF8.GetBytes(key));
+            entity.ContentHash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(key));
 
             UpdateAttachmentSignatures(dbContext, entity, item.CryptoSigns);
         }
@@ -321,12 +321,5 @@ public sealed class NoticeProcessor
 
             version.LastSeenAt = now;
         }
-    }
-
-    private static string ComputeHash(byte[] data)
-    {
-        using var sha256 = SHA256.Create();
-        var hash = sha256.ComputeHash(data);
-        return Convert.ToHexString(hash);
     }
 }
