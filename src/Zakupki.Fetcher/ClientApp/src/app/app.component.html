@@ -12,7 +12,7 @@
 
       <mat-form-field appearance="outline" class="search-field">
         <mat-label>Поиск</mat-label>
-        <input matInput [formControl]="searchControl" placeholder="Введите номер закупки, площадку или название">
+        <input matInput [formControl]="searchControl" placeholder="Введите номер закупки, площадку, название или описание предмета">
         <button mat-icon-button matSuffix *ngIf="searchControl.value" (click)="searchControl.setValue('')" aria-label="Очистить поиск">
           <mat-icon>close</mat-icon>
         </button>
@@ -33,6 +33,24 @@
             <ng-container matColumnDef="entryName">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="entryName">Название</th>
               <td mat-cell *matCellDef="let element" class="entry-name">{{ element.entryName }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="purchaseObjectInfo">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseObjectInfo">Предмет закупки</th>
+              <td mat-cell *matCellDef="let element" class="entry-name">{{ element.purchaseObjectInfo || '—' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="maxPrice">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="maxPrice">Начальная цена</th>
+              <td mat-cell *matCellDef="let element">
+                <ng-container *ngIf="element.maxPrice !== null && element.maxPrice !== undefined; else noPrice">
+                  {{ element.maxPrice | number: '1.2-2' }}
+                  <span *ngIf="element.maxPriceCurrencyCode">
+                    {{ element.maxPriceCurrencyCode }}
+                  </span>
+                </ng-container>
+                <ng-template #noPrice>—</ng-template>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="publishDate">

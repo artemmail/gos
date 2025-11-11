@@ -58,7 +58,10 @@ public class NoticeDbContext : DbContext
         entity.Property(n => n.EtpUrl).HasMaxLength(512);
         entity.Property(n => n.PurchaseObjectInfo).HasColumnType("nvarchar(max)");
         entity.Property(n => n.Article15FeaturesInfo).HasColumnType("nvarchar(max)");
-        entity.Property(n => n.RawXml).HasColumnType("varbinary(max)");
+        entity.Property(n => n.MaxPrice).HasColumnType("decimal(18,2)");
+        entity.Property(n => n.MaxPriceCurrencyCode).HasMaxLength(32);
+        entity.Property(n => n.MaxPriceCurrencyName).HasMaxLength(128);
+        entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
 
         entity.HasIndex(n => n.PurchaseNumber).HasDatabaseName("IX_Notices_PurchaseNumber");
         entity.HasIndex(n => n.Period).HasDatabaseName("IX_Notices_Period");
@@ -78,7 +81,7 @@ public class NoticeDbContext : DbContext
         entity.Property(v => v.ExternalId).HasMaxLength(128);
         entity.Property(v => v.Hash).HasMaxLength(128);
         entity.Property(v => v.SourceFileName).HasMaxLength(256);
-        entity.Property(v => v.RawXml).HasColumnType("varbinary(max)");
+        entity.Property(v => v.RawJson).HasColumnType("nvarchar(max)");
 
         entity.HasIndex(v => new { v.ExternalId, v.VersionNumber })
             .IsUnique()

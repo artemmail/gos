@@ -2,6 +2,10 @@ export interface NoticeListItem {
   id: string;
   purchaseNumber: string;
   entryName: string;
+  purchaseObjectInfo: string | null;
+  maxPrice: number | null;
+  maxPriceCurrencyCode: string | null;
+  maxPriceCurrencyName: string | null;
   publishDate: string | null;
   etpName: string | null;
   documentType: string;

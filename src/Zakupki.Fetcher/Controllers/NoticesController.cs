@@ -47,7 +47,8 @@ public class NoticesController : ControllerBase
                 EF.Functions.Like(n.PurchaseNumber, likeTerm) ||
                 EF.Functions.Like(n.EntryName, likeTerm) ||
                 (n.EtpName != null && EF.Functions.Like(n.EtpName, likeTerm)) ||
-                (n.DocumentNumber != null && EF.Functions.Like(n.DocumentNumber, likeTerm)));
+                (n.DocumentNumber != null && EF.Functions.Like(n.DocumentNumber, likeTerm)) ||
+                (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)));
         }
 
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
@@ -63,7 +64,7 @@ public class NoticesController : ControllerBase
         var totalCount = await query.CountAsync();
         var skip = (page - 1) * pageSize;
 
-        var items = await query
+            var items = await query
             .Skip(skip)
             .Take(pageSize)
             .Select(n => new NoticeListItemDto(
@@ -77,7 +78,11 @@ public class NoticesController : ControllerBase
                 n.UpdatedAt,
                 n.Region,
                 n.Period,
-                n.PlacingWayName))
+                n.PlacingWayName,
+                n.PurchaseObjectInfo,
+                n.MaxPrice,
+                n.MaxPriceCurrencyCode,
+                n.MaxPriceCurrencyName))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
@@ -117,6 +122,12 @@ public class NoticesController : ControllerBase
             "placingwayname" => descending
                 ? query.OrderByDescending(n => n.PlacingWayName)
                 : query.OrderBy(n => n.PlacingWayName),
+            "purchaseobjectinfo" => descending
+                ? query.OrderByDescending(n => n.PurchaseObjectInfo)
+                : query.OrderBy(n => n.PurchaseObjectInfo),
+            "maxprice" => descending
+                ? query.OrderByDescending(n => n.MaxPrice)
+                : query.OrderBy(n => n.MaxPrice),
             _ => descending
                 ? query.OrderByDescending(n => n.PublishDate)
                     .ThenByDescending(n => n.Id)
@@ -137,6 +148,10 @@ public record NoticeListItemDto(
     DateTime UpdatedAt,
     string? Region,
     string? Period,
-    string? PlacingWayName);
+    string? PlacingWayName,
+    string? PurchaseObjectInfo,
+    decimal? MaxPrice,
+    string? MaxPriceCurrencyCode,
+    string? MaxPriceCurrencyName);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);

@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +26,11 @@ public sealed class NoticeProcessor
 {
     private readonly ILogger<NoticeProcessor> _logger;
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
+
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     public NoticeProcessor(
         ILogger<NoticeProcessor> logger,
@@ -69,6 +76,9 @@ public sealed class NoticeProcessor
             return;
         }
 
+        var contractConditions = notification.NotificationInfo?.ContractConditionsInfo;
+        var serializedNotification = JsonSerializer.Serialize(notification, JsonSerializerOptions);
+
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var now = DateTime.UtcNow;
 
@@ -83,7 +93,7 @@ public sealed class NoticeProcessor
             };
         }
 
-        MapNotice(notice!, document, notification, commonInfo, externalId, now);
+        MapNotice(notice!, document, notification, commonInfo, contractConditions, serializedNotification, externalId, now);
 
         if (isNewNotice)
         {
@@ -110,7 +120,7 @@ public sealed class NoticeProcessor
             dbContext.NoticeVersions.Add(version);
         }
 
-        MapNoticeVersion(version!, document, notification, externalId, now);
+        MapNoticeVersion(version!, document, serializedNotification, notification, externalId, now);
         UpdateProcedureWindow(version!, notification.NotificationInfo?.ProcedureInfo);
         UpdateAttachments(dbContext, version!, notification.AttachmentsInfo?.Items, document.EntryName, now);
         await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
@@ -135,6 +145,8 @@ public sealed class NoticeProcessor
         NoticeDocument document,
         EpNotificationEf2020 notification,
         CommonInfo commonInfo,
+        ContractConditionsInfo? contractConditions,
+        string serializedNotification,
         string externalId,
         DateTime now)
     {
@@ -158,13 +170,17 @@ public sealed class NoticeProcessor
         notice.ContractConclusionOnSt83Ch2 = commonInfo.ContractConclusionOnSt83Ch2;
         notice.PurchaseObjectInfo = commonInfo.PurchaseObjectInfo;
         notice.Article15FeaturesInfo = commonInfo.Article15FeaturesInfo;
-        notice.RawXml = document.Content;
+        notice.MaxPrice = contractConditions?.MaxPriceInfo?.MaxPrice;
+        notice.MaxPriceCurrencyCode = contractConditions?.MaxPriceInfo?.Currency?.Code;
+        notice.MaxPriceCurrencyName = contractConditions?.MaxPriceInfo?.Currency?.Name;
+        notice.RawJson = serializedNotification;
         notice.UpdatedAt = now;
     }
 
     private static void MapNoticeVersion(
         NoticeVersion version,
         NoticeDocument document,
+        string serializedNotification,
         EpNotificationEf2020 notification,
         string externalId,
         DateTime now)
@@ -173,8 +189,8 @@ public sealed class NoticeProcessor
         version.VersionNumber = notification.VersionNumber;
         version.IsActive = true;
         version.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
-        version.RawXml = document.Content;
-        version.Hash = HashUtilities.ComputeSha256Hex(document.Content);
+        version.RawJson = serializedNotification;
+        version.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
         version.LastSeenAt = now;
         version.SourceFileName = document.EntryName;
     }

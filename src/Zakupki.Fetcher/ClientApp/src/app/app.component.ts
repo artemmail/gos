@@ -17,6 +17,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   displayedColumns: string[] = [
     'purchaseNumber',
     'entryName',
+    'purchaseObjectInfo',
+    'maxPrice',
     'publishDate',
     'etpName',
     'documentType',
