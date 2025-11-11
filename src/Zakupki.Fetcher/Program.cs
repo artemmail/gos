@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Zakupki.Fetcher;
+using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
 
@@ -13,6 +15,15 @@ builder.Configuration
 
 builder.Services.Configure<ZakupkiOptions>(builder.Configuration.GetSection("Zakupki"));
 builder.Services.AddHttpClient<ZakupkiClient>();
+var connectionString = builder.Configuration.GetConnectionString("Default");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'Default' is not configured.");
+}
+
+builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
+    options.UseSqlServer(connectionString));
 builder.Services.AddSingleton<NoticeProcessor>();
 builder.Services.AddHostedService<Worker>();
 
