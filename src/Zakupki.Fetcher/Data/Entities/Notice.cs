@@ -47,7 +47,13 @@ public class Notice
 
     public string? Article15FeaturesInfo { get; set; }
 
-    public byte[]? RawXml { get; set; }
+    public decimal? MaxPrice { get; set; }
+
+    public string? MaxPriceCurrencyCode { get; set; }
+
+    public string? MaxPriceCurrencyName { get; set; }
+
+    public string? RawJson { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

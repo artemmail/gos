@@ -155,8 +155,19 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<string>("PurchaseObjectInfo")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<byte[]>("RawXml")
-                        .HasColumnType("varbinary(max)");
+                    b.Property<decimal?>("MaxPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MaxPriceCurrencyCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("MaxPriceCurrencyName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("RawJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Region")
                         .HasMaxLength(128)
@@ -316,8 +327,8 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<Guid>("NoticeId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<byte[]>("RawXml")
-                        .HasColumnType("varbinary(max)");
+                    b.Property<string>("RawJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SourceFileName")
                         .HasMaxLength(256)

@@ -17,7 +17,7 @@ public class NoticeVersion
 
     public DateTime VersionReceivedAt { get; set; }
 
-    public byte[]? RawXml { get; set; }
+    public string? RawJson { get; set; }
 
     public string? Hash { get; set; }
 
