@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.SpaServices.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
@@ -30,26 +32,63 @@ builder.Services.AddHostedService<Worker>();
 
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin()
+    options.AddPolicy("ClientApp", policy =>
+        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Zakupki API",
+        Version = "v1",
+        Description = "REST API для работы с закупками"
+    });
+});
+builder.Services.AddSpaStaticFiles(configuration =>
+{
+    configuration.RootPath = "ClientApp/dist";
+});
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Zakupki API v1");
+    options.RoutePrefix = "swagger";
+});
+
+app.UseStaticFiles();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseSpaStaticFiles();
 }
 
-app.UseCors();
+app.UseRouting();
+app.UseCors("ClientApp");
 
 app.MapControllers();
+
+app.MapWhen(context =>
+        !context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Path.StartsWithSegments("/swagger"),
+    builder =>
+    {
+        builder.UseSpa(spa =>
+        {
+            spa.Options.SourcePath = "ClientApp";
+
+            if (app.Environment.IsDevelopment())
+            {
+                spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
+            }
+        });
+    });
 
 await app.RunAsync();
