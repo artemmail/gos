@@ -1195,6 +1195,9 @@ namespace Zakupki.EF2020
     {
         [XmlElement(ElementName = "externalPrescription", Namespace = Ns.EPtypes)]
         public ExternalPrescription? ExternalPrescription { get; set; }
+
+        [XmlElement(ElementName = "reestrPrescription", Namespace = Ns.EPtypes)]
+        public ReestrPrescription? ReestrPrescription { get; set; }
     }
 
     public class ExternalPrescription
@@ -1207,6 +1210,21 @@ namespace Zakupki.EF2020
 
         [XmlElement(ElementName = "prescriptionProperty", Namespace = Ns.EPtypes)]
         public PrescriptionProperty PrescriptionProperty { get; set; }
+    }
+
+    public class ReestrPrescription
+    {
+        [XmlElement(ElementName = "regNumber", Namespace = Ns.EPtypes)]
+        public string? RegNumber { get; set; }
+
+        [XmlElement(ElementName = "prescriptionNumber", Namespace = Ns.EPtypes)]
+        public string? PrescriptionNumber { get; set; }
+
+        [XmlElement(ElementName = "authorityName", Namespace = Ns.EPtypes)]
+        public string? AuthorityName { get; set; }
+
+        [XmlElement(ElementName = "docDate", Namespace = Ns.EPtypes, DataType = "string")]
+        public string? DocDateRaw { get; set; }
     }
 
     public class PrescriptionProperty
