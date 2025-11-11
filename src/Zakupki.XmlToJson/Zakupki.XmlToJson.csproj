@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../Zakupki.Fetcher/Models/ZakupkiModels.cs" Link="Models/ZakupkiModels.cs" />
+    <Compile Include="../Zakupki.Fetcher/Models/**/*.cs">
+      <Link>Models/%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
   </ItemGroup>
 </Project>
