@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.SpaServices.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
@@ -8,6 +9,12 @@ using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseDefaultServiceProvider((context, options) =>
+{
+    options.ValidateScopes = context.HostingEnvironment.IsDevelopment();
+    options.ValidateOnBuild = true;
+});
 
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
@@ -40,7 +47,7 @@ builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
 
 builder.Services.AddHostedService<DatabaseMigrationHostedService>();
 builder.Services.AddSingleton<NoticeProcessor>();
-builder.Services.AddSingleton<XmlFolderImporter>();
+builder.Services.AddScoped<XmlFolderImporter>();
 builder.Services.AddHostedService<Worker>();
 
 builder.Services.AddCors(options =>

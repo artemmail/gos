@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,59 +16,67 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly ZakupkiClient _client;
     private readonly NoticeProcessor _processor;
-    private readonly XmlFolderImporter _xmlImporter;
     private readonly IOptionsMonitor<ZakupkiOptions> _optionsMonitor;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public Worker(
         ILogger<Worker> logger,
         ZakupkiClient client,
         NoticeProcessor processor,
-        XmlFolderImporter xmlImporter,
-        IOptionsMonitor<ZakupkiOptions> options)
+        IOptionsMonitor<ZakupkiOptions> options,
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _client = client;
         _processor = processor;
-        _xmlImporter = xmlImporter;
         _optionsMonitor = options;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Worker starting...");
         var hasImportedFromFolder = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
             var options = _optionsMonitor.CurrentValue;
+            var interval = Math.Max(1, options.IntervalMinutes);
             var importedFromFolder = false;
-
-            if (!hasImportedFromFolder)
-            {
-                importedFromFolder = await _xmlImporter.ImportAsync(options.XmlImportDirectory, stoppingToken);
-                hasImportedFromFolder = true;
-            }
-
-            if (string.IsNullOrWhiteSpace(options.Token))
-            {
-                if (!importedFromFolder)
-                {
-                    _logger.LogWarning("Zakupki token is not configured. Set Zakupki:Token in appsettings.json or environment variables.");
-                }
-                else
-                {
-                    _logger.LogInformation("Zakupki token is not configured. Remote fetch will be skipped until the token is provided.");
-                }
-
-                if (!await WaitForNextCycleAsync(Math.Max(1, options.IntervalMinutes), stoppingToken, true))
-                {
-                    break;
-                }
-
-                continue;
-            }
 
             try
             {
+                if (!hasImportedFromFolder)
+                {
+                    if (!string.IsNullOrWhiteSpace(options.XmlImportDirectory))
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var xmlImporter = scope.ServiceProvider.GetRequiredService<XmlFolderImporter>();
+                        importedFromFolder = await xmlImporter.ImportAsync(options.XmlImportDirectory, stoppingToken);
+                    }
+
+                    hasImportedFromFolder = true;
+                }
+
+                if (string.IsNullOrWhiteSpace(options.Token))
+                {
+                    if (!importedFromFolder)
+                    {
+                        _logger.LogWarning("Zakupki token is not configured. Set Zakupki:Token in appsettings.json or environment variables.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Zakupki token is not configured. Remote fetch will be skipped until the token is provided.");
+                    }
+
+                    if (!await WaitForNextCycleAsync(interval, stoppingToken, true))
+                    {
+                        break;
+                    }
+
+                    continue;
+                }
+
                 await FetchOnceAsync(options, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -76,14 +85,25 @@ public class Worker : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error during fetch cycle");
+                _logger.LogError(ex, "Unhandled exception in Worker loop");
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
 
-            if (!await WaitForNextCycleAsync(options.IntervalMinutes, stoppingToken, false))
+            if (!await WaitForNextCycleAsync(interval, stoppingToken, false))
             {
                 break;
             }
         }
+
+        _logger.LogInformation("Worker stopped.");
     }
 
     private async Task<bool> WaitForNextCycleAsync(int intervalMinutes, CancellationToken stoppingToken, bool isWaitingForToken)
