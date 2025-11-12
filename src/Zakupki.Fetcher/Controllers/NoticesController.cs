@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Zakupki.Fetcher.Data;
@@ -19,6 +20,7 @@ public class NoticesController : ControllerBase
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly ILogger<NoticesController> _logger;
+    private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
@@ -187,6 +189,32 @@ public class NoticesController : ControllerBase
         }
     }
 
+    [HttpGet("attachments/{attachmentId:guid}/content")]
+    public async Task<IActionResult> GetAttachmentContent(
+        Guid attachmentId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var attachment = await context.NoticeAttachments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken);
+
+        if (attachment is null)
+        {
+            return NotFound();
+        }
+
+        if (attachment.BinaryContent is null || attachment.BinaryContent.Length == 0)
+        {
+            return BadRequest(new { message = "Файл отсутствует в базе данных. Используйте кнопку \"Скачать недостающие\"." });
+        }
+
+        var downloadFileName = FileNameHelper.SanitizeFileName(attachment.FileName);
+        var contentType = GetContentType(downloadFileName);
+
+        return File(attachment.BinaryContent, contentType, downloadFileName);
+    }
+
     [HttpPost("{noticeId:guid}/attachments/download-missing")]
     public async Task<ActionResult<AttachmentDownloadResultDto>> DownloadMissingAttachments(
         Guid noticeId,
@@ -316,6 +344,16 @@ public class NoticesController : ControllerBase
                 : query.OrderBy(n => n.PublishDate)
                     .ThenBy(n => n.Id)
         };
+    }
+
+    private static string GetContentType(string fileName)
+    {
+        if (ContentTypeProvider.TryGetContentType(fileName, out var contentType))
+        {
+            return contentType;
+        }
+
+        return "application/octet-stream";
     }
 }
 

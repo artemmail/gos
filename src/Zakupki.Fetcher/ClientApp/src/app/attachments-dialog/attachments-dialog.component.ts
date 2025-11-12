@@ -67,6 +67,11 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
   }
 
   downloadAttachment(attachment: NoticeAttachment): void {
+    if (!attachment.hasBinaryContent) {
+      this.errorMessage = 'Файл отсутствует в базе данных. Используйте кнопку «Скачать недостающие».';
+      return;
+    }
+
     this.downloadingAttachmentId = attachment.id;
     this.errorMessage = '';
     this.infoMessage = '';
@@ -78,11 +83,9 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
         finalize(() => (this.downloadingAttachmentId = null))
       )
       .subscribe({
-        next: updatedAttachment => {
-          this.attachments = this.attachments.map(item =>
-            item.id === updatedAttachment.id ? updatedAttachment : item
-          );
-          this.infoMessage = `Файл «${updatedAttachment.fileName}» успешно загружен.`;
+        next: blob => {
+          this.saveFile(blob, attachment.fileName);
+          this.infoMessage = `Скачивание файла «${attachment.fileName}» началось.`;
         },
         error: error => {
           const message = error?.error?.message || 'Не удалось скачать вложение.';
@@ -120,5 +123,16 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
 
   get hasMissingAttachments(): boolean {
     return this.attachments.some(attachment => !attachment.hasBinaryContent);
+  }
+
+  private saveFile(blob: Blob, fileName?: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName && fileName.trim().length > 0 ? fileName : 'attachment';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 }
