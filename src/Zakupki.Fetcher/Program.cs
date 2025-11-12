@@ -1,10 +1,15 @@
+using System.Net;
 using Microsoft.AspNetCore.SpaServices.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
+
+var testDownloadUrl = "https://zakupki.gov.ru/44fz/filestore/public/1.0/download/priz/file.html?uid=22C3EEB080BC4AA9BD4A54A0C3E8DA4A";
+Console.WriteLine($"Download test URL: {testDownloadUrl}");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +19,18 @@ builder.Configuration
     .AddEnvironmentVariables();
 
 builder.Services.Configure<ZakupkiOptions>(builder.Configuration.GetSection("Zakupki"));
+builder.Services.AddSingleton(new CookieContainer());
+builder.Services
+    .AddHttpClient<AttachmentDownloadService>()
+    .ConfigurePrimaryHttpMessageHandler(sp => new HttpClientHandler
+    {
+        AllowAutoRedirect = true,
+        MaxAutomaticRedirections = 10,
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+        UseCookies = true,
+        CookieContainer = sp.GetRequiredService<CookieContainer>()
+    });
+
 builder.Services.AddHttpClient<ZakupkiClient>();
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
