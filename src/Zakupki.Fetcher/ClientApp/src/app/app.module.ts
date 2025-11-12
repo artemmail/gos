@@ -6,9 +6,10 @@ import { ReactiveFormsModule } from '@angular/forms';
 
 import { AppComponent } from './app.component';
 import { MaterialModule } from './material.module';
+import { AttachmentsDialogComponent } from './attachments-dialog/attachments-dialog.component';
 
 @NgModule({
-  declarations: [AppComponent],
+  declarations: [AppComponent, AttachmentsDialogComponent],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,

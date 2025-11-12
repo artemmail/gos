@@ -1,0 +1,100 @@
+.dialog-subtitle {
+  margin: 0 0 16px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.table-container {
+  position: relative;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.attachments-table {
+  width: 100%;
+}
+
+.file-name {
+  font-weight: 500;
+}
+
+.file-meta {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-cell mat-icon {
+  margin-right: 8px;
+}
+
+.status-cell mat-icon.downloaded {
+  color: #2e7d32;
+}
+
+.status-cell mat-icon.missing {
+  color: #c62828;
+}
+
+.status-cell span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-container .loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.message.info {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.message.error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.no-attachments {
+  margin: 24px 0;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.no-attachments mat-icon {
+  display: block;
+  margin: 0 auto 8px;
+}
