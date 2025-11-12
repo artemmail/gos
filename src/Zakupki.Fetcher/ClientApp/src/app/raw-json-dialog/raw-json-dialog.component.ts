@@ -14,6 +14,9 @@ export class RawJsonDialogComponent implements OnInit {
   readonly treeControl = new NestedTreeControl<JsonTreeNode>(node => node.children ?? []);
   readonly dataSource = new MatTreeNestedDataSource<JsonTreeNode>();
   parseError = '';
+  isFullscreen = false;
+
+  private readonly fullscreenPanelClass = 'raw-json-dialog-panel-fullscreen';
 
   constructor(
     private readonly dialogRef: MatDialogRef<RawJsonDialogComponent>,
@@ -26,6 +29,18 @@ export class RawJsonDialogComponent implements OnInit {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  toggleFullscreen(): void {
+    this.isFullscreen = !this.isFullscreen;
+
+    if (this.isFullscreen) {
+      this.dialogRef.addPanelClass(this.fullscreenPanelClass);
+      this.dialogRef.updatePosition({ top: '0', left: '0' });
+    } else {
+      this.dialogRef.removePanelClass(this.fullscreenPanelClass);
+      this.dialogRef.updatePosition();
+    }
   }
 
   hasChild = (_: number, node: JsonTreeNode) => !!node.children && node.children.length > 0;

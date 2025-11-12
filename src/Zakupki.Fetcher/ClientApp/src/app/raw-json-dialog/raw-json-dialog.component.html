@@ -1,4 +1,14 @@
-<h2 mat-dialog-title>JSON закупки {{ data.purchaseNumber }}</h2>
+<div mat-dialog-title class="dialog-title">
+  <h2 class="dialog-title-text">JSON закупки {{ data.purchaseNumber }}</h2>
+  <button
+    mat-icon-button
+    type="button"
+    (click)="toggleFullscreen()"
+    [attr.aria-label]="isFullscreen ? 'Свернуть диалог' : 'Развернуть диалог на весь экран'"
+  >
+    <mat-icon>{{ isFullscreen ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+  </button>
+</div>
 
 <mat-dialog-content class="dialog-content">
   <div class="entry-name" *ngIf="data.entryName">{{ data.entryName }}</div>

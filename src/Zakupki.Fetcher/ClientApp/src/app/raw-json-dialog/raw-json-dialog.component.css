@@ -1,8 +1,23 @@
+.dialog-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dialog-title-text {
+  margin: 0;
+}
+
 .dialog-content {
   max-height: 70vh;
   overflow: auto;
   padding-top: 8px;
   box-sizing: border-box;
+}
+
+:host-context(.raw-json-dialog-panel-fullscreen) .dialog-content {
+  max-height: calc(100vh - 160px);
 }
 
 .entry-name {
