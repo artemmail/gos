@@ -33,7 +33,10 @@
           <span class="node-key">{{ node.key }}</span>
           <span class="node-meta" *ngIf="node.type === 'array'">[{{ node.children?.length || 0 }}]</span>
         </div>
-        <div class="node-children" *ngIf="treeControl.isExpanded(node)">
+        <div
+          class="node-children"
+          [class.node-children-hidden]="!treeControl.isExpanded(node)"
+        >
           <ng-container matTreeNodeOutlet></ng-container>
         </div>
       </mat-nested-tree-node>
