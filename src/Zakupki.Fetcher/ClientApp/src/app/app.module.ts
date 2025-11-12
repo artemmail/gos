@@ -7,9 +7,10 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { AppComponent } from './app.component';
 import { MaterialModule } from './material.module';
 import { AttachmentsDialogComponent } from './attachments-dialog/attachments-dialog.component';
+import { RawJsonDialogComponent } from './raw-json-dialog/raw-json-dialog.component';
 
 @NgModule({
-  declarations: [AppComponent, AttachmentsDialogComponent],
+  declarations: [AppComponent, AttachmentsDialogComponent, RawJsonDialogComponent],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,

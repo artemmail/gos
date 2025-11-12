@@ -1,0 +1,46 @@
+.dialog-content {
+  max-height: 70vh;
+  overflow: auto;
+  padding-top: 8px;
+  box-sizing: border-box;
+}
+
+.entry-name {
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.parse-error {
+  color: #d32f2f;
+}
+
+.json-tree {
+  background-color: #f8f9fb;
+  border-radius: 4px;
+  padding: 8px 0;
+}
+
+.node-header {
+  display: flex;
+  align-items: center;
+}
+
+.node-key {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.node-value {
+  font-family: 'Roboto Mono', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.node-meta {
+  color: rgba(0, 0, 0, 0.6);
+  margin-left: 4px;
+}
+
+.node-children {
+  margin-left: 12px;
+}

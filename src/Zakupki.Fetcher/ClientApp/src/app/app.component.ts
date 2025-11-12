@@ -10,6 +10,8 @@ import { NoticesService } from './services/notices.service';
 import { NoticeListItem, NoticeListResponse } from './models/notice.models';
 import { AttachmentsDialogComponent } from './attachments-dialog/attachments-dialog.component';
 import { AttachmentDialogData } from './models/attachment.models';
+import { RawJsonDialogComponent } from './raw-json-dialog/raw-json-dialog.component';
+import { RawJsonDialogData } from './models/raw-json.models';
 
 @Component({
   selector: 'app-root',
@@ -19,7 +21,6 @@ import { AttachmentDialogData } from './models/attachment.models';
 export class AppComponent implements AfterViewInit, OnDestroy {
   displayedColumns: string[] = [
     'purchaseNumber',
-    'entryName',
     'purchaseObjectInfo',
     'maxPrice',
     'publishDate',
@@ -27,6 +28,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     'documentType',
     'source',
     'updatedAt',
+    'rawJson',
     'attachments'
   ];
 
@@ -126,6 +128,24 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     this.dialog.open(AttachmentsDialogComponent, {
       width: '900px',
+      data
+    });
+  }
+
+  openRawJson(notice: NoticeListItem): void {
+    if (!notice.rawJson) {
+      return;
+    }
+
+    const data: RawJsonDialogData = {
+      purchaseNumber: notice.purchaseNumber,
+      entryName: notice.entryName,
+      rawJson: notice.rawJson
+    };
+
+    this.dialog.open(RawJsonDialogComponent, {
+      width: '800px',
+      maxWidth: '95vw',
       data
     });
   }

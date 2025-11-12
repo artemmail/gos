@@ -98,7 +98,8 @@ public class NoticesController : ControllerBase
                 n.PurchaseObjectInfo,
                 n.MaxPrice,
                 n.MaxPriceCurrencyCode,
-                n.MaxPriceCurrencyName))
+                n.MaxPriceCurrencyName,
+                n.RawJson))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
@@ -372,7 +373,8 @@ public record NoticeListItemDto(
     string? PurchaseObjectInfo,
     decimal? MaxPrice,
     string? MaxPriceCurrencyCode,
-    string? MaxPriceCurrencyName);
+    string? MaxPriceCurrencyName,
+    string? RawJson);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 

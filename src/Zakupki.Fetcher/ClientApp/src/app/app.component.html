@@ -30,11 +30,6 @@
               <td mat-cell *matCellDef="let element">{{ element.purchaseNumber }}</td>
             </ng-container>
 
-            <ng-container matColumnDef="entryName">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="entryName">Название</th>
-              <td mat-cell *matCellDef="let element" class="entry-name">{{ element.entryName }}</td>
-            </ng-container>
-
             <ng-container matColumnDef="purchaseObjectInfo">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseObjectInfo">Предмет закупки</th>
               <td mat-cell *matCellDef="let element" class="entry-name">{{ element.purchaseObjectInfo || '—' }}</td>
@@ -76,6 +71,20 @@
             <ng-container matColumnDef="updatedAt">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="updatedAt">Обновлено</th>
               <td mat-cell *matCellDef="let element">{{ element.updatedAt | date: 'short' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="rawJson">
+              <th mat-header-cell *matHeaderCellDef>JSON</th>
+              <td mat-cell *matCellDef="let element">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  (click)="openRawJson(element)"
+                  [disabled]="!element.rawJson">
+                  <mat-icon fontIcon="code"></mat-icon>
+                  <span>Просмотр</span>
+                </button>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="attachments">

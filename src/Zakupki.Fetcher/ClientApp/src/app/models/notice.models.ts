@@ -14,6 +14,7 @@ export interface NoticeListItem {
   region: string | null;
   period: string | null;
   placingWayName: string | null;
+  rawJson: string | null;
 }
 
 export interface NoticeListResponse {
