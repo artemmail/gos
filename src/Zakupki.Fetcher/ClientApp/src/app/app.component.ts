@@ -2,11 +2,14 @@ import { AfterViewInit, Component, OnDestroy, ViewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
+import { MatDialog } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs/operators';
 
 import { NoticesService } from './services/notices.service';
 import { NoticeListItem, NoticeListResponse } from './models/notice.models';
+import { AttachmentsDialogComponent } from './attachments-dialog/attachments-dialog.component';
+import { AttachmentDialogData } from './models/attachment.models';
 
 @Component({
   selector: 'app-root',
@@ -23,7 +26,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     'etpName',
     'documentType',
     'source',
-    'updatedAt'
+    'updatedAt',
+    'attachments'
   ];
 
   notices: NoticeListItem[] = [];
@@ -39,7 +43,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
-  constructor(private readonly noticesService: NoticesService) {}
+  constructor(
+    private readonly noticesService: NoticesService,
+    private readonly dialog: MatDialog
+  ) {}
 
   ngAfterViewInit(): void {
     this.sort.sortChange
@@ -108,5 +115,18 @@ export class AppComponent implements AfterViewInit, OnDestroy {
           this.errorMessage = 'Не удалось загрузить данные. Попробуйте позже.';
         }
       });
+  }
+
+  openAttachments(notice: NoticeListItem): void {
+    const data: AttachmentDialogData = {
+      noticeId: notice.id,
+      purchaseNumber: notice.purchaseNumber,
+      entryName: notice.entryName
+    };
+
+    this.dialog.open(AttachmentsDialogComponent, {
+      width: '900px',
+      data
+    });
   }
 }

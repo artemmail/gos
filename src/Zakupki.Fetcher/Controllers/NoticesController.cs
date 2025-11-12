@@ -1,7 +1,13 @@
+using System.IO;
+using System.Net.Http;
+using System.Threading;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
+using Zakupki.Fetcher.Utilities;
 
 namespace Zakupki.Fetcher.Controllers;
 
@@ -10,10 +16,17 @@ namespace Zakupki.Fetcher.Controllers;
 public class NoticesController : ControllerBase
 {
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<NoticesController> _logger;
 
-    public NoticesController(IDbContextFactory<NoticeDbContext> dbContextFactory)
+    public NoticesController(
+        IDbContextFactory<NoticeDbContext> dbContextFactory,
+        IHttpClientFactory httpClientFactory,
+        ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -89,6 +102,191 @@ public class NoticesController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{noticeId:guid}/attachments")]
+    public async Task<ActionResult<IReadOnlyCollection<NoticeAttachmentDto>>> GetAttachments(
+        Guid noticeId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var attachments = await context.NoticeAttachments
+            .AsNoTracking()
+            .Where(a => a.NoticeVersion.NoticeId == noticeId)
+            .OrderBy(a => a.FileName)
+            .Select(a => new NoticeAttachmentDto(
+                a.Id,
+                a.PublishedContentId,
+                a.FileName,
+                a.FileSize,
+                a.Description,
+                a.DocumentDate,
+                a.DocumentKindCode,
+                a.DocumentKindName,
+                a.Url,
+                a.SourceFileName,
+                a.InsertedAt,
+                a.LastSeenAt,
+                a.BinaryContent != null))
+            .ToListAsync(cancellationToken);
+
+        if (attachments.Count == 0)
+        {
+            var noticeExists = await context.Notices
+                .AsNoTracking()
+                .AnyAsync(n => n.Id == noticeId, cancellationToken);
+
+            if (!noticeExists)
+            {
+                return NotFound();
+            }
+        }
+
+        return Ok(attachments);
+    }
+
+    [HttpPost("attachments/{attachmentId:guid}/download")]
+    public async Task<ActionResult<NoticeAttachmentDto>> DownloadAttachment(
+        Guid attachmentId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var attachment = await context.NoticeAttachments
+            .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken);
+
+        if (attachment is null)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(attachment.Url))
+        {
+            return BadRequest(new { message = "Для вложения отсутствует ссылка на скачивание." });
+        }
+
+        var httpClient = _httpClientFactory.CreateClient();
+
+        try
+        {
+            var content = await DownloadAttachmentContentAsync(httpClient, attachment.Url!, cancellationToken);
+            UpdateAttachmentContent(attachment, content);
+            await context.SaveChangesAsync(cancellationToken);
+            return Ok(MapAttachment(attachment));
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to download attachment {AttachmentId} from {AttachmentUrl}", attachment.Id, attachment.Url);
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Не удалось скачать файл с удаленного сервера." });
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Failed to read attachment content for {AttachmentId}", attachment.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Не удалось обработать содержимое файла." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while downloading attachment {AttachmentId}", attachment.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Произошла непредвиденная ошибка при скачивании файла." });
+        }
+    }
+
+    [HttpPost("{noticeId:guid}/attachments/download-missing")]
+    public async Task<ActionResult<AttachmentDownloadResultDto>> DownloadMissingAttachments(
+        Guid noticeId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var attachments = await context.NoticeAttachments
+            .Where(a => a.NoticeVersion.NoticeId == noticeId && a.BinaryContent == null)
+            .ToListAsync(cancellationToken);
+
+        if (attachments.Count == 0)
+        {
+            var exists = await context.Notices
+                .AsNoTracking()
+                .AnyAsync(n => n.Id == noticeId, cancellationToken);
+
+            if (!exists)
+            {
+                return NotFound();
+            }
+
+            return Ok(new AttachmentDownloadResultDto(0, 0, 0));
+        }
+
+        var httpClient = _httpClientFactory.CreateClient();
+        var downloaded = 0;
+        var failed = 0;
+
+        foreach (var attachment in attachments)
+        {
+            if (string.IsNullOrWhiteSpace(attachment.Url))
+            {
+                failed++;
+                continue;
+            }
+
+            try
+            {
+                var content = await DownloadAttachmentContentAsync(httpClient, attachment.Url!, cancellationToken);
+                UpdateAttachmentContent(attachment, content);
+                downloaded++;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException)
+            {
+                failed++;
+                _logger.LogWarning(ex, "Failed to download attachment {AttachmentId} from {AttachmentUrl}", attachment.Id, attachment.Url);
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger.LogError(ex, "Unexpected error while downloading attachment {AttachmentId}", attachment.Id);
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Ok(new AttachmentDownloadResultDto(attachments.Count, downloaded, failed));
+    }
+
+    private static NoticeAttachmentDto MapAttachment(NoticeAttachment attachment)
+    {
+        return new NoticeAttachmentDto(
+            attachment.Id,
+            attachment.PublishedContentId,
+            attachment.FileName,
+            attachment.FileSize,
+            attachment.Description,
+            attachment.DocumentDate,
+            attachment.DocumentKindCode,
+            attachment.DocumentKindName,
+            attachment.Url,
+            attachment.SourceFileName,
+            attachment.InsertedAt,
+            attachment.LastSeenAt,
+            attachment.BinaryContent != null);
+    }
+
+    private static async Task<byte[]> DownloadAttachmentContentAsync(
+        HttpClient httpClient,
+        string url,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var memoryStream = new MemoryStream();
+        await responseStream.CopyToAsync(memoryStream, cancellationToken);
+        return memoryStream.ToArray();
+    }
+
+    private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content)
+    {
+        attachment.BinaryContent = content;
+        attachment.FileSize = content.LongLength;
+        attachment.ContentHash = HashUtilities.ComputeSha256Hex(content);
+        attachment.LastSeenAt = DateTime.UtcNow;
+    }
+
     private static IQueryable<Notice> ApplySorting(IQueryable<Notice> query, string sortField, string sortDirection)
     {
         var descending = sortDirection == "desc";
@@ -155,3 +353,21 @@ public record NoticeListItemDto(
     string? MaxPriceCurrencyName);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
+
+public record NoticeAttachmentDto(
+    Guid Id,
+    string PublishedContentId,
+    string FileName,
+    long? FileSize,
+    string? Description,
+    DateTime? DocumentDate,
+    string? DocumentKindCode,
+    string? DocumentKindName,
+    string? Url,
+    string? SourceFileName,
+    DateTime InsertedAt,
+    DateTime LastSeenAt,
+    bool HasBinaryContent);
+
+public record AttachmentDownloadResultDto(int Total, int Downloaded, int Failed);
+
