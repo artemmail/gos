@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
+using Zakupki.Fetcher.Services;
 using Zakupki.Fetcher.Utilities;
 
 namespace Zakupki.Fetcher.Controllers;
@@ -16,16 +17,16 @@ namespace Zakupki.Fetcher.Controllers;
 public class NoticesController : ControllerBase
 {
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly ILogger<NoticesController> _logger;
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
-        IHttpClientFactory httpClientFactory,
+        AttachmentDownloadService attachmentDownloadService,
         ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
-        _httpClientFactory = httpClientFactory;
+        _attachmentDownloadService = attachmentDownloadService;
         _logger = logger;
     }
 
@@ -162,11 +163,9 @@ public class NoticesController : ControllerBase
             return BadRequest(new { message = "Для вложения отсутствует ссылка на скачивание." });
         }
 
-        var httpClient = _httpClientFactory.CreateClient();
-
         try
         {
-            var content = await DownloadAttachmentContentAsync(httpClient, attachment.Url!, cancellationToken);
+            var content = await _attachmentDownloadService.DownloadAsync(attachment.Url!, cancellationToken: cancellationToken);
             UpdateAttachmentContent(attachment, content);
             await context.SaveChangesAsync(cancellationToken);
             return Ok(MapAttachment(attachment));
@@ -212,7 +211,6 @@ public class NoticesController : ControllerBase
             return Ok(new AttachmentDownloadResultDto(0, 0, 0));
         }
 
-        var httpClient = _httpClientFactory.CreateClient();
         var downloaded = 0;
         var failed = 0;
 
@@ -226,7 +224,7 @@ public class NoticesController : ControllerBase
 
             try
             {
-                var content = await DownloadAttachmentContentAsync(httpClient, attachment.Url!, cancellationToken);
+                var content = await _attachmentDownloadService.DownloadAsync(attachment.Url!, cancellationToken: cancellationToken);
                 UpdateAttachmentContent(attachment, content);
                 downloaded++;
             }
@@ -263,20 +261,6 @@ public class NoticesController : ControllerBase
             attachment.InsertedAt,
             attachment.LastSeenAt,
             attachment.BinaryContent != null);
-    }
-
-    private static async Task<byte[]> DownloadAttachmentContentAsync(
-        HttpClient httpClient,
-        string url,
-        CancellationToken cancellationToken)
-    {
-        using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var memoryStream = new MemoryStream();
-        await responseStream.CopyToAsync(memoryStream, cancellationToken);
-        return memoryStream.ToArray();
     }
 
     private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content)

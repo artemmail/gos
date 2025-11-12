@@ -2,14 +2,10 @@ using System.Net;
 using Microsoft.AspNetCore.SpaServices.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
-
-var testDownloadUrl = "https://zakupki.gov.ru/44fz/filestore/public/1.0/download/priz/file.html?uid=22C3EEB080BC4AA9BD4A54A0C3E8DA4A";
-Console.WriteLine($"Download test URL: {testDownloadUrl}");
 
 var builder = WebApplication.CreateBuilder(args);
 
