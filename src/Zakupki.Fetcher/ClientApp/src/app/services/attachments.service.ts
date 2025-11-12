@@ -16,8 +16,10 @@ export class AttachmentsService {
     return this.http.get<NoticeAttachment[]>(`${this.baseUrl}/${noticeId}/attachments`);
   }
 
-  downloadAttachment(attachmentId: string): Observable<NoticeAttachment> {
-    return this.http.post<NoticeAttachment>(`${this.baseUrl}/attachments/${attachmentId}/download`, {});
+  downloadAttachment(attachmentId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/attachments/${attachmentId}/content`, {
+      responseType: 'blob'
+    });
   }
 
   downloadMissing(noticeId: string): Observable<AttachmentDownloadResult> {

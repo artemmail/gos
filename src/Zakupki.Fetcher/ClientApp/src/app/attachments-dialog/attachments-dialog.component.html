@@ -71,7 +71,7 @@
             mat-stroked-button
             color="primary"
             (click)="downloadAttachment(element)"
-            [disabled]="downloadingAttachmentId === element.id || element.hasBinaryContent"
+            [disabled]="downloadingAttachmentId === element.id || !element.hasBinaryContent"
           >
             <mat-icon fontIcon="download"></mat-icon>
             <span>Скачать</span>
