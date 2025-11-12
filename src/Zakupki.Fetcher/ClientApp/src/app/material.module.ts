@@ -11,6 +11,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatSortModule } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTreeModule } from '@angular/material/tree';
 
 const MATERIAL_MODULES = [
   MatToolbarModule,
@@ -23,7 +24,8 @@ const MATERIAL_MODULES = [
   MatPaginatorModule,
   MatSortModule,
   MatProgressSpinnerModule,
-  MatDialogModule
+  MatDialogModule,
+  MatTreeModule
 ];
 
 @NgModule({
