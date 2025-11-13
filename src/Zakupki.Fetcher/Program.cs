@@ -2,14 +2,15 @@ using Microsoft.AspNetCore.SpaServices.Extensions;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
+using System.IO;
+using System.Net;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
-using Microsoft.Extensions.FileProviders;
-using System.IO;
-using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +80,8 @@ builder.Services.AddSpaStaticFiles(configuration =>
 
 var app = builder.Build();
 
+var isDevelopment = app.Environment.IsDevelopment();
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -90,7 +93,7 @@ app.UseStaticFiles();
 
 StaticFileOptions? spaStaticFileOptions = null;
 
-if (!app.Environment.IsDevelopment())
+if (!isDevelopment)
 {
     var staticFileContentTypeProvider = new FileExtensionContentTypeProvider();
     if (!staticFileContentTypeProvider.Mappings.ContainsKey(".webp"))
@@ -99,21 +102,27 @@ if (!app.Environment.IsDevelopment())
     }
 
     var spaRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-
-    spaStaticFileOptions = new StaticFileOptions
+    if (!Directory.Exists(spaRoot))
     {
-        FileProvider = new PhysicalFileProvider(spaRoot),
-        ContentTypeProvider = staticFileContentTypeProvider
-    };
-
-    var defaultFilesOptions = new DefaultFilesOptions
+        app.Logger.LogWarning("SPA static files directory '{SpaRoot}' was not found. Requests will fall back to API responses only.", spaRoot);
+    }
+    else
     {
-        FileProvider = spaStaticFileOptions.FileProvider
-    };
+        spaStaticFileOptions = new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(spaRoot),
+            ContentTypeProvider = staticFileContentTypeProvider
+        };
 
-    app.UseDefaultFiles(defaultFilesOptions);
-    app.UseStaticFiles(spaStaticFileOptions);
-    app.UseSpaStaticFiles(spaStaticFileOptions);
+        var defaultFilesOptions = new DefaultFilesOptions
+        {
+            FileProvider = spaStaticFileOptions.FileProvider
+        };
+
+        app.UseDefaultFiles(defaultFilesOptions);
+        app.UseStaticFiles(spaStaticFileOptions);
+        app.UseSpaStaticFiles(spaStaticFileOptions);
+    }
 }
 
 app.UseRouting();
@@ -130,11 +139,13 @@ app.MapWhen(context =>
         {
             spa.Options.SourcePath = "ClientApp";
 
-            if (app.Environment.IsDevelopment())
+            if (isDevelopment)
             {
                 spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
+                return;
             }
-            else if (spaStaticFileOptions is not null)
+
+            if (spaStaticFileOptions is not null)
             {
                 spa.Options.DefaultPage = "/index.html";
                 spa.Options.DefaultPageStaticFileOptions = spaStaticFileOptions;
