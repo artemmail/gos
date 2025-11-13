@@ -133,14 +133,16 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   openRawJson(notice: NoticeListItem): void {
-    if (!notice.rawJson) {
+    const rawJson = notice.rawJson;
+
+    if (!rawJson) {
       return;
     }
 
     const data: RawJsonDialogData = {
       purchaseNumber: notice.purchaseNumber,
       entryName: notice.entryName,
-      rawJson: notice.rawJson
+      rawJson
     };
 
     this.dialog.open(RawJsonDialogComponent, {
