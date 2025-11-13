@@ -53,6 +53,14 @@ public class Notice
 
     public string? MaxPriceCurrencyName { get; set; }
 
+    public string? Okpd2Code { get; set; }
+
+    public string? Okpd2Name { get; set; }
+
+    public string? KvrCode { get; set; }
+
+    public string? KvrName { get; set; }
+
     public string? RawJson { get; set; }
 
     public DateTime CreatedAt { get; set; }

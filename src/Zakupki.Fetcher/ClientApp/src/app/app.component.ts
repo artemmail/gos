@@ -22,6 +22,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   displayedColumns: string[] = [
     'purchaseNumber',
     'purchaseObjectInfo',
+    'okpd2Code',
+    'okpd2Name',
+    'kvrCode',
+    'kvrName',
     'maxPrice',
     'publishDate',
     'etpName',

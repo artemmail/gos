@@ -64,7 +64,11 @@ public class NoticesController : ControllerBase
                 EF.Functions.Like(n.EntryName, likeTerm) ||
                 (n.EtpName != null && EF.Functions.Like(n.EtpName, likeTerm)) ||
                 (n.DocumentNumber != null && EF.Functions.Like(n.DocumentNumber, likeTerm)) ||
-                (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)));
+                (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)) ||
+                (n.Okpd2Code != null && EF.Functions.Like(n.Okpd2Code, likeTerm)) ||
+                (n.Okpd2Name != null && EF.Functions.Like(n.Okpd2Name, likeTerm)) ||
+                (n.KvrCode != null && EF.Functions.Like(n.KvrCode, likeTerm)) ||
+                (n.KvrName != null && EF.Functions.Like(n.KvrName, likeTerm)));
         }
 
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
@@ -99,6 +103,10 @@ public class NoticesController : ControllerBase
                 n.MaxPrice,
                 n.MaxPriceCurrencyCode,
                 n.MaxPriceCurrencyName,
+                n.Okpd2Code,
+                n.Okpd2Name,
+                n.KvrCode,
+                n.KvrName,
                 n.RawJson))
             .ToListAsync();
 
@@ -336,6 +344,18 @@ public class NoticesController : ControllerBase
             "purchaseobjectinfo" => descending
                 ? query.OrderByDescending(n => n.PurchaseObjectInfo)
                 : query.OrderBy(n => n.PurchaseObjectInfo),
+            "okpd2code" => descending
+                ? query.OrderByDescending(n => n.Okpd2Code)
+                : query.OrderBy(n => n.Okpd2Code),
+            "okpd2name" => descending
+                ? query.OrderByDescending(n => n.Okpd2Name)
+                : query.OrderBy(n => n.Okpd2Name),
+            "kvrcode" => descending
+                ? query.OrderByDescending(n => n.KvrCode)
+                : query.OrderBy(n => n.KvrCode),
+            "kvrname" => descending
+                ? query.OrderByDescending(n => n.KvrName)
+                : query.OrderBy(n => n.KvrName),
             "maxprice" => descending
                 ? query.OrderByDescending(n => n.MaxPrice)
                 : query.OrderBy(n => n.MaxPrice),
@@ -374,6 +394,10 @@ public record NoticeListItemDto(
     decimal? MaxPrice,
     string? MaxPriceCurrencyCode,
     string? MaxPriceCurrencyName,
+    string? Okpd2Code,
+    string? Okpd2Name,
+    string? KvrCode,
+    string? KvrName,
     string? RawJson);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);

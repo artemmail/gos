@@ -6,6 +6,10 @@ export interface NoticeListItem {
   maxPrice: number | null;
   maxPriceCurrencyCode: string | null;
   maxPriceCurrencyName: string | null;
+  okpd2Code: string | null;
+  okpd2Name: string | null;
+  kvrCode: string | null;
+  kvrName: string | null;
   publishDate: string | null;
   etpName: string | null;
   documentType: string;
