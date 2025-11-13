@@ -1,5 +1,5 @@
-using System.Net;
 using Microsoft.AspNetCore.SpaServices.Extensions;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
@@ -7,6 +7,9 @@ using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
+using Microsoft.Extensions.FileProviders;
+using System.IO;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,7 +74,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddSpaStaticFiles(configuration =>
 {
-    configuration.RootPath = "ClientApp/dist";
+    configuration.RootPath = "wwwroot";
 });
 
 var app = builder.Build();
@@ -85,9 +88,32 @@ app.UseSwaggerUI(options =>
 
 app.UseStaticFiles();
 
+StaticFileOptions? spaStaticFileOptions = null;
+
 if (!app.Environment.IsDevelopment())
 {
-    app.UseSpaStaticFiles();
+    var staticFileContentTypeProvider = new FileExtensionContentTypeProvider();
+    if (!staticFileContentTypeProvider.Mappings.ContainsKey(".webp"))
+    {
+        staticFileContentTypeProvider.Mappings[".webp"] = "image/webp";
+    }
+
+    var spaRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+
+    spaStaticFileOptions = new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(spaRoot),
+        ContentTypeProvider = staticFileContentTypeProvider
+    };
+
+    var defaultFilesOptions = new DefaultFilesOptions
+    {
+        FileProvider = spaStaticFileOptions.FileProvider
+    };
+
+    app.UseDefaultFiles(defaultFilesOptions);
+    app.UseStaticFiles(spaStaticFileOptions);
+    app.UseSpaStaticFiles(spaStaticFileOptions);
 }
 
 app.UseRouting();
@@ -107,6 +133,11 @@ app.MapWhen(context =>
             if (app.Environment.IsDevelopment())
             {
                 spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
+            }
+            else if (spaStaticFileOptions is not null)
+            {
+                spa.Options.DefaultPage = "/index.html";
+                spa.Options.DefaultPageStaticFileOptions = spaStaticFileOptions;
             }
         });
     });

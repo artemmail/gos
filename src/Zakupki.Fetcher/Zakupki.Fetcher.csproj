@@ -4,6 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <PropertyGroup>
+    <SpaRoot>$(MSBuildProjectDirectory)/ClientApp/</SpaRoot>
+    <SpaDistDir>$(SpaRoot)dist/zakupki-fetcher-client/</SpaDistDir>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
@@ -25,4 +29,23 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <Target Name="BuildClientApp" Condition="'$(DesignTimeBuild)' != 'true' and '$(Configuration)' != 'Debug'" BeforeTargets="Build">
+    <Message Importance="high" Text="Building Angular client application..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" Condition="!Exists('$(SpaRoot)node_modules')" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build -- --configuration production --progress false" />
+  </Target>
+  <Target Name="CopyClientAppDist" Condition="'$(DesignTimeBuild)' != 'true' and '$(Configuration)' != 'Debug'" DependsOnTargets="BuildClientApp" AfterTargets="Build" BeforeTargets="Publish">
+    <ItemGroup>
+      <ClientAppDistFiles Include="$(SpaDistDir)**/*.*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(ProjectDir)wwwroot" />
+    <Copy SourceFiles="@(ClientAppDistFiles)" DestinationFiles="@(ClientAppDistFiles->'$(ProjectDir)wwwroot\\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyClientAppDistToPublish" Condition="'$(DesignTimeBuild)' != 'true' and '$(Configuration)' != 'Debug'" DependsOnTargets="BuildClientApp" AfterTargets="Publish">
+    <ItemGroup>
+      <ClientAppDistPublishFiles Include="$(SpaDistDir)**/*.*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PublishDir)wwwroot" />
+    <Copy SourceFiles="@(ClientAppDistPublishFiles)" DestinationFiles="@(ClientAppDistPublishFiles->'$(PublishDir)wwwroot\\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
