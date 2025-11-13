@@ -57,11 +57,25 @@ public sealed class XmlFolderImporter
         var processed = 0;
         var duplicates = 0;
         var errors = 0;
+        var skippedExistingPurchases = 0;
         var seenHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var existingPurchaseNumbers = await LoadExistingPurchaseNumbersAsync(cancellationToken);
 
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (TryExtractPurchaseNumber(file, out var purchaseNumber) &&
+                existingPurchaseNumbers.Contains(purchaseNumber))
+            {
+                skippedExistingPurchases++;
+                _logger.LogDebug(
+                    "Skipping '{File}' because purchase number {PurchaseNumber} already exists in the database",
+                    file,
+                    purchaseNumber);
+                continue;
+            }
 
             byte[] content;
             try
@@ -135,10 +149,11 @@ public sealed class XmlFolderImporter
         }
 
         _logger.LogInformation(
-            "Imported {Processed} XML file(s) from '{Directory}'. Skipped {Skipped} duplicates, encountered {Errors} error(s)",
+            "Imported {Processed} XML file(s) from '{Directory}'. Skipped {Skipped} duplicates, {Existing} existing purchases, encountered {Errors} error(s)",
             processed,
             directory,
             duplicates,
+            skippedExistingPurchases,
             errors);
 
         return true;
@@ -175,5 +190,34 @@ public sealed class XmlFolderImporter
         }
 
         return (documentType, 0, period, relativePath.Replace(Path.DirectorySeparatorChar, '/'));
+    }
+
+    private async Task<HashSet<string>> LoadExistingPurchaseNumbersAsync(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var purchaseNumbers = await dbContext.Notices
+            .AsNoTracking()
+            .Select(n => n.PurchaseNumber)
+            .ToListAsync(cancellationToken);
+
+        return new HashSet<string>(purchaseNumbers, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool TryExtractPurchaseNumber(string file, out string purchaseNumber)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(file);
+        var parts = fileName.Split('_', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            if (part.Length >= 5 && part.All(char.IsDigit))
+            {
+                purchaseNumber = part;
+                return true;
+            }
+        }
+
+        purchaseNumber = string.Empty;
+        return false;
     }
 }
