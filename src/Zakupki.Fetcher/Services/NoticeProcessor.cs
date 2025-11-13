@@ -77,6 +77,7 @@ public sealed class NoticeProcessor
         }
 
         var contractConditions = notification.NotificationInfo?.ContractConditionsInfo;
+        var customerRequirements = notification.NotificationInfo?.CustomerRequirementsInfo;
         var serializedNotification = JsonSerializer.Serialize(notification, JsonSerializerOptions);
 
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -93,7 +94,16 @@ public sealed class NoticeProcessor
             };
         }
 
-        MapNotice(notice!, document, notification, commonInfo, contractConditions, serializedNotification, externalId, now);
+        MapNotice(
+            notice!,
+            document,
+            notification,
+            commonInfo,
+            contractConditions,
+            customerRequirements,
+            serializedNotification,
+            externalId,
+            now);
 
         if (isNewNotice)
         {
@@ -146,6 +156,7 @@ public sealed class NoticeProcessor
         EpNotificationEf2020 notification,
         CommonInfo commonInfo,
         ContractConditionsInfo? contractConditions,
+        CustomerRequirementsInfo? customerRequirements,
         string serializedNotification,
         string externalId,
         DateTime now)
@@ -173,8 +184,108 @@ public sealed class NoticeProcessor
         notice.MaxPrice = contractConditions?.MaxPriceInfo?.MaxPrice;
         notice.MaxPriceCurrencyCode = contractConditions?.MaxPriceInfo?.Currency?.Code;
         notice.MaxPriceCurrencyName = contractConditions?.MaxPriceInfo?.Currency?.Name;
+        var classifiers = ExtractClassificationInfo(customerRequirements);
+        notice.Okpd2Code = classifiers.Okpd2Code;
+        notice.Okpd2Name = classifiers.Okpd2Name;
+        notice.KvrCode = classifiers.KvrCode;
+        notice.KvrName = classifiers.KvrName;
         notice.RawJson = serializedNotification;
         notice.UpdatedAt = now;
+    }
+
+    private static (string? Okpd2Code, string? Okpd2Name, string? KvrCode, string? KvrName) ExtractClassificationInfo(
+        CustomerRequirementsInfo? customerRequirements)
+    {
+        if (customerRequirements?.Items is not { Count: > 0 })
+        {
+            return default;
+        }
+
+        string? okpd2Code = null;
+        string? okpd2Name = null;
+        string? kvrCode = null;
+        string? kvrName = null;
+
+        foreach (var requirement in customerRequirements.Items)
+        {
+            var ikzInfo = requirement.InnerContractConditionsInfo?.IkzInfo;
+            if (ikzInfo is null)
+            {
+                continue;
+            }
+
+            if (okpd2Code is null && okpd2Name is null)
+            {
+                (okpd2Code, okpd2Name) = ExtractOkpd2(ikzInfo.Okpd2Info);
+            }
+
+            if (kvrCode is null && kvrName is null)
+            {
+                (kvrCode, kvrName) = ExtractKvr(ikzInfo.KvrInfo);
+            }
+
+            if ((okpd2Code is not null || okpd2Name is not null) && (kvrCode is not null || kvrName is not null))
+            {
+                break;
+            }
+        }
+
+        return (okpd2Code, okpd2Name, kvrCode, kvrName);
+    }
+
+    private static (string? Code, string? Name) ExtractOkpd2(Okpd2InfoContainer? container)
+    {
+        if (container is null)
+        {
+            return default;
+        }
+
+        var items = container.Items;
+        if (items is not null)
+        {
+            foreach (var okpd2 in items)
+            {
+                var code = TrimToNull(okpd2?.Code);
+                var name = TrimToNull(okpd2?.Name);
+                if (!string.IsNullOrEmpty(code) || !string.IsNullOrEmpty(name))
+                {
+                    return (code, name);
+                }
+            }
+        }
+
+        var undefined = TrimToNull(container.Undefined);
+        if (!string.IsNullOrEmpty(undefined))
+        {
+            return (undefined, null);
+        }
+
+        return default;
+    }
+
+    private static (string? Code, string? Name) ExtractKvr(KvrInfoContainer? container)
+    {
+        if (container?.Items is null)
+        {
+            return default;
+        }
+
+        foreach (var kvr in container.Items)
+        {
+            var code = TrimToNull(kvr?.Code);
+            var name = TrimToNull(kvr?.Name);
+            if (!string.IsNullOrEmpty(code) || !string.IsNullOrEmpty(name))
+            {
+                return (code, name);
+            }
+        }
+
+        return default;
+    }
+
+    private static string? TrimToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private static void MapNoticeVersion(

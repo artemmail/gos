@@ -61,6 +61,10 @@ public class NoticeDbContext : DbContext
         entity.Property(n => n.MaxPrice).HasColumnType("decimal(18,2)");
         entity.Property(n => n.MaxPriceCurrencyCode).HasMaxLength(32);
         entity.Property(n => n.MaxPriceCurrencyName).HasMaxLength(128);
+        entity.Property(n => n.Okpd2Code).HasMaxLength(64);
+        entity.Property(n => n.Okpd2Name).HasMaxLength(512);
+        entity.Property(n => n.KvrCode).HasMaxLength(64);
+        entity.Property(n => n.KvrName).HasMaxLength(512);
         entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
 
         entity.HasIndex(n => n.PurchaseNumber).HasDatabaseName("IX_Notices_PurchaseNumber");
