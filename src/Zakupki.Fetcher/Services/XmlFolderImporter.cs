@@ -43,8 +43,15 @@ public sealed class XmlFolderImporter
             return false;
         }
 
+        var existingPurchaseNumbers = await LoadExistingPurchaseNumbersAsync(cancellationToken);
+
         var files = Directory
             .EnumerateFiles(directory, "*.xml", SearchOption.AllDirectories)
+            .Where(path =>
+            {
+                var parentDir = Path.GetFileName(Path.GetDirectoryName(path));
+                return parentDir != null && !existingPurchaseNumbers.Contains(parentDir);
+            })
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -60,12 +67,13 @@ public sealed class XmlFolderImporter
         var skippedExistingPurchases = 0;
         var seenHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var existingPurchaseNumbers = await LoadExistingPurchaseNumbersAsync(cancellationToken);
+        
 
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            /*
             if (TryExtractPurchaseNumber(file, out var purchaseNumber) &&
                 existingPurchaseNumbers.Contains(purchaseNumber))
             {
@@ -75,7 +83,7 @@ public sealed class XmlFolderImporter
                     file,
                     purchaseNumber);
                 continue;
-            }
+            }*/
 
             byte[] content;
             try
