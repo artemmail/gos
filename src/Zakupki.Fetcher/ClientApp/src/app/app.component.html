@@ -10,13 +10,99 @@
         <p class="subtitle">Поиск, сортировка и навигация по таблице данных о закупках</p>
       </div>
 
-      <mat-form-field appearance="outline" class="search-field">
-        <mat-label>Поиск</mat-label>
-        <input matInput [formControl]="searchControl" placeholder="Введите номер закупки, площадку, название или описание предмета">
-        <button mat-icon-button matSuffix *ngIf="searchControl.value" (click)="searchControl.setValue('')" aria-label="Очистить поиск">
-          <mat-icon>close</mat-icon>
-        </button>
-      </mat-form-field>
+      <form class="filters-form" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <div class="filters-grid">
+          <mat-form-field appearance="outline" class="filter-field full-width">
+            <mat-label>Поиск</mat-label>
+            <input
+              matInput
+              formControlName="search"
+              placeholder="Введите номер закупки, площадку, название или описание предмета"
+            >
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              *ngIf="filtersForm.controls.search.value"
+              (click)="filtersForm.controls.search.setValue('')"
+              aria-label="Очистить поиск"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Номер заявки</mat-label>
+            <input
+              matInput
+              formControlName="purchaseNumber"
+              placeholder="Например, 0123456789"
+            >
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              *ngIf="filtersForm.controls.purchaseNumber.value"
+              (click)="filtersForm.controls.purchaseNumber.setValue('')"
+              aria-label="Очистить номер заявки"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Коды ОКПД2</mat-label>
+            <textarea
+              matInput
+              rows="1"
+              formControlName="okpd2Codes"
+              placeholder="Введите через пробел, запятую или перенос строки"
+            ></textarea>
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              *ngIf="filtersForm.controls.okpd2Codes.value"
+              (click)="filtersForm.controls.okpd2Codes.setValue('')"
+              aria-label="Очистить коды ОКПД2"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+            <mat-hint>Будут найдены записи с любым из указанных кодов</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Коды КВР</mat-label>
+            <textarea
+              matInput
+              rows="1"
+              formControlName="kvrCodes"
+              placeholder="Введите через пробел, запятую или перенос строки"
+            ></textarea>
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              *ngIf="filtersForm.controls.kvrCodes.value"
+              (click)="filtersForm.controls.kvrCodes.setValue('')"
+              aria-label="Очистить коды КВР"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+            <mat-hint>Будут найдены записи с любым из указанных кодов</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="filter-actions">
+          <button mat-raised-button color="primary" type="submit" [disabled]="isLoading">
+            <mat-icon fontIcon="search"></mat-icon>
+            <span>Поиск</span>
+          </button>
+          <button mat-button type="button" (click)="resetFilters()" [disabled]="isLoading">
+            <span>Сбросить</span>
+          </button>
+        </div>
+      </form>
 
       <ng-container *ngIf="!errorMessage; else errorBlock">
         <div class="table-wrapper">

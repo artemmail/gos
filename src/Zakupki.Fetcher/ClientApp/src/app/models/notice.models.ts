@@ -32,6 +32,9 @@ export interface NoticeQuery {
   page: number;
   pageSize: number;
   search?: string;
+  purchaseNumber?: string;
+  okpd2Codes?: string;
+  kvrCodes?: string;
   sortField?: string;
   sortDirection?: string;
 }

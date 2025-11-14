@@ -39,9 +39,28 @@ mat-card {
   color: rgba(0, 0, 0, 0.54);
 }
 
-.search-field {
-  width: 100%;
+.filters-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 16px;
+}
+
+.filters-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.filter-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .table-wrapper {

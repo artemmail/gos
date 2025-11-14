@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
@@ -21,6 +22,7 @@ public class NoticesController : ControllerBase
     private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly ILogger<NoticesController> _logger;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
+    private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
@@ -35,6 +37,9 @@ public class NoticesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<PagedResult<NoticeListItemDto>>> GetNotices(
         [FromQuery] string? search,
+        [FromQuery] string? purchaseNumber,
+        [FromQuery] string? okpd2Codes,
+        [FromQuery] string? kvrCodes,
         [FromQuery] string? sortField,
         [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
@@ -69,6 +74,26 @@ public class NoticesController : ControllerBase
                 (n.Okpd2Name != null && EF.Functions.Like(n.Okpd2Name, likeTerm)) ||
                 (n.KvrCode != null && EF.Functions.Like(n.KvrCode, likeTerm)) ||
                 (n.KvrName != null && EF.Functions.Like(n.KvrName, likeTerm)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(purchaseNumber))
+        {
+            var trimmedNumber = purchaseNumber.Trim();
+            query = query.Where(n => n.PurchaseNumber == trimmedNumber);
+        }
+
+        var okpd2CodeList = ParseCodeList(okpd2Codes);
+
+        if (okpd2CodeList.Count > 0)
+        {
+            query = query.Where(n => n.Okpd2Code != null && okpd2CodeList.Contains(n.Okpd2Code));
+        }
+
+        var kvrCodeList = ParseCodeList(kvrCodes);
+
+        if (kvrCodeList.Count > 0)
+        {
+            query = query.Where(n => n.KvrCode != null && kvrCodeList.Contains(n.KvrCode));
         }
 
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
@@ -298,6 +323,18 @@ public class NoticesController : ControllerBase
             attachment.InsertedAt,
             attachment.LastSeenAt,
             attachment.BinaryContent != null);
+    }
+
+    private static List<string> ParseCodeList(string? rawCodes)
+    {
+        if (string.IsNullOrWhiteSpace(rawCodes))
+        {
+            return new List<string>();
+        }
+
+        return rawCodes
+            .Split(CodeSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
     }
 
     private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content)

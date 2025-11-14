@@ -1,10 +1,10 @@
 import { AfterViewInit, Component, OnDestroy, ViewChild } from '@angular/core';
-import { FormControl } from '@angular/forms';
+import { FormControl, FormGroup } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs/operators';
+import { finalize, takeUntil } from 'rxjs/operators';
 
 import { NoticesService } from './services/notices.service';
 import { NoticeListItem, NoticeListResponse } from './models/notice.models';
@@ -42,7 +42,12 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   isLoading = false;
   errorMessage = '';
 
-  searchControl = new FormControl('');
+  filtersForm = new FormGroup({
+    search: new FormControl<string>('', { nonNullable: true }),
+    purchaseNumber: new FormControl<string>('', { nonNullable: true }),
+    okpd2Codes: new FormControl<string>('', { nonNullable: true }),
+    kvrCodes: new FormControl<string>('', { nonNullable: true })
+  });
 
   private readonly destroy$ = new Subject<void>();
 
@@ -66,17 +71,6 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.loadNotices());
 
-    this.searchControl.valueChanges
-      .pipe(
-        debounceTime(400),
-        distinctUntilChanged(),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(() => {
-        this.paginator.firstPage();
-        this.loadNotices();
-      });
-
     Promise.resolve().then(() => this.loadNotices());
   }
 
@@ -94,7 +88,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     const sortDirection = this.sort?.direction ? this.sort.direction : 'desc';
     const pageIndex = this.paginator?.pageIndex ?? 0;
     const pageSize = this.paginator?.pageSize ?? this.pageSize;
-    const search = this.searchControl.value?.trim();
+    const search = this.getTrimmedValue(this.filtersForm.controls.search);
+    const purchaseNumber = this.getTrimmedValue(this.filtersForm.controls.purchaseNumber);
+    const okpd2Codes = this.getNormalizedCodes(this.filtersForm.controls.okpd2Codes);
+    const kvrCodes = this.getNormalizedCodes(this.filtersForm.controls.kvrCodes);
 
     this.isLoading = true;
     this.errorMessage = '';
@@ -104,6 +101,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         page: pageIndex + 1,
         pageSize,
         search: search || undefined,
+        purchaseNumber,
+        okpd2Codes,
+        kvrCodes,
         sortField,
         sortDirection
       })
@@ -154,5 +154,46 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       maxWidth: '95vw',
       data
     });
+  }
+
+  applyFilters(): void {
+    if (this.paginator && this.paginator.pageIndex !== 0) {
+      this.paginator.firstPage();
+      return;
+    }
+
+    this.loadNotices();
+  }
+
+  resetFilters(): void {
+    this.filtersForm.reset({
+      search: '',
+      purchaseNumber: '',
+      okpd2Codes: '',
+      kvrCodes: ''
+    });
+    this.filtersForm.markAsPristine();
+    this.filtersForm.markAsUntouched();
+
+    if (this.paginator && this.paginator.pageIndex !== 0) {
+      this.paginator.firstPage();
+      return;
+    }
+
+    this.loadNotices();
+  }
+
+  private getTrimmedValue(control: FormControl<string>): string | undefined {
+    const value = control.value.trim();
+    return value ? value : undefined;
+  }
+
+  private getNormalizedCodes(control: FormControl<string>): string | undefined {
+    const codes = control.value
+      .split(/[\s,;]+/)
+      .map(code => code.trim())
+      .filter(code => code.length > 0);
+
+    return codes.length > 0 ? codes.join(',') : undefined;
   }
 }
