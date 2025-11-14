@@ -161,7 +161,12 @@
 
             <ng-container matColumnDef="collectingEnd">
               <th mat-header-cell *matHeaderCellDef>Окончание подачи заявок</th>
-              <td mat-cell *matCellDef="let element">
+              <td
+                mat-cell
+                *matCellDef="let element"
+                class="collecting-end-cell"
+                [ngClass]="{ 'collecting-end-expired': isCollectingEndExpired(element.collectingEnd) }"
+              >
                 {{ element.collectingEnd ? (element.collectingEnd | date: 'short') : '—' }}
               </td>
             </ng-container>

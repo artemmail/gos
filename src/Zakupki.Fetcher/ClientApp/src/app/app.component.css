@@ -77,6 +77,11 @@ mat-table {
   white-space: normal;
 }
 
+.collecting-end-cell.collecting-end-expired {
+  color: #d32f2f;
+  font-weight: 600;
+}
+
 .loading-overlay {
   position: absolute;
   top: 0;
