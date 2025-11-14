@@ -21,6 +21,18 @@ export class NoticesService {
       params = params.set('search', query.search);
     }
 
+    if (query.purchaseNumber) {
+      params = params.set('purchaseNumber', query.purchaseNumber);
+    }
+
+    if (query.okpd2Codes) {
+      params = params.set('okpd2Codes', query.okpd2Codes);
+    }
+
+    if (query.kvrCodes) {
+      params = params.set('kvrCodes', query.kvrCodes);
+    }
+
     if (query.sortField) {
       params = params.set('sortField', query.sortField);
     }
