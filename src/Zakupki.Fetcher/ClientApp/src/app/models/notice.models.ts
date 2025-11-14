@@ -18,6 +18,8 @@ export interface NoticeListItem {
   region: string | null;
   period: string | null;
   placingWayName: string | null;
+  collectingEnd: string | null;
+  submissionProcedureDateRaw: string | null;
   rawJson: string | null;
 }
 
