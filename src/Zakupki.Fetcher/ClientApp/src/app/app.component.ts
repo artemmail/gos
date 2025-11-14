@@ -28,6 +28,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     'kvrName',
     'maxPrice',
     'publishDate',
+    'collectingEnd',
+    'submissionProcedureDateRaw',
     'etpName',
     'documentType',
     'source',

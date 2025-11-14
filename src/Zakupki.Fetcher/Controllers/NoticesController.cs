@@ -84,30 +84,40 @@ public class NoticesController : ControllerBase
         var totalCount = await query.CountAsync();
         var skip = (page - 1) * pageSize;
 
-            var items = await query
+        var items = await query
             .Skip(skip)
             .Take(pageSize)
-            .Select(n => new NoticeListItemDto(
-                n.Id,
-                n.PurchaseNumber,
-                n.EntryName,
-                n.PublishDate,
-                n.EtpName,
-                n.DocumentType,
-                n.Source,
-                n.UpdatedAt,
-                n.Region,
-                n.Period,
-                n.PlacingWayName,
-                n.PurchaseObjectInfo,
-                n.MaxPrice,
-                n.MaxPriceCurrencyCode,
-                n.MaxPriceCurrencyName,
-                n.Okpd2Code,
-                n.Okpd2Name,
-                n.KvrCode,
-                n.KvrName,
-                n.RawJson))
+            .Select(n => new
+            {
+                Notice = n,
+                ProcedureWindow = n.Versions
+                    .Where(v => v.IsActive)
+                    .Select(v => v.ProcedureWindow)
+                    .FirstOrDefault()
+            })
+            .Select(x => new NoticeListItemDto(
+                x.Notice.Id,
+                x.Notice.PurchaseNumber,
+                x.Notice.EntryName,
+                x.Notice.PublishDate,
+                x.Notice.EtpName,
+                x.Notice.DocumentType,
+                x.Notice.Source,
+                x.Notice.UpdatedAt,
+                x.Notice.Region,
+                x.Notice.Period,
+                x.Notice.PlacingWayName,
+                x.Notice.PurchaseObjectInfo,
+                x.Notice.MaxPrice,
+                x.Notice.MaxPriceCurrencyCode,
+                x.Notice.MaxPriceCurrencyName,
+                x.Notice.Okpd2Code,
+                x.Notice.Okpd2Name,
+                x.Notice.KvrCode,
+                x.Notice.KvrName,
+                x.Notice.RawJson,
+                x.ProcedureWindow != null ? x.ProcedureWindow.CollectingEnd : null,
+                x.ProcedureWindow != null ? x.ProcedureWindow.SubmissionProcedureDateRaw : null))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
@@ -398,7 +408,9 @@ public record NoticeListItemDto(
     string? Okpd2Name,
     string? KvrCode,
     string? KvrName,
-    string? RawJson);
+    string? RawJson,
+    DateTime? CollectingEnd,
+    string? SubmissionProcedureDateRaw);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 
