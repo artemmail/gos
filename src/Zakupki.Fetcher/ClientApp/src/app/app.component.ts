@@ -185,6 +185,15 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.loadNotices();
   }
 
+  isCollectingEndExpired(collectingEnd: string | null): boolean {
+    if (!collectingEnd) {
+      return false;
+    }
+
+    const collectingEndDate = new Date(collectingEnd);
+    return !Number.isNaN(collectingEndDate.getTime()) && collectingEndDate.getTime() < Date.now();
+  }
+
   private getTrimmedValue(control: FormControl<string>): string | undefined {
     const value = control.value.trim();
     return value ? value : undefined;
