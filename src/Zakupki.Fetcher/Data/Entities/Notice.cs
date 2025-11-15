@@ -63,6 +63,8 @@ public class Notice
 
     public string? RawJson { get; set; }
 
+    public DateTime? CollectingEnd { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

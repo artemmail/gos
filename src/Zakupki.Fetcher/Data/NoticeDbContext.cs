@@ -104,6 +104,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.HasIndex(n => n.PurchaseNumber).HasDatabaseName("IX_Notices_PurchaseNumber");
         entity.HasIndex(n => n.Period).HasDatabaseName("IX_Notices_Period");
+        entity.HasIndex(n => n.CollectingEnd).HasDatabaseName("IX_Notices_CollectingEnd");
 
         entity.HasMany(n => n.Versions)
             .WithOne(v => v.Notice)

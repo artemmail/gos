@@ -490,14 +490,14 @@ public sealed class NoticeAnalysisService
             builder.AppendLine($"КВР: {notice.KvrCode ?? "-"} — {notice.KvrName ?? "не указано"}");
         }
 
+        if (notice.CollectingEnd is not null)
+        {
+            builder.AppendLine(
+                $"Окончание подачи заявок: {notice.CollectingEnd:yyyy-MM-dd HH:mm}");
+        }
+
         if (procedureWindow is not null)
         {
-            if (procedureWindow.CollectingEnd is not null)
-            {
-                builder.AppendLine(
-                    $"Окончание подачи заявок: {procedureWindow.CollectingEnd:yyyy-MM-dd HH:mm}");
-            }
-
             if (!string.IsNullOrWhiteSpace(procedureWindow.SubmissionProcedureDateRaw))
             {
                 builder.AppendLine($"Дата процедуры подачи: {procedureWindow.SubmissionProcedureDateRaw}");
