@@ -116,8 +116,16 @@ public sealed class UserCompanyService
             throw new InvalidOperationException($"User with id '{userId}' was not found.");
         }
 
-        var regionSet = new HashSet<string>(user.Regions.Select(r => r.Region), StringComparer.OrdinalIgnoreCase);
-        var orderedRegions = _availableRegions.Where(regionSet.Contains).ToArray();
+        var regionSet = new HashSet<string>(
+            user.Regions
+                .Select(r => r.Region)
+                .Where(region => !string.IsNullOrWhiteSpace(region))
+                .Select(region => region.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        var orderedRegions = _availableRegions
+            .Where(regionSet.Contains)
+            .ToArray();
 
         return new UserCompanyProfile(user.CompanyInfo ?? string.Empty, orderedRegions);
     }
