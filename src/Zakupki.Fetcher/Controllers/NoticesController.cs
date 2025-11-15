@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Text;
 using System.Threading;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
@@ -10,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
+using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Services;
 using Zakupki.Fetcher.Utilities;
 
@@ -22,6 +25,7 @@ public class NoticesController : ControllerBase
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
+    private readonly NoticeAnalysisService _noticeAnalysisService;
     private readonly ILogger<NoticesController> _logger;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
@@ -30,11 +34,13 @@ public class NoticesController : ControllerBase
         IDbContextFactory<NoticeDbContext> dbContextFactory,
         AttachmentDownloadService attachmentDownloadService,
         AttachmentMarkdownService attachmentMarkdownService,
+        NoticeAnalysisService noticeAnalysisService,
         ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
         _attachmentMarkdownService = attachmentMarkdownService;
+        _noticeAnalysisService = noticeAnalysisService;
         _logger = logger;
     }
 
@@ -113,6 +119,8 @@ public class NoticesController : ControllerBase
         var totalCount = await query.CountAsync();
         var skip = (page - 1) * pageSize;
 
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
         var items = await query
             .Skip(skip)
             .Take(pageSize)
@@ -122,7 +130,20 @@ public class NoticesController : ControllerBase
                 ProcedureWindow = n.Versions
                     .Where(v => v.IsActive)
                     .Select(v => v.ProcedureWindow)
-                    .FirstOrDefault()
+                    .FirstOrDefault(),
+                Analysis = currentUserId != null
+                    ? n.Analyses
+                        .Where(a => a.UserId == currentUserId)
+                        .OrderByDescending(a => a.UpdatedAt)
+                        .Select(a => new
+                        {
+                            a.Status,
+                            a.UpdatedAt,
+                            a.CompletedAt,
+                            HasResult = a.Result != null && a.Result != ""
+                        })
+                        .FirstOrDefault()
+                    : null
             })
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
@@ -146,11 +167,57 @@ public class NoticesController : ControllerBase
                 x.Notice.KvrName,
                 x.Notice.RawJson,
                 x.ProcedureWindow != null ? x.ProcedureWindow.CollectingEnd : null,
-                x.ProcedureWindow != null ? x.ProcedureWindow.SubmissionProcedureDateRaw : null))
+                x.ProcedureWindow != null ? x.ProcedureWindow.SubmissionProcedureDateRaw : null,
+                x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
+                x.Analysis?.Status,
+                x.Analysis?.UpdatedAt))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
         return Ok(result);
+    }
+
+    [HttpGet("{noticeId:guid}/analysis")]
+    [Authorize]
+    public async Task<ActionResult<NoticeAnalysisResponse>> GetAnalysisStatus(Guid noticeId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var response = await _noticeAnalysisService.GetStatusAsync(noticeId, userId, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("{noticeId:guid}/analysis")]
+    [Authorize]
+    public async Task<ActionResult<NoticeAnalysisResponse>> AnalyzeNotice(
+        Guid noticeId,
+        [FromQuery] bool force,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await _noticeAnalysisService.AnalyzeAsync(noticeId, userId, force, cancellationToken);
+            return Ok(response);
+        }
+        catch (NoticeAnalysisException ex) when (ex.IsValidation)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NoticeAnalysisException ex)
+        {
+            _logger.LogError(ex, "Failed to analyze notice {NoticeId}", noticeId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+        }
     }
 
 
@@ -563,7 +630,10 @@ public record NoticeListItemDto(
     string? KvrName,
     string? RawJson,
     DateTime? CollectingEnd,
-    string? SubmissionProcedureDateRaw);
+    string? SubmissionProcedureDateRaw,
+    bool HasAnalysisAnswer,
+    string? AnalysisStatus,
+    DateTime? AnalysisUpdatedAt);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 

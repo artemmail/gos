@@ -68,4 +68,6 @@ public class Notice
     public DateTime UpdatedAt { get; set; }
 
     public ICollection<NoticeVersion> Versions { get; set; } = new List<NoticeVersion>();
+
+    public ICollection<NoticeAnalysis> Analyses { get; set; } = new List<NoticeAnalysis>();
 }

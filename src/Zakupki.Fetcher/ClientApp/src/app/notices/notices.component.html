@@ -192,6 +192,44 @@
               <td mat-cell *matCellDef="let element">{{ element.updatedAt | date: 'short' }}</td>
             </ng-container>
 
+            <ng-container matColumnDef="analysisStatus">
+              <th mat-header-cell *matHeaderCellDef>Статус анализа</th>
+              <td mat-cell *matCellDef="let element">
+                <span [ngClass]="getAnalysisStatusClass(element)">
+                  {{ getAnalysisStatusLabel(element) }}
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="analysis">
+              <th mat-header-cell *matHeaderCellDef>Анализ</th>
+              <td mat-cell *matCellDef="let element">
+                <div class="analysis-actions">
+                  <button
+                    mat-stroked-button
+                    color="primary"
+                    (click)="runAnalysis(element)"
+                    [disabled]="analysisProgress[element.id]"
+                  >
+                    <mat-icon fontIcon="psychology"></mat-icon>
+                    <span *ngIf="!analysisProgress[element.id]">Анализ</span>
+                    <span *ngIf="analysisProgress[element.id]">Процесс идет</span>
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="primary"
+                    aria-label="Обновить анализ"
+                    *ngIf="element.hasAnalysisAnswer"
+                    (click)="runAnalysis(element, true)"
+                    [disabled]="analysisProgress[element.id]"
+                  >
+                    <mat-icon fontIcon="refresh"></mat-icon>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="rawJson">
               <th mat-header-cell *matHeaderCellDef>JSON</th>
               <td mat-cell *matCellDef="let element">

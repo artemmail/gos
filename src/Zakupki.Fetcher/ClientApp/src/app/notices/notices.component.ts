@@ -3,6 +3,7 @@ import { FormControl, FormGroup } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
@@ -12,6 +13,9 @@ import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-di
 import { AttachmentDialogData } from '../models/attachment.models';
 import { RawJsonDialogComponent } from '../raw-json-dialog/raw-json-dialog.component';
 import { RawJsonDialogData } from '../models/raw-json.models';
+import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
+import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
+import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
 
 @Component({
   selector: 'app-notices',
@@ -34,6 +38,8 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     'documentType',
     'source',
     'updatedAt',
+    'analysisStatus',
+    'analysis',
     'rawJson',
     'attachments'
   ];
@@ -43,6 +49,7 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
   pageSize = 20;
   isLoading = false;
   errorMessage = '';
+  analysisProgress: Record<string, boolean> = {};
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
@@ -58,7 +65,9 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
 
   constructor(
     private readonly noticesService: NoticesService,
-    private readonly dialog: MatDialog
+    private readonly dialog: MatDialog,
+    private readonly analysisService: NoticeAnalysisService,
+    private readonly snackBar: MatSnackBar
   ) {}
 
   ngAfterViewInit(): void {
@@ -158,6 +167,64 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  runAnalysis(notice: NoticeListItem, force = false): void {
+    if (this.analysisProgress[notice.id]) {
+      return;
+    }
+
+    this.analysisProgress[notice.id] = true;
+
+    this.analysisService
+      .analyze(notice.id, force)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.analysisProgress[notice.id] = false;
+        })
+      )
+      .subscribe({
+        next: (response: NoticeAnalysisResponse) => {
+          this.updateNoticeAnalysis(notice, response);
+        },
+        error: error => {
+          const message = error?.error?.message ?? 'Не удалось запустить анализ.';
+          this.snackBar.open(message, 'Закрыть', { duration: 6000 });
+        }
+      });
+  }
+
+  getAnalysisStatusLabel(notice: NoticeListItem): string {
+    if ((notice.analysisStatus === 'Completed' || notice.hasAnalysisAnswer) && notice.hasAnalysisAnswer) {
+      return 'Есть ответ';
+    }
+
+    if (notice.analysisStatus === 'InProgress' || this.analysisProgress[notice.id]) {
+      return 'Анализ выполняется';
+    }
+
+    if (notice.analysisStatus === 'Failed') {
+      return 'Ошибка';
+    }
+
+    return 'Нет ответа';
+  }
+
+  getAnalysisStatusClass(notice: NoticeListItem): string {
+    if ((notice.analysisStatus === 'Completed' || notice.hasAnalysisAnswer) && notice.hasAnalysisAnswer) {
+      return 'analysis-status analysis-ready';
+    }
+
+    if (notice.analysisStatus === 'Failed') {
+      return 'analysis-status analysis-failed';
+    }
+
+    if (notice.analysisStatus === 'InProgress' || this.analysisProgress[notice.id]) {
+      return 'analysis-status analysis-progress';
+    }
+
+    return 'analysis-status analysis-empty';
+  }
+
   applyFilters(): void {
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
@@ -192,6 +259,37 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
 
     const collectingEndDate = new Date(collectingEnd);
     return !Number.isNaN(collectingEndDate.getTime()) && collectingEndDate.getTime() < Date.now();
+  }
+
+  private updateNoticeAnalysis(notice: NoticeListItem, response: NoticeAnalysisResponse): void {
+    notice.analysisStatus = response.status ?? null;
+    notice.hasAnalysisAnswer = response.hasAnswer;
+    notice.analysisUpdatedAt = response.updatedAt ?? null;
+
+    if (response.status === 'Completed' && response.result) {
+      const data: NoticeAnalysisDialogData = {
+        purchaseNumber: notice.purchaseNumber,
+        entryName: notice.entryName,
+        result: response.result,
+        completedAt: response.completedAt ?? null
+      };
+
+      this.dialog.open(NoticeAnalysisDialogComponent, {
+        width: '720px',
+        data
+      });
+      return;
+    }
+
+    if (response.status === 'Failed') {
+      const message = response.error ?? 'Не удалось выполнить анализ.';
+      this.snackBar.open(message, 'Закрыть', { duration: 6000 });
+      return;
+    }
+
+    if (response.status === 'InProgress') {
+      this.snackBar.open('Анализ выполняется. Обновите статус позже.', 'Закрыть', { duration: 4000 });
+    }
   }
 
   private getTrimmedValue(control: FormControl<string>): string | undefined {

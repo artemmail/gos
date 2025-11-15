@@ -1,0 +1,15 @@
+<h2 mat-dialog-title>
+  Анализ закупки {{ data.purchaseNumber }}
+</h2>
+
+<mat-dialog-content class="analysis-content">
+  <p class="entry-name">{{ data.entryName }}</p>
+  <p class="timestamp" *ngIf="data.completedAt">
+    Получено: {{ data.completedAt | date: 'short' }}
+  </p>
+  <div class="analysis-text" [innerText]="data.result"></div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Закрыть</button>
+</mat-dialog-actions>
