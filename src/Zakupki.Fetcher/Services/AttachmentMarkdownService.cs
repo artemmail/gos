@@ -21,8 +21,8 @@ public class AttachmentMarkdownService
         [".pdf"] = "pdf",
         [".html"] = "html",
         [".htm"] = "html",
-        [".xls"] = "xls",
-        [".xlsx"] = "xlsx"
+        [".xls"] = "html",
+        [".xlsx"] = "html"
     };
 
     private readonly AttachmentConversionOptions _options;
@@ -95,6 +95,12 @@ public class AttachmentMarkdownService
         if (string.Equals(extension, ".doc", StringComparison.OrdinalIgnoreCase))
         {
             inputFilePath = await ConvertDocToDocxAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
+            filesToCleanup.Add(inputFilePath);
+        }
+        else if (string.Equals(extension, ".xls", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            inputFilePath = await ConvertSpreadsheetToHtmlAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
             filesToCleanup.Add(inputFilePath);
         }
 
@@ -260,6 +266,77 @@ public class AttachmentMarkdownService
         {
             _logger.LogError("LibreOffice conversion did not produce the expected .docx file. Output: {Output}. Errors: {Errors}", stdOutput, stdError);
             throw new InvalidOperationException("Не удалось получить .docx файл после конвертации .doc документа.");
+        }
+
+        return outputFilePath;
+    }
+
+    private async Task<string> ConvertSpreadsheetToHtmlAsync(string sourceFilePath, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
+        {
+            throw new InvalidOperationException("LibreOfficePath is not configured. Conversion of spreadsheet files cannot be performed.");
+        }
+
+        var libreOfficePath = _options.LibreOfficePath!;
+        var outputDirectory = Path.GetDirectoryName(sourceFilePath) ?? Path.GetTempPath();
+        var outputFilePath = Path.ChangeExtension(sourceFilePath, ".html");
+
+        if (File.Exists(outputFilePath))
+        {
+            File.Delete(outputFilePath);
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = libreOfficePath,
+            Arguments = $"--headless --convert-to html --outdir \"{outputDirectory}\" \"{sourceFilePath}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = outputDirectory
+        };
+
+        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+
+        try
+        {
+            process.Start();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start LibreOffice process for spreadsheet conversion");
+            throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации файла таблицы.", ex);
+        }
+
+        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+        var stdOutput = await outputTask.ConfigureAwait(false);
+        var stdError = await errorTask.ConfigureAwait(false);
+
+        if (process.ExitCode != 0)
+        {
+            _logger.LogError(
+                "LibreOffice spreadsheet conversion failed with exit code {ExitCode}. Output: {Output}. Errors: {Errors}",
+                process.ExitCode,
+                stdOutput,
+                stdError);
+            throw new InvalidOperationException("Конвертация файла таблицы в HTML завершилась с ошибкой.");
+        }
+
+        if (!File.Exists(outputFilePath))
+        {
+            _logger.LogError(
+                "LibreOffice spreadsheet conversion did not produce the expected HTML file. Output: {Output}. Errors: {Errors}",
+                stdOutput,
+                stdError);
+            throw new InvalidOperationException("Не удалось получить HTML файл после конвертации файла таблицы.");
         }
 
         return outputFilePath;
