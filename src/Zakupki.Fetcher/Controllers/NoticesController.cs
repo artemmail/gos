@@ -127,12 +127,6 @@ public class NoticesController : ControllerBase
             .Select(n => new
             {
                 Notice = n,
-                ProcedureCollectingEnd = n.Versions
-                    .Where(v => v.IsActive)
-                    .Select(v => v.ProcedureWindow != null
-                        ? (DateTime?)v.ProcedureWindow.CollectingEnd
-                        : null)
-                    .FirstOrDefault(),
                 ProcedureSubmissionDate = n.Versions
                     .Where(v => v.IsActive)
                     .Select(v => v.ProcedureWindow != null
@@ -172,7 +166,7 @@ public class NoticesController : ControllerBase
                 x.Notice.KvrCode,
                 x.Notice.KvrName,
                 x.Notice.RawJson,
-                x.ProcedureCollectingEnd,
+                x.Notice.CollectingEnd,
                 x.ProcedureSubmissionDate,
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
@@ -595,6 +589,9 @@ public class NoticesController : ControllerBase
             "maxprice" => descending
                 ? query.OrderByDescending(n => n.MaxPrice)
                 : query.OrderBy(n => n.MaxPrice),
+            "collectingend" => descending
+                ? query.OrderByDescending(n => n.CollectingEnd)
+                : query.OrderBy(n => n.CollectingEnd),
             _ => descending
                 ? query.OrderByDescending(n => n.PublishDate)
                     .ThenByDescending(n => n.Id)

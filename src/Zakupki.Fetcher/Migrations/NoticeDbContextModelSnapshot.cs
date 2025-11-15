@@ -433,6 +433,9 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<string>("RawJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("CollectingEnd")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Region")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -453,6 +456,9 @@ namespace Zakupki.Fetcher.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CollectingEnd")
+                        .HasDatabaseName("IX_Notices_CollectingEnd");
 
                     b.HasIndex("Period")
                         .HasDatabaseName("IX_Notices_Period");

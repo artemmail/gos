@@ -101,6 +101,7 @@ public sealed class NoticeProcessor
             commonInfo,
             contractConditions,
             customerRequirements,
+            notification.NotificationInfo?.ProcedureInfo,
             serializedNotification,
             externalId,
             now);
@@ -157,6 +158,7 @@ public sealed class NoticeProcessor
         CommonInfo commonInfo,
         ContractConditionsInfo? contractConditions,
         CustomerRequirementsInfo? customerRequirements,
+        ProcedureInfo? procedureInfo,
         string serializedNotification,
         string externalId,
         DateTime now)
@@ -190,6 +192,7 @@ public sealed class NoticeProcessor
         notice.KvrCode = classifiers.KvrCode;
         notice.KvrName = classifiers.KvrName;
         notice.RawJson = serializedNotification;
+        notice.CollectingEnd = procedureInfo?.CollectingInfo?.EndDt;
         notice.UpdatedAt = now;
     }
 
