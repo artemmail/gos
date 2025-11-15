@@ -215,7 +215,17 @@ public sealed class NoticeAnalysisService
         var requestBody = new
         {
             model = _options.Model,
-            input = prompt,
+            input = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "text", text = prompt }
+                    }
+                }
+            },
             temperature = 0.2,
             max_output_tokens = 800,
             response_format = new { type = "text" }
