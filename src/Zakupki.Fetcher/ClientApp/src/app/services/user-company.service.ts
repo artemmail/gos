@@ -2,10 +2,15 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface RegionOption {
+  code: string;
+  name: string;
+}
+
 export interface UserCompanyProfile {
   companyInfo: string;
   regions: string[];
-  availableRegions: string[];
+  availableRegions: RegionOption[];
 }
 
 export interface UpdateUserCompanyProfileRequest {

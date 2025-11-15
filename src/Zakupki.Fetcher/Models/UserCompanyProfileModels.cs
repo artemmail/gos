@@ -9,7 +9,7 @@ public sealed class UserCompanyProfileResponse
 
     public List<string> Regions { get; init; } = new();
 
-    public List<string> AvailableRegions { get; init; } = new();
+    public List<RegionOptionResponse> AvailableRegions { get; init; } = new();
 }
 
 public sealed class UpdateUserCompanyProfileRequest
@@ -18,4 +18,11 @@ public sealed class UpdateUserCompanyProfileRequest
     public string CompanyInfo { get; set; } = string.Empty;
 
     public List<string> Regions { get; set; } = new();
+}
+
+public sealed class RegionOptionResponse
+{
+    public string Code { get; init; } = string.Empty;
+
+    public string Name { get; init; } = string.Empty;
 }
