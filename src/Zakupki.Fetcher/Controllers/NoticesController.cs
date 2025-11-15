@@ -169,8 +169,8 @@ public class NoticesController : ControllerBase
                 x.ProcedureWindow != null ? x.ProcedureWindow.CollectingEnd : null,
                 x.ProcedureWindow != null ? x.ProcedureWindow.SubmissionProcedureDateRaw : null,
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
-                x.Analysis?.Status,
-                x.Analysis?.UpdatedAt))
+                x.Analysis != null ? x.Analysis.Status : null,
+                x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
