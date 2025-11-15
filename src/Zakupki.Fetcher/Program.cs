@@ -321,9 +321,17 @@ app.MapWhen(context =>
         });
     });
 
+await EnsureDatabaseMigratedAsync(app.Services);
 await EnsureDefaultRolesAsync(app.Services);
 
 await app.RunAsync();
+
+static async Task EnsureDatabaseMigratedAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<NoticeDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 static async Task EnsureDefaultRolesAsync(IServiceProvider services)
 {
