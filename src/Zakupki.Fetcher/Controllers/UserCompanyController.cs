@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -37,7 +38,14 @@ public sealed class UserCompanyController : ControllerBase
         {
             CompanyInfo = profile.CompanyInfo,
             Regions = new(profile.Regions),
-            AvailableRegions = new(_userCompanyService.GetAvailableRegions())
+            AvailableRegions = _userCompanyService
+                .GetAvailableRegions()
+                .Select(region => new RegionOptionResponse
+                {
+                    Code = region.Code,
+                    Name = region.Name
+                })
+                .ToList()
         });
     }
 
@@ -67,7 +75,14 @@ public sealed class UserCompanyController : ControllerBase
         {
             CompanyInfo = profile.CompanyInfo,
             Regions = new(profile.Regions),
-            AvailableRegions = new(_userCompanyService.GetAvailableRegions())
+            AvailableRegions = _userCompanyService
+                .GetAvailableRegions()
+                .Select(region => new RegionOptionResponse
+                {
+                    Code = region.Code,
+                    Name = region.Name
+                })
+                .ToList()
         });
     }
 }

@@ -5,6 +5,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 import {
+  RegionOption,
   UpdateUserCompanyProfileRequest,
   UserCompanyProfile,
   UserCompanyService
@@ -17,7 +18,7 @@ import {
 })
 export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   form: FormGroup;
-  availableRegions: string[] = [];
+  availableRegions: RegionOption[] = [];
   isLoading = false;
   isSaving = false;
   errorMessage = '';

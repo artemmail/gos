@@ -19,8 +19,8 @@
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Регионы работы</mat-label>
       <mat-select formControlName="regions" multiple>
-        <mat-option *ngFor="let region of availableRegions" [value]="region">
-          {{ region }}
+        <mat-option *ngFor="let region of availableRegions" [value]="region.code">
+          {{ region.name }}
         </mat-option>
       </mat-select>
     </mat-form-field>
