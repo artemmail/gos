@@ -20,7 +20,9 @@ public class AttachmentMarkdownService
         [".docx"] = "docx",
         [".pdf"] = "pdf",
         [".html"] = "html",
-        [".htm"] = "html"
+        [".htm"] = "html",
+        [".xls"] = "xls",
+        [".xlsx"] = "xlsx"
     };
 
     private readonly AttachmentConversionOptions _options;
