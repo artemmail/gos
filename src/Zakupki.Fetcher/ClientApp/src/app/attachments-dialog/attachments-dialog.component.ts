@@ -20,9 +20,13 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
   attachments: NoticeAttachment[] = [];
   isLoading = false;
   isDownloadingAll = false;
+  isConvertingAll = false;
   downloadingAttachmentId: string | null = null;
+  downloadingMarkdownAttachmentId: string | null = null;
   errorMessage = '';
   infoMessage = '';
+
+  private readonly supportedExtensions = ['.doc', '.docx', '.pdf', '.html', '.htm'];
 
   private readonly destroy$ = new Subject<void>();
 
@@ -45,10 +49,12 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
     this.dialogRef.close();
   }
 
-  loadAttachments(): void {
+  loadAttachments(preserveInfo = false): void {
     this.isLoading = true;
     this.errorMessage = '';
-    this.infoMessage = '';
+    if (!preserveInfo) {
+      this.infoMessage = '';
+    }
 
     this.attachmentsService
       .getAttachments(this.data.noticeId)
@@ -108,10 +114,62 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (result: AttachmentDownloadResult) => {
           this.infoMessage = `Загружено ${result.downloaded} из ${result.total}. Ошибок: ${result.failed}.`;
-          this.loadAttachments();
+          this.loadAttachments(true);
         },
         error: error => {
           const message = error?.error?.message || 'Не удалось скачать вложения.';
+          this.errorMessage = message;
+        }
+      });
+  }
+
+  convertAllToMarkdown(): void {
+    this.isConvertingAll = true;
+    this.errorMessage = '';
+    this.infoMessage = '';
+
+    this.attachmentsService
+      .convertAllToMarkdown(this.data.noticeId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.isConvertingAll = false))
+      )
+      .subscribe({
+        next: result => {
+          const skipped = result.missingContent + result.unsupported;
+          this.infoMessage = `Конвертация завершена. Успешно: ${result.converted} из ${result.total}. Пропущено: ${skipped}. Ошибок: ${result.failed}.`;
+          this.loadAttachments(true);
+        },
+        error: error => {
+          const message = error?.error?.message || 'Не удалось выполнить конвертацию файлов.';
+          this.errorMessage = message;
+        }
+      });
+  }
+
+  downloadMarkdown(attachment: NoticeAttachment): void {
+    if (!attachment.hasMarkdownContent) {
+      this.errorMessage = 'Для этого вложения отсутствует Markdown-версия. Сначала выполните конвертацию.';
+      return;
+    }
+
+    this.downloadingMarkdownAttachmentId = attachment.id;
+    this.errorMessage = '';
+    this.infoMessage = '';
+
+    this.attachmentsService
+      .downloadMarkdown(attachment.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.downloadingMarkdownAttachmentId = null))
+      )
+      .subscribe({
+        next: blob => {
+          this.saveFile(blob, this.getMarkdownFileName(attachment.fileName));
+          this.infoMessage = `Скачивание Markdown-версии «${attachment.fileName}» началось.`;
+        },
+        error: error => {
+          const message = error?.error?.message || 'Не удалось скачать Markdown-версию вложения.';
           this.errorMessage = message;
         }
       });
@@ -125,6 +183,17 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
     return this.attachments.some(attachment => !attachment.hasBinaryContent);
   }
 
+  get hasConvertibleAttachments(): boolean {
+    return this.attachments.some(attachment => this.canConvertAttachment(attachment));
+  }
+
+  canConvertAttachment(attachment: NoticeAttachment): boolean {
+    return (
+      attachment.hasBinaryContent &&
+      this.isSupportedExtension(attachment.fileName)
+    );
+  }
+
   private saveFile(blob: Blob, fileName?: string): void {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -134,5 +203,32 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  }
+
+  private isSupportedExtension(fileName?: string | null): boolean {
+    if (!fileName) {
+      return false;
+    }
+
+    const extension = this.getExtension(fileName);
+    return extension.length > 0 && this.supportedExtensions.includes(extension);
+  }
+
+  private getExtension(fileName: string): string {
+    const dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex === -1) {
+      return '';
+    }
+
+    return fileName.substring(dotIndex).toLowerCase();
+  }
+
+  private getMarkdownFileName(fileName?: string | null): string {
+    if (!fileName || fileName.trim().length === 0) {
+      return 'attachment.md';
+    }
+
+    const baseName = fileName.replace(/\.[^/.]+$/, '');
+    return `${baseName}.md`;
   }
 }

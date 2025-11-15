@@ -2,7 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { AttachmentDownloadResult, NoticeAttachment } from '../models/attachment.models';
+import {
+  AttachmentDownloadResult,
+  AttachmentMarkdownConversionResult,
+  NoticeAttachment
+} from '../models/attachment.models';
 
 @Injectable({
   providedIn: 'root'
@@ -24,5 +28,18 @@ export class AttachmentsService {
 
   downloadMissing(noticeId: string): Observable<AttachmentDownloadResult> {
     return this.http.post<AttachmentDownloadResult>(`${this.baseUrl}/${noticeId}/attachments/download-missing`, {});
+  }
+
+  convertAllToMarkdown(noticeId: string): Observable<AttachmentMarkdownConversionResult> {
+    return this.http.post<AttachmentMarkdownConversionResult>(
+      `${this.baseUrl}/${noticeId}/attachments/convert-to-markdown`,
+      {}
+    );
+  }
+
+  downloadMarkdown(attachmentId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/attachments/${attachmentId}/markdown`, {
+      responseType: 'blob'
+    });
   }
 }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ public class NoticesController : ControllerBase
 {
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly AttachmentDownloadService _attachmentDownloadService;
+    private readonly AttachmentMarkdownService _attachmentMarkdownService;
     private readonly ILogger<NoticesController> _logger;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
@@ -27,10 +29,12 @@ public class NoticesController : ControllerBase
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
         AttachmentDownloadService attachmentDownloadService,
+        AttachmentMarkdownService attachmentMarkdownService,
         ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
+        _attachmentMarkdownService = attachmentMarkdownService;
         _logger = logger;
     }
 
@@ -149,6 +153,34 @@ public class NoticesController : ControllerBase
         return Ok(result);
     }
 
+
+    [HttpGet("attachments/{attachmentId:guid}/markdown")]
+    public async Task<IActionResult> DownloadAttachmentMarkdown(
+        Guid attachmentId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var attachment = await context.NoticeAttachments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken);
+
+        if (attachment is null)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(attachment.MarkdownContent))
+        {
+            return BadRequest(new { message = "Markdown-версия для этого вложения отсутствует. Используйте конвертацию." });
+        }
+
+        var markdownBytes = Encoding.UTF8.GetBytes(attachment.MarkdownContent);
+        var sanitizedFileName = FileNameHelper.SanitizeFileName(attachment.FileName);
+        var downloadFileName = Path.ChangeExtension(sanitizedFileName, ".md") ?? "attachment.md";
+
+        return File(markdownBytes, "text/markdown", downloadFileName);
+    }
+
     [HttpGet("{noticeId:guid}/attachments")]
     public async Task<ActionResult<IReadOnlyCollection<NoticeAttachmentDto>>> GetAttachments(
         Guid noticeId,
@@ -172,7 +204,8 @@ public class NoticesController : ControllerBase
                 a.SourceFileName,
                 a.InsertedAt,
                 a.LastSeenAt,
-                a.BinaryContent != null))
+                a.BinaryContent != null,
+                !string.IsNullOrEmpty(a.MarkdownContent)))
             .ToListAsync(cancellationToken);
 
         if (attachments.Count == 0)
@@ -317,6 +350,87 @@ public class NoticesController : ControllerBase
         return Ok(new AttachmentDownloadResultDto(attachments.Count, downloaded, failed));
     }
 
+    [HttpPost("{noticeId:guid}/attachments/convert-to-markdown")]
+    public async Task<ActionResult<AttachmentMarkdownConversionResultDto>> ConvertAttachmentsToMarkdown(
+        Guid noticeId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var attachments = await context.NoticeAttachments
+            .Where(a => a.NoticeVersion.NoticeId == noticeId)
+            .ToListAsync(cancellationToken);
+
+        if (attachments.Count == 0)
+        {
+            var noticeExists = await context.Notices
+                .AsNoTracking()
+                .AnyAsync(n => n.Id == noticeId, cancellationToken);
+
+            if (!noticeExists)
+            {
+                return NotFound();
+            }
+
+            return Ok(new AttachmentMarkdownConversionResultDto(0, 0, 0, 0, 0));
+        }
+
+        var converted = 0;
+        var missingContent = 0;
+        var unsupported = 0;
+        var failed = 0;
+
+        foreach (var attachment in attachments)
+        {
+            if (attachment.BinaryContent is null || attachment.BinaryContent.Length == 0)
+            {
+                missingContent++;
+                continue;
+            }
+
+            if (!_attachmentMarkdownService.IsSupported(attachment))
+            {
+                unsupported++;
+                continue;
+            }
+
+            try
+            {
+                var markdown = await _attachmentMarkdownService.ConvertToMarkdownAsync(attachment, cancellationToken);
+                if (string.IsNullOrWhiteSpace(markdown))
+                {
+                    attachment.MarkdownContent = null;
+                    failed++;
+                    _logger.LogWarning("Markdown conversion produced empty result for attachment {AttachmentId}", attachment.Id);
+                }
+                else
+                {
+                    attachment.MarkdownContent = markdown;
+                    converted++;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger.LogError(ex, "Failed to convert attachment {AttachmentId} to Markdown", attachment.Id);
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        var result = new AttachmentMarkdownConversionResultDto(
+            attachments.Count,
+            converted,
+            missingContent,
+            unsupported,
+            failed);
+
+        return Ok(result);
+    }
+
     private static NoticeAttachmentDto MapAttachment(NoticeAttachment attachment)
     {
         return new NoticeAttachmentDto(
@@ -332,7 +446,8 @@ public class NoticesController : ControllerBase
             attachment.SourceFileName,
             attachment.InsertedAt,
             attachment.LastSeenAt,
-            attachment.BinaryContent != null);
+            attachment.BinaryContent != null,
+            !string.IsNullOrWhiteSpace(attachment.MarkdownContent));
     }
 
     private static List<string> ParseCodeList(string? rawCodes)
@@ -353,6 +468,7 @@ public class NoticesController : ControllerBase
         attachment.FileSize = content.LongLength;
         attachment.ContentHash = HashUtilities.ComputeSha256Hex(content);
         attachment.LastSeenAt = DateTime.UtcNow;
+        attachment.MarkdownContent = null;
     }
 
     private static IQueryable<Notice> ApplySorting(IQueryable<Notice> query, string sortField, string sortDirection)
@@ -464,7 +580,15 @@ public record NoticeAttachmentDto(
     string? SourceFileName,
     DateTime InsertedAt,
     DateTime LastSeenAt,
-    bool HasBinaryContent);
+    bool HasBinaryContent,
+    bool HasMarkdownContent);
 
 public record AttachmentDownloadResultDto(int Total, int Downloaded, int Failed);
+
+public record AttachmentMarkdownConversionResultDto(
+    int Total,
+    int Converted,
+    int MissingContent,
+    int Unsupported,
+    int Failed);
 

@@ -250,6 +250,9 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<long?>("FileSize")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("MarkdownContent")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("InsertedAt")
                         .HasColumnType("datetime2");
 

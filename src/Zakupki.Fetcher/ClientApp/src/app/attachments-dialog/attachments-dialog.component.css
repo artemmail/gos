@@ -46,6 +46,12 @@
   gap: 8px;
 }
 
+.actions-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .table-container .loading-overlay {
   position: absolute;
   inset: 0;

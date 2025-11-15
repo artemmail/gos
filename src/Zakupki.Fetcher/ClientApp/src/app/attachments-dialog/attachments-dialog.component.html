@@ -26,6 +26,15 @@
       <mat-icon fontIcon="cloud_download"></mat-icon>
       <span>Скачать недостающие</span>
     </button>
+    <button
+      mat-raised-button
+      color="accent"
+      (click)="convertAllToMarkdown()"
+      [disabled]="isConvertingAll || !hasConvertibleAttachments"
+    >
+      <mat-icon fontIcon="auto_fix_high"></mat-icon>
+      <span>Преобразовать все</span>
+    </button>
   </div>
 
   <div class="table-container" *ngIf="hasAttachments; else noAttachments">
@@ -61,12 +70,13 @@
             {{ element.hasBinaryContent ? 'Загружено' : 'Не загружено' }}
           </span>
           <div class="file-meta" *ngIf="element.fileSize">Размер: {{ element.fileSize | number: '1.0-0' }} байт</div>
+          <div class="file-meta">Markdown: {{ element.hasMarkdownContent ? 'готов' : '—' }}</div>
         </td>
       </ng-container>
 
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef>Действия</th>
-        <td mat-cell *matCellDef="let element">
+        <td mat-cell *matCellDef="let element" class="actions-cell">
           <button
             mat-stroked-button
             color="primary"
@@ -75,6 +85,15 @@
           >
             <mat-icon fontIcon="download"></mat-icon>
             <span>Скачать</span>
+          </button>
+          <button
+            mat-stroked-button
+            color="accent"
+            (click)="downloadMarkdown(element)"
+            [disabled]="downloadingMarkdownAttachmentId === element.id || !element.hasMarkdownContent"
+          >
+            <mat-icon fontIcon="article"></mat-icon>
+            <span>Скачать MD</span>
           </button>
         </td>
       </ng-container>
