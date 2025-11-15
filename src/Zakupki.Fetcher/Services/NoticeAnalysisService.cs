@@ -43,6 +43,11 @@ public sealed class NoticeAnalysisService
 
         if (_httpClient.BaseAddress is null && Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var baseUri))
         {
+            if (!baseUri.AbsoluteUri.EndsWith('/'))
+            {
+                baseUri = new Uri(baseUri.AbsoluteUri + "/", UriKind.Absolute);
+            }
+
             _httpClient.BaseAddress = baseUri;
         }
     }
