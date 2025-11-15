@@ -58,8 +58,10 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("Connection string 'Default' is not configured.");
 }
 
-builder.Services.AddDbContext<NoticeDbContext>(options =>
-    options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<NoticeDbContext>(
+    options => options.UseSqlServer(connectionString),
+    contextLifetime: ServiceLifetime.Scoped,
+    optionsLifetime: ServiceLifetime.Singleton);
 
 builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
     options.UseSqlServer(connectionString));
