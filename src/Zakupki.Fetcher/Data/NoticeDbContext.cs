@@ -29,6 +29,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<ApplicationUserRegion> ApplicationUserRegions => Set<ApplicationUserRegion>();
 
+    public DbSet<NoticeAnalysis> NoticeAnalyses => Set<NoticeAnalysis>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -41,6 +43,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureNoticeSearchVector(modelBuilder);
         ConfigureRefreshToken(modelBuilder);
         ConfigureApplicationUser(modelBuilder);
+        ConfigureNoticeAnalysis(modelBuilder);
     }
 
     private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
@@ -52,6 +55,12 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .HasMany(u => u.Regions)
             .WithOne(r => r.User)
             .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        userEntity
+            .HasMany(u => u.NoticeAnalyses)
+            .WithOne(a => a.User)
+            .HasForeignKey(a => a.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var regionEntity = modelBuilder.Entity<ApplicationUserRegion>();
@@ -99,6 +108,11 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.HasMany(n => n.Versions)
             .WithOne(v => v.Notice)
             .HasForeignKey(v => v.NoticeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasMany(n => n.Analyses)
+            .WithOne(a => a.Notice)
+            .HasForeignKey(a => a.NoticeId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -184,6 +198,21 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(s => s.SignatureType).HasMaxLength(64);
         entity.Property(s => s.SignatureValue).HasColumnType("nvarchar(max)");
+    }
+
+    private static void ConfigureNoticeAnalysis(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<NoticeAnalysis>();
+        entity.ToTable("NoticeAnalyses");
+        entity.HasKey(a => a.Id);
+
+        entity.Property(a => a.Status).HasMaxLength(32);
+        entity.Property(a => a.Result).HasColumnType("nvarchar(max)");
+        entity.Property(a => a.Error).HasColumnType("nvarchar(max)");
+
+        entity.HasIndex(a => new { a.NoticeId, a.UserId })
+            .IsUnique()
+            .HasDatabaseName("UX_NoticeAnalyses_Notice_User");
     }
 
     private static void ConfigureImportBatch(ModelBuilder modelBuilder)

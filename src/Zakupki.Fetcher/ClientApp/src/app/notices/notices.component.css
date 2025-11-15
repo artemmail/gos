@@ -120,3 +120,40 @@ mat-table {
   height: 48px;
   width: 48px;
 }
+
+.analysis-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.analysis-ready {
+  background-color: #e8f5e9;
+  color: #1b5e20;
+}
+
+.analysis-progress {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.analysis-failed {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.analysis-empty {
+  background-color: #f5f5f5;
+  color: #616161;
+}
+
+.analysis-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

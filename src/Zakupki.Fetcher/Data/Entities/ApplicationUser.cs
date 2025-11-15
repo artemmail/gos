@@ -19,4 +19,6 @@ public class ApplicationUser : IdentityUser
     public ICollection<ApplicationUserRegion> Regions { get; set; } = new List<ApplicationUserRegion>();
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+    public ICollection<NoticeAnalysis> NoticeAnalyses { get; set; } = new List<NoticeAnalysis>();
 }

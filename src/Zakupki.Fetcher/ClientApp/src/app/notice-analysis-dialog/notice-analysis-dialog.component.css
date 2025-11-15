@@ -1,0 +1,24 @@
+.analysis-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.entry-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.timestamp {
+  margin: 0;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+}
+
+.analysis-text {
+  white-space: pre-wrap;
+  font-family: inherit;
+  line-height: 1.5;
+}

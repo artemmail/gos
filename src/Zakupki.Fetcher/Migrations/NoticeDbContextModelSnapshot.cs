@@ -540,6 +540,48 @@ namespace Zakupki.Fetcher.Migrations
                     b.ToTable("NoticeAttachments", (string)null);
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeAnalysis", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("NoticeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Result")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoticeId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NoticeAnalyses_Notice_User");
+
+                    b.ToTable("NoticeAnalyses", (string)null);
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeSearchVector", b =>
                 {
                     b.Property<Guid>("Id")
@@ -829,9 +871,30 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeAnalysis", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.Notice", "Notice")
+                        .WithMany("Analyses")
+                        .HasForeignKey("NoticeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.ApplicationUser", "User")
+                        .WithMany("NoticeAnalyses")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notice");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("RefreshTokens");
+
+                    b.Navigation("NoticeAnalyses");
 
                     b.Navigation("Regions");
                 });
@@ -843,6 +906,8 @@ namespace Zakupki.Fetcher.Migrations
 
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Notice", b =>
                 {
+                    b.Navigation("Analyses");
+
                     b.Navigation("Versions");
                 });
 

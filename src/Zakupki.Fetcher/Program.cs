@@ -38,6 +38,7 @@ builder.Configuration
 
 builder.Services.Configure<ZakupkiOptions>(builder.Configuration.GetSection("Zakupki"));
 builder.Services.Configure<AttachmentConversionOptions>(builder.Configuration.GetSection("AttachmentConversion"));
+builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.AddSingleton(new CookieContainer());
 builder.Services
     .AddHttpClient<AttachmentDownloadService>()
@@ -51,6 +52,7 @@ builder.Services
     });
 
 builder.Services.AddHttpClient<ZakupkiClient>();
+builder.Services.AddHttpClient<NoticeAnalysisService>();
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
 if (string.IsNullOrWhiteSpace(connectionString))
