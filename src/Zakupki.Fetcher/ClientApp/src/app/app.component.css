@@ -1,128 +1,20 @@
-.full-height {
+.app-toolbar {
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
 }
 
-.toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.content-container {
-  flex: 1;
-  padding: 24px;
-  display: flex;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-mat-card {
-  width: 100%;
-  max-width: 1200px;
-  padding: 24px;
-  box-sizing: border-box;
-}
-
-.card-header {
-  margin-bottom: 16px;
-}
-
-.card-header h1 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.card-header .subtitle {
-  margin: 4px 0 0;
-  color: rgba(0, 0, 0, 0.54);
-}
-
-.filters-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.filters-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.filter-field.full-width {
-  grid-column: 1 / -1;
-}
-
-.filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.table-wrapper {
-  position: relative;
-  overflow: auto;
-  max-height: 60vh;
-}
-
-mat-table {
-  min-width: 1100px;
-}
-
-.entry-name {
-  white-space: normal;
-}
-
-.collecting-end-cell.collecting-end-expired {
-  color: #d32f2f;
+.app-title {
+  font-size: 18px;
   font-weight: 600;
 }
 
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(255, 255, 255, 0.75);
-  z-index: 1;
+.spacer {
+  flex: 1 1 auto;
 }
 
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  color: rgba(0, 0, 0, 0.54);
+.user-name {
+  margin-right: 12px;
 }
 
-.empty-state mat-icon {
-  font-size: 36px;
-  height: 36px;
-  width: 36px;
-  margin-bottom: 8px;
-}
-
-.error-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 16px;
-  color: rgba(0, 0, 0, 0.7);
-  gap: 16px;
-}
-
-.error-container mat-icon {
-  font-size: 48px;
-  height: 48px;
-  width: 48px;
+.app-content {
+  padding: 24px;
 }
