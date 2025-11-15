@@ -127,23 +127,29 @@ public class NoticesController : ControllerBase
             .Select(n => new
             {
                 Notice = n,
-                ProcedureWindow = n.Versions
+                ProcedureCollectingEnd = n.Versions
                     .Where(v => v.IsActive)
-                    .Select(v => v.ProcedureWindow)
+                    .Select(v => v.ProcedureWindow != null
+                        ? (DateTime?)v.ProcedureWindow.CollectingEnd
+                        : null)
                     .FirstOrDefault(),
-                Analysis = currentUserId != null
-                    ? n.Analyses
-                        .Where(a => a.UserId == currentUserId)
-                        .OrderByDescending(a => a.UpdatedAt)
-                        .Select(a => new
-                        {
-                            a.Status,
-                            a.UpdatedAt,
-                            a.CompletedAt,
-                            HasResult = a.Result != null && a.Result != ""
-                        })
-                        .FirstOrDefault()
-                    : null
+                ProcedureSubmissionDate = n.Versions
+                    .Where(v => v.IsActive)
+                    .Select(v => v.ProcedureWindow != null
+                        ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
+                        : null)
+                    .FirstOrDefault(),
+                Analysis = n.Analyses
+                    .Where(a => currentUserId != null && a.UserId == currentUserId)
+                    .OrderByDescending(a => a.UpdatedAt)
+                    .Select(a => new
+                    {
+                        a.Status,
+                        a.UpdatedAt,
+                        a.CompletedAt,
+                        HasResult = a.Result != null && a.Result != ""
+                    })
+                    .FirstOrDefault()
             })
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
@@ -166,8 +172,8 @@ public class NoticesController : ControllerBase
                 x.Notice.KvrCode,
                 x.Notice.KvrName,
                 x.Notice.RawJson,
-                x.ProcedureWindow != null ? x.ProcedureWindow.CollectingEnd : null,
-                x.ProcedureWindow != null ? x.ProcedureWindow.SubmissionProcedureDateRaw : null,
+                x.ProcedureCollectingEnd,
+                x.ProcedureSubmissionDate,
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null))
