@@ -12,11 +12,20 @@ export interface NoticeAttachment {
   insertedAt: string;
   lastSeenAt: string;
   hasBinaryContent: boolean;
+  hasMarkdownContent: boolean;
 }
 
 export interface AttachmentDownloadResult {
   total: number;
   downloaded: number;
+  failed: number;
+}
+
+export interface AttachmentMarkdownConversionResult {
+  total: number;
+  converted: number;
+  missingContent: number;
+  unsupported: number;
   failed: number;
 }
 

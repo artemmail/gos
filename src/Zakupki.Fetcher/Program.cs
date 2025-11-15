@@ -26,6 +26,7 @@ builder.Configuration
     .AddEnvironmentVariables();
 
 builder.Services.Configure<ZakupkiOptions>(builder.Configuration.GetSection("Zakupki"));
+builder.Services.Configure<AttachmentConversionOptions>(builder.Configuration.GetSection("AttachmentConversion"));
 builder.Services.AddSingleton(new CookieContainer());
 builder.Services
     .AddHttpClient<AttachmentDownloadService>()
@@ -53,6 +54,7 @@ builder.Services.AddHostedService<DatabaseMigrationHostedService>();
 builder.Services.AddSingleton<NoticeProcessor>();
 builder.Services.AddScoped<XmlFolderImporter>();
 builder.Services.AddHostedService<Worker>();
+builder.Services.AddSingleton<AttachmentMarkdownService>();
 
 builder.Services.AddCors(options =>
 {

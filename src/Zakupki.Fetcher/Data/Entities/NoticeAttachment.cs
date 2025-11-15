@@ -29,6 +29,8 @@ public class NoticeAttachment
 
     public byte[]? BinaryContent { get; set; }
 
+    public string? MarkdownContent { get; set; }
+
     public DateTime InsertedAt { get; set; }
 
     public DateTime LastSeenAt { get; set; }

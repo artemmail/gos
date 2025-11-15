@@ -135,6 +135,7 @@ public class NoticeDbContext : DbContext
         entity.Property(a => a.Url).HasMaxLength(512);
         entity.Property(a => a.ContentHash).HasMaxLength(128);
         entity.Property(a => a.BinaryContent).HasColumnType("varbinary(max)");
+        entity.Property(a => a.MarkdownContent).HasColumnType("nvarchar(max)");
         entity.Property(a => a.SourceFileName).HasMaxLength(256);
 
         entity.HasIndex(a => a.FileName).HasDatabaseName("IX_NoticeAttachments_FileName");
