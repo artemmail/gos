@@ -3,7 +3,6 @@ import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
-import { jwtDecode } from 'jwt-decode';
 import { isPlatformBrowser } from '@angular/common';
 
 export interface TokenResponse { token: string; }
@@ -77,7 +76,11 @@ export class AuthService {
 
   private decodeAndSaveUser(token: string) {
     try {
-      const payload: any = jwtDecode(token);
+      const payload = this.tryDecodeToken(token);
+      if (!payload) {
+        this.saveUser(null);
+        return;
+      }
       const rawRoles = payload.role
         ?? payload.roles
         ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
@@ -113,6 +116,67 @@ export class AuthService {
     } catch {
       this.saveUser(null);
     }
+  }
+
+  private tryDecodeToken(token: string): any | null {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const base64 = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
+    const normalized = base64 + padding;
+
+    const decoded = this.decodeBase64(normalized);
+    if (decoded === null) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(decoded);
+    } catch {
+      return null;
+    }
+  }
+
+  private decodeBase64(base64: string): string | null {
+    if (typeof globalThis.atob === 'function') {
+      try {
+        return globalThis.atob(base64);
+      } catch {
+        // Fallback to manual decoding below.
+      }
+    }
+
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    let output = '';
+    let buffer = 0;
+    let bitsCollected = 0;
+
+    for (let i = 0; i < base64.length; i++) {
+      const char = base64[i];
+      if (char === '=') {
+        break;
+      }
+      const value = alphabet.indexOf(char);
+      if (value === -1) {
+        continue;
+      }
+
+      buffer = (buffer << 6) | value;
+      bitsCollected += 6;
+
+      if (bitsCollected >= 8) {
+        bitsCollected -= 8;
+        const byte = (buffer >> bitsCollected) & 0xff;
+        output += String.fromCharCode(byte);
+      }
+    }
+
+    return output || null;
   }
 
   /** Обычный логин через форму */
