@@ -1,7 +1,6 @@
-import { Component, OnInit, NgZone } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router, ActivatedRoute } from '@angular/router';
-import { AuthService } from '../services/AuthService.service';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 
 @Component({
@@ -36,12 +35,10 @@ import { Title } from '@angular/platform-browser';
 export class LoginComponent implements OnInit {
   authError = false;
   authErrorMessage = '';
+  private returnUrl: string | null = null;
 
   constructor(
-    private zone: NgZone,
-    private auth: AuthService,
     private route: ActivatedRoute,
-    private router: Router,
     private readonly titleService: Title
   ) {
     this.titleService.setTitle('Вход в YouScriptor');
@@ -51,6 +48,7 @@ export class LoginComponent implements OnInit {
     // Обработка error из query-params
     this.route.queryParams.subscribe(params => {
       const error = params['error'];
+      this.returnUrl = params['returnUrl'] ?? null;
       if (error) {
         this.authError = true;
         if (error === 'interaction_required') {
@@ -72,7 +70,11 @@ export class LoginComponent implements OnInit {
   }
 
   private redirectToProvider(provider: 'google' | 'yandex'): void {
-    const redirect = encodeURIComponent(`${window.location.origin}/auth/callback`);
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    if (this.returnUrl) {
+      callbackUrl.searchParams.set('returnUrl', this.returnUrl);
+    }
+    const redirect = encodeURIComponent(callbackUrl.toString());
     window.location.href = `/api/account/signin-${provider}?returnUrl=${redirect}`;
   }
 }
