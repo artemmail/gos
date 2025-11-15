@@ -7,6 +7,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { RouterModule, Router } from '@angular/router';
 import { Observable } from 'rxjs';
 import { AuthService, UserInfo } from '../services/AuthService.service';
+import { MatDialog } from '@angular/material/dialog';
+import { CompanyProfileDialogComponent } from '../company-profile-dialog/company-profile-dialog.component';
 
 @Component({
   selector: 'app-side-menu',
@@ -25,7 +27,7 @@ export class SideMenuComponent {
   @Output() close = new EventEmitter<void>();
   user$: Observable<UserInfo | null>;
 
-  constructor(private auth: AuthService, private router: Router) {
+  constructor(private auth: AuthService, private router: Router, private dialog: MatDialog) {
 
     this.user$ = this.auth.user$;
   }
@@ -36,5 +38,12 @@ export class SideMenuComponent {
 
   navigate(path: string) {
     this.router.navigate([path]).then(() => this.close.emit());
+  }
+
+  openCompanyProfileDialog() {
+    this.dialog.open(CompanyProfileDialogComponent, {
+      width: '640px'
+    });
+    this.close.emit();
   }
 }

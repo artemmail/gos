@@ -13,6 +13,7 @@ import { NoticesComponent } from './notices/notices.component';
 import { AuthCallbackComponent } from './auth-callback/auth-callback.component';
 import { appRoutes } from './app.routes';
 import { authInterceptor } from './services/AuthInterceptor';
+import { CompanyProfileDialogComponent } from './company-profile-dialog/company-profile-dialog.component';
 
 @NgModule({
   declarations: [
@@ -20,7 +21,8 @@ import { authInterceptor } from './services/AuthInterceptor';
     AttachmentsDialogComponent,
     RawJsonDialogComponent,
     NoticesComponent,
-    AuthCallbackComponent
+    AuthCallbackComponent,
+    CompanyProfileDialogComponent
   ],
   imports: [
     BrowserModule,

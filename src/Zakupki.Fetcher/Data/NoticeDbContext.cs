@@ -27,6 +27,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<ApplicationUserRegion> ApplicationUserRegions => Set<ApplicationUserRegion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -38,6 +40,25 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureImportBatch(modelBuilder);
         ConfigureNoticeSearchVector(modelBuilder);
         ConfigureRefreshToken(modelBuilder);
+        ConfigureApplicationUser(modelBuilder);
+    }
+
+    private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
+    {
+        var userEntity = modelBuilder.Entity<ApplicationUser>();
+        userEntity.Property(u => u.CompanyInfo).HasColumnType("nvarchar(max)");
+
+        userEntity
+            .HasMany(u => u.Regions)
+            .WithOne(r => r.User)
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var regionEntity = modelBuilder.Entity<ApplicationUserRegion>();
+        regionEntity.ToTable("ApplicationUserRegions");
+        regionEntity.HasKey(r => r.Id);
+        regionEntity.Property(r => r.Region).HasMaxLength(128);
+        regionEntity.HasIndex(r => new { r.UserId, r.Region }).IsUnique();
     }
 
     private static void ConfigureNotice(ModelBuilder modelBuilder)

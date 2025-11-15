@@ -1,0 +1,42 @@
+<h2 mat-dialog-title>Данные компании</h2>
+<mat-dialog-content>
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+  </div>
+
+  <form [formGroup]="form" *ngIf="!isLoading" class="dialog-form">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Информация о компании</mat-label>
+      <textarea
+        matInput
+        formControlName="companyInfo"
+        rows="6"
+        placeholder="Опишите вашу компанию, услуги и опыт"
+      ></textarea>
+      <mat-hint align="end">{{ form.get('companyInfo')?.value?.length || 0 }}/8000</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Регионы работы</mat-label>
+      <mat-select formControlName="regions" multiple>
+        <mat-option *ngFor="let region of availableRegions" [value]="region">
+          {{ region }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <div class="message error" *ngIf="errorMessage">{{ errorMessage }}</div>
+    <div class="message success" *ngIf="successMessage">{{ successMessage }}</div>
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Отмена</button>
+  <button
+    mat-flat-button
+    color="primary"
+    (click)="save()"
+    [disabled]="isSaving || form.invalid || isLoading"
+  >
+    Сохранить
+  </button>
+</mat-dialog-actions>
