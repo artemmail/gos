@@ -16,7 +16,7 @@ public class AttachmentMarkdownService
 {
     private static readonly Dictionary<string, string> FormatMappings = new(StringComparer.OrdinalIgnoreCase)
     {
-        [".doc"] = "doc",
+        [".doc"] = "docx",
         [".docx"] = "docx",
         [".pdf"] = "pdf",
         [".html"] = "html",
@@ -89,9 +89,18 @@ public class AttachmentMarkdownService
 
         await File.WriteAllBytesAsync(tempFilePath, attachment.BinaryContent, cancellationToken).ConfigureAwait(false);
 
+        var inputFilePath = tempFilePath;
+        var filesToCleanup = new List<string> { tempFilePath };
+
+        if (string.Equals(extension, ".doc", StringComparison.OrdinalIgnoreCase))
+        {
+            inputFilePath = await ConvertDocToDocxAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
+            filesToCleanup.Add(inputFilePath);
+        }
+
         try
         {
-            var arguments = BuildPandocArguments(tempFilePath, format);
+            var arguments = BuildPandocArguments(inputFilePath, format);
             var workingDirectory = GetWorkingDirectory();
 
             if (!Directory.Exists(workingDirectory))
@@ -155,16 +164,19 @@ public class AttachmentMarkdownService
         }
         finally
         {
-            try
+            foreach (var filePath in filesToCleanup)
             {
-                if (File.Exists(tempFilePath))
+                try
                 {
-                    File.Delete(tempFilePath);
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
                 }
-            }
-            catch (Exception cleanupException)
-            {
-                _logger.LogWarning(cleanupException, "Failed to delete temporary file {TempFilePath}", tempFilePath);
+                catch (Exception cleanupException)
+                {
+                    _logger.LogWarning(cleanupException, "Failed to delete temporary file {TempFilePath}", filePath);
+                }
             }
         }
     }
@@ -187,5 +199,69 @@ public class AttachmentMarkdownService
         }
 
         return Directory.GetCurrentDirectory();
+    }
+
+    private async Task<string> ConvertDocToDocxAsync(string sourceFilePath, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
+        {
+            throw new InvalidOperationException("LibreOfficePath is not configured. Conversion of .doc files cannot be performed.");
+        }
+
+        var libreOfficePath = _options.LibreOfficePath!;
+        var outputDirectory = Path.GetDirectoryName(sourceFilePath) ?? Path.GetTempPath();
+        var outputFilePath = Path.ChangeExtension(sourceFilePath, ".docx");
+
+        if (File.Exists(outputFilePath))
+        {
+            File.Delete(outputFilePath);
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = libreOfficePath,
+            Arguments = $"--headless --convert-to docx --outdir \"{outputDirectory}\" \"{sourceFilePath}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = outputDirectory
+        };
+
+        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+
+        try
+        {
+            process.Start();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start LibreOffice process for .doc conversion");
+            throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации .doc файла.", ex);
+        }
+
+        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+        var stdOutput = await outputTask.ConfigureAwait(false);
+        var stdError = await errorTask.ConfigureAwait(false);
+
+        if (process.ExitCode != 0)
+        {
+            _logger.LogError("LibreOffice conversion failed with exit code {ExitCode}. Output: {Output}. Errors: {Errors}", process.ExitCode, stdOutput, stdError);
+            throw new InvalidOperationException("Конвертация .doc файла в .docx завершилась с ошибкой.");
+        }
+
+        if (!File.Exists(outputFilePath))
+        {
+            _logger.LogError("LibreOffice conversion did not produce the expected .docx file. Output: {Output}. Errors: {Errors}", stdOutput, stdError);
+            throw new InvalidOperationException("Не удалось получить .docx файл после конвертации .doc документа.");
+        }
+
+        return outputFilePath;
     }
 }
