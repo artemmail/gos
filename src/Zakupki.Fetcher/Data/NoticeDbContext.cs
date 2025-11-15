@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Zakupki.Fetcher.Data.Entities;
 
 namespace Zakupki.Fetcher.Data;
 
-public class NoticeDbContext : DbContext
+public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
@@ -24,8 +25,11 @@ public class NoticeDbContext : DbContext
 
     public DbSet<NoticeSearchVector> NoticeSearchVectors => Set<NoticeSearchVector>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         ConfigureNotice(modelBuilder);
         ConfigureNoticeVersion(modelBuilder);
         ConfigureProcedureWindow(modelBuilder);
@@ -33,6 +37,7 @@ public class NoticeDbContext : DbContext
         ConfigureAttachmentSignature(modelBuilder);
         ConfigureImportBatch(modelBuilder);
         ConfigureNoticeSearchVector(modelBuilder);
+        ConfigureRefreshToken(modelBuilder);
     }
 
     private static void ConfigureNotice(ModelBuilder modelBuilder)
@@ -180,5 +185,21 @@ public class NoticeDbContext : DbContext
 
         entity.Property(s => s.AggregatedText).HasColumnType("nvarchar(max)");
         entity.Property(s => s.EmbeddingVector).HasColumnType("varbinary(max)");
+    }
+
+    private static void ConfigureRefreshToken(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<RefreshToken>();
+        entity.ToTable("RefreshTokens");
+        entity.HasKey(r => r.Id);
+
+        entity.Property(r => r.Token).HasMaxLength(512).IsRequired();
+
+        entity.HasOne(r => r.User)
+            .WithMany(u => u.RefreshTokens)
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasIndex(r => r.Token).IsUnique();
     }
 }
