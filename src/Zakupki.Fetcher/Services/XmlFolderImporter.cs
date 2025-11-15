@@ -72,19 +72,7 @@ public sealed class XmlFolderImporter
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            /*
-            if (TryExtractPurchaseNumber(file, out var purchaseNumber) &&
-                existingPurchaseNumbers.Contains(purchaseNumber))
-            {
-                skippedExistingPurchases++;
-                _logger.LogDebug(
-                    "Skipping '{File}' because purchase number {PurchaseNumber} already exists in the database",
-                    file,
-                    purchaseNumber);
-                continue;
-            }*/
-
+          
             byte[] content;
             try
             {
