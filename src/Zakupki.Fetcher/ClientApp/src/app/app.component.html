@@ -3,6 +3,7 @@
   <span class="spacer"></span>
   <ng-container *ngIf="user$ | async as user; else loginLink">
     <span class="user-name">{{ user.displayName || user.email }}</span>
+    <button mat-button (click)="openCompanyProfileDialog()">Данные компании</button>
     <button mat-button (click)="onLogout()">Выйти</button>
   </ng-container>
   <ng-template #loginLink>

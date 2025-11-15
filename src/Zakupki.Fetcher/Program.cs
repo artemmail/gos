@@ -74,6 +74,8 @@ builder.Services
     .AddEntityFrameworkStores<NoticeDbContext>()
     .AddDefaultTokenProviders();
 
+builder.Services.AddScoped<UserCompanyService>();
+
 builder.Services.ConfigureExternalCookie(options =>
 {
     options.Cookie.SameSite = SameSiteMode.None;

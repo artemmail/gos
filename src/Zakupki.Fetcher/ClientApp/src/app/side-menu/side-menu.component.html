@@ -101,6 +101,10 @@
       </mat-expansion-panel>
     </mat-accordion>
     <mat-divider></mat-divider>
+    <a mat-list-item (click)="openCompanyProfileDialog()">
+      <mat-icon matListItemIcon>business</mat-icon>
+      <span matListItemTitle>Данные компании</span>
+    </a>
     <a mat-list-item class="profile-entry" (click)="navigate('/profile')">
       <mat-icon matListItemIcon>person</mat-icon>
       <span matListItemTitle>Профиль</span>

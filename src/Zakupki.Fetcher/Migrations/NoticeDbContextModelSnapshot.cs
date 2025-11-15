@@ -170,6 +170,9 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("CompanyInfo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -229,6 +232,42 @@ namespace Zakupki.Fetcher.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ApplicationUserRegion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Region")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationUserRegions", (string)null);
+                });
+
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ApplicationUserRegion", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.ApplicationUser", "User")
+                        .WithMany("Regions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.AttachmentSignature", b =>
@@ -793,6 +832,8 @@ namespace Zakupki.Fetcher.Migrations
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("RefreshTokens");
+
+                    b.Navigation("Regions");
                 });
 
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ImportBatch", b =>
