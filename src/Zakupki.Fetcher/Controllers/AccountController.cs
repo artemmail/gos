@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using AspNet.Security.OAuth.Vkontakte;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -46,18 +47,18 @@ public class AccountController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("signin-google")]
-    public IActionResult SignInWithGoogle(string? returnUrl = null)
-        => SignInWithProvider("Google", returnUrl);
+    public Task<IActionResult> SignInWithGoogle(string? returnUrl = null)
+        => SignInWithProviderAsync("Google", returnUrl);
 
     [AllowAnonymous]
     [HttpGet("signin-yandex")]
-    public IActionResult SignInWithYandex(string? returnUrl = null)
-        => SignInWithProvider("Yandex", returnUrl);
+    public Task<IActionResult> SignInWithYandex(string? returnUrl = null)
+        => SignInWithProviderAsync("Yandex", returnUrl);
 
     [AllowAnonymous]
     [HttpGet("signin-vkontakte")]
-    public IActionResult SignInWithVkontakte(string? returnUrl = null)
-        => SignInWithProvider(VkontakteAuthenticationDefaults.AuthenticationScheme, returnUrl);
+    public Task<IActionResult> SignInWithVkontakte(string? returnUrl = null)
+        => SignInWithProviderAsync(VkontakteAuthenticationDefaults.AuthenticationScheme, returnUrl);
 
     [AllowAnonymous]
     [HttpGet("externallogincallback")]
@@ -301,8 +302,17 @@ public class AccountController : ControllerBase
         return Ok(new { token = newAccessToken });
     }
 
-    private IActionResult SignInWithProvider(string provider, string? returnUrl)
+    private async Task<IActionResult> SignInWithProviderAsync(string provider, string? returnUrl)
     {
+        var availableSchemes = await _signInManager.GetExternalAuthenticationSchemesAsync();
+        var hasProvider = availableSchemes.Any(scheme =>
+            string.Equals(scheme.Name, provider, StringComparison.OrdinalIgnoreCase));
+
+        if (!hasProvider)
+        {
+            return RedirectToAngularWithError("ProviderUnavailable");
+        }
+
         var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl });
         var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
         return Challenge(properties, provider);
