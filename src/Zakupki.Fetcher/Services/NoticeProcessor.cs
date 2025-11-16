@@ -165,7 +165,7 @@ public sealed class NoticeProcessor
     {
         notice.Source = document.Source;
         notice.DocumentType = document.DocumentType;
-        notice.Region = document.Region.ToString(CultureInfo.InvariantCulture);
+        notice.Region = DetermineRegionCode(notification, document);
         notice.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         notice.EntryName = document.EntryName;
         notice.ExternalId = externalId;
@@ -194,6 +194,79 @@ public sealed class NoticeProcessor
         notice.RawJson = serializedNotification;
         notice.CollectingEnd = procedureInfo?.CollectingInfo?.EndDt;
         notice.UpdatedAt = now;
+    }
+
+    private static string? DetermineRegionCode(EpNotificationEf2020 notification, NoticeDocument document)
+    {
+        foreach (var inn in EnumerateInnCandidates(notification))
+        {
+            var region = ExtractRegionFromInn(inn);
+            if (region is not null)
+            {
+                return region;
+            }
+        }
+
+        return FormatDocumentRegion(document.Region);
+    }
+
+    private static IEnumerable<string?> EnumerateInnCandidates(EpNotificationEf2020 notification)
+    {
+        yield return notification.PurchaseResponsibleInfo?.ResponsibleOrgInfo?.INN;
+        yield return notification.PurchaseResponsibleInfo?.SpecializedOrgInfo?.INN;
+
+        var customerRequirements = notification.NotificationInfo?.CustomerRequirementsInfo?.Items;
+        if (customerRequirements is not { Count: > 0 })
+        {
+            yield break;
+        }
+
+        foreach (var requirement in customerRequirements)
+        {
+            var applicationInn = requirement.ApplicationGuarantee?.AccountBudget?.AccountBudgetAdmin?.Inn;
+            if (!string.IsNullOrWhiteSpace(applicationInn))
+            {
+                yield return applicationInn;
+            }
+
+            var contractInn = requirement.ContractGuarantee?.AccountBudget?.AccountBudgetAdmin?.Inn;
+            if (!string.IsNullOrWhiteSpace(contractInn))
+            {
+                yield return contractInn;
+            }
+        }
+    }
+
+    private static string? ExtractRegionFromInn(string? inn)
+    {
+        if (string.IsNullOrWhiteSpace(inn))
+        {
+            return null;
+        }
+
+        var trimmed = inn.Trim();
+        if (trimmed.Length < 2)
+        {
+            return null;
+        }
+
+        var digits = trimmed.Where(char.IsDigit).ToArray();
+        if (digits.Length < 2)
+        {
+            return null;
+        }
+
+        return new string(digits, 0, 2);
+    }
+
+    private static string? FormatDocumentRegion(int region)
+    {
+        if (region <= 0)
+        {
+            return null;
+        }
+
+        return region.ToString("D2", CultureInfo.InvariantCulture);
     }
 
     private static (string? Okpd2Code, string? Okpd2Name, string? KvrCode, string? KvrName) ExtractClassificationInfo(
