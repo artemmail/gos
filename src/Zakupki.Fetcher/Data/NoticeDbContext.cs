@@ -31,6 +31,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<NoticeAnalysis> NoticeAnalyses => Set<NoticeAnalysis>();
 
+    public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -44,6 +46,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureRefreshToken(modelBuilder);
         ConfigureApplicationUser(modelBuilder);
         ConfigureNoticeAnalysis(modelBuilder);
+        ConfigureNoticeEmbedding(modelBuilder);
     }
 
     private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
@@ -214,6 +217,27 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.HasIndex(a => new { a.NoticeId, a.UserId })
             .IsUnique()
             .HasDatabaseName("UX_NoticeAnalyses_Notice_User");
+    }
+
+    private static void ConfigureNoticeEmbedding(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<NoticeEmbedding>();
+        entity.ToTable("NoticeEmbeddings");
+        entity.HasKey(e => e.Id);
+
+        entity.Property(e => e.Model).HasMaxLength(200);
+        entity.Property(e => e.Vector).HasColumnType("nvarchar(max)");
+        entity.Property(e => e.Source).HasMaxLength(100);
+
+        entity.HasOne(e => e.Notice)
+            .WithMany(n => n.Embeddings)
+            .HasForeignKey(e => e.NoticeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasIndex(e => e.NoticeId).HasDatabaseName("IX_NoticeEmbeddings_NoticeId");
+        entity.HasIndex(e => new { e.NoticeId, e.Model })
+            .IsUnique()
+            .HasDatabaseName("UX_NoticeEmbeddings_Notice_Model");
     }
 
     private static void ConfigureImportBatch(ModelBuilder modelBuilder)

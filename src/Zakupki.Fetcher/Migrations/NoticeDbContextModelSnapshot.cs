@@ -469,6 +469,49 @@ namespace Zakupki.Fetcher.Migrations
                     b.ToTable("Notices", (string)null);
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Dimensions")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("NoticeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Vector")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoticeId")
+                        .HasDatabaseName("IX_NoticeEmbeddings_NoticeId");
+
+                    b.HasIndex("NoticeId", "Model")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NoticeEmbeddings_Notice_Model");
+
+                    b.ToTable("NoticeEmbeddings", (string)null);
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeAttachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -826,6 +869,17 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("NoticeVersion");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeEmbedding", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.Notice", "Notice")
+                        .WithMany("Embeddings")
+                        .HasForeignKey("NoticeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notice");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeSearchVector", b =>
                 {
                     b.HasOne("Zakupki.Fetcher.Data.Entities.NoticeVersion", "NoticeVersion")
@@ -913,6 +967,8 @@ namespace Zakupki.Fetcher.Migrations
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Notice", b =>
                 {
                     b.Navigation("Analyses");
+
+                    b.Navigation("Embeddings");
 
                     b.Navigation("Versions");
                 });
