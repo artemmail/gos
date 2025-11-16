@@ -72,4 +72,6 @@ public class Notice
     public ICollection<NoticeVersion> Versions { get; set; } = new List<NoticeVersion>();
 
     public ICollection<NoticeAnalysis> Analyses { get; set; } = new List<NoticeAnalysis>();
+
+    public ICollection<NoticeEmbedding> Embeddings { get; set; } = new List<NoticeEmbedding>();
 }
