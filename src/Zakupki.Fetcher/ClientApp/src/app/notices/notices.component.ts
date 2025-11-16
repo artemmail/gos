@@ -16,7 +16,7 @@ import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
 import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
-import { getRegionDisplayName } from '../constants/regions';
+import { determineRegionFromRawJson, getRegionDisplayName } from '../constants/regions';
 
 @Component({
   selector: 'app-notices',
@@ -126,7 +126,10 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (response: NoticeListResponse) => {
-          this.notices = response.items;
+          this.notices = response.items.map(item => ({
+            ...item,
+            computedRegion: determineRegionFromRawJson(item.rawJson, item.region)
+          }));
           this.totalCount = response.totalCount;
           this.pageSize = response.pageSize;
         },
@@ -308,13 +311,14 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     return codes.length > 0 ? codes.join(',') : undefined;
   }
 
-  getRegionLabel(region: string | null): string {
-    const label = getRegionDisplayName(region);
+  getRegionLabel(notice: NoticeListItem): string {
+    const regionCode = notice.computedRegion ?? notice.region;
+    const label = getRegionDisplayName(regionCode);
 
     if (label) {
       return label;
     }
 
-    return region ?? '—';
+    return regionCode ?? '—';
   }
 }
