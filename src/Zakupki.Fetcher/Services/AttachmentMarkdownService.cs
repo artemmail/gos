@@ -18,7 +18,7 @@ public class AttachmentMarkdownService
     {
         [".doc"] = "docx",
         [".docx"] = "docx",
-        [".pdf"] = "pdf",
+        [".pdf"] = "docx",
         [".html"] = "html",
         [".htm"] = "html",
         [".xls"] = "html",
@@ -92,9 +92,10 @@ public class AttachmentMarkdownService
         var inputFilePath = tempFilePath;
         var filesToCleanup = new List<string> { tempFilePath };
 
-        if (string.Equals(extension, ".doc", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(extension, ".doc", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            inputFilePath = await ConvertDocToDocxAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
+            inputFilePath = await ConvertToDocxAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
             filesToCleanup.Add(inputFilePath);
         }
         else if (string.Equals(extension, ".xls", StringComparison.OrdinalIgnoreCase) ||
@@ -207,11 +208,11 @@ public class AttachmentMarkdownService
         return Directory.GetCurrentDirectory();
     }
 
-    private async Task<string> ConvertDocToDocxAsync(string sourceFilePath, CancellationToken cancellationToken)
+    private async Task<string> ConvertToDocxAsync(string sourceFilePath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
         {
-            throw new InvalidOperationException("LibreOfficePath is not configured. Conversion of .doc files cannot be performed.");
+            throw new InvalidOperationException("LibreOfficePath is not configured. Conversion to .docx cannot be performed.");
         }
 
         var libreOfficePath = _options.LibreOfficePath!;
@@ -244,8 +245,8 @@ public class AttachmentMarkdownService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start LibreOffice process for .doc conversion");
-            throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации .doc файла.", ex);
+            _logger.LogError(ex, "Failed to start LibreOffice process for conversion to DOCX for file {SourceFile}", sourceFilePath);
+            throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации файла в .docx.", ex);
         }
 
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -258,14 +259,23 @@ public class AttachmentMarkdownService
 
         if (process.ExitCode != 0)
         {
-            _logger.LogError("LibreOffice conversion failed with exit code {ExitCode}. Output: {Output}. Errors: {Errors}", process.ExitCode, stdOutput, stdError);
-            throw new InvalidOperationException("Конвертация .doc файла в .docx завершилась с ошибкой.");
+            _logger.LogError(
+                "LibreOffice conversion to DOCX failed for file {SourceFile} with exit code {ExitCode}. Output: {Output}. Errors: {Errors}",
+                sourceFilePath,
+                process.ExitCode,
+                stdOutput,
+                stdError);
+            throw new InvalidOperationException("Конвертация файла в .docx завершилась с ошибкой.");
         }
 
         if (!File.Exists(outputFilePath))
         {
-            _logger.LogError("LibreOffice conversion did not produce the expected .docx file. Output: {Output}. Errors: {Errors}", stdOutput, stdError);
-            throw new InvalidOperationException("Не удалось получить .docx файл после конвертации .doc документа.");
+            _logger.LogError(
+                "LibreOffice conversion to DOCX did not produce the expected file for {SourceFile}. Output: {Output}. Errors: {Errors}",
+                sourceFilePath,
+                stdOutput,
+                stdError);
+            throw new InvalidOperationException("Не удалось получить .docx файл после конвертации документа.");
         }
 
         return outputFilePath;
