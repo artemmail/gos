@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -15,6 +16,7 @@ using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Options;
+using Zakupki.Fetcher.Utilities;
 
 namespace Zakupki.Fetcher.Services;
 
@@ -30,17 +32,23 @@ public sealed class NoticeAnalysisService
 
     private readonly HttpClient _httpClient;
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
+    private readonly AttachmentDownloadService _attachmentDownloadService;
+    private readonly AttachmentMarkdownService _attachmentMarkdownService;
     private readonly OpenAiOptions _options;
     private readonly ILogger<NoticeAnalysisService> _logger;
 
     public NoticeAnalysisService(
         HttpClient httpClient,
         IDbContextFactory<NoticeDbContext> dbContextFactory,
+        AttachmentDownloadService attachmentDownloadService,
+        AttachmentMarkdownService attachmentMarkdownService,
         IOptions<OpenAiOptions> options,
         ILogger<NoticeAnalysisService> logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
+        _attachmentDownloadService = attachmentDownloadService ?? throw new ArgumentNullException(nameof(attachmentDownloadService));
+        _attachmentMarkdownService = attachmentMarkdownService ?? throw new ArgumentNullException(nameof(attachmentMarkdownService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -109,10 +117,13 @@ public sealed class NoticeAnalysisService
                 true);
         }
 
+        await EnsureAttachmentsDownloadedAsync(context, attachments, cancellationToken);
+        await EnsureAttachmentsConvertedToMarkdownAsync(context, attachments, cancellationToken);
+
         if (!attachments.Any(a => !string.IsNullOrWhiteSpace(a.MarkdownContent)))
         {
             throw new NoticeAnalysisException(
-                "Сконвертируйте хотя бы одно вложение в Markdown перед запуском анализа.",
+                "Не удалось подготовить вложения для анализа. Попробуйте выполнить конвертацию вручную и повторите попытку.",
                 true);
         }
 
@@ -229,6 +240,140 @@ public sealed class NoticeAnalysisService
         }
 
         return ToResponse(analysis);
+    }
+
+    private async Task EnsureAttachmentsDownloadedAsync(
+        NoticeDbContext context,
+        List<NoticeAttachment> attachments,
+        CancellationToken cancellationToken)
+    {
+        var updated = false;
+
+        foreach (var attachment in attachments)
+        {
+            if (attachment.BinaryContent is not null && attachment.BinaryContent.Length > 0)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(attachment.Url))
+            {
+                continue;
+            }
+
+            try
+            {
+                var content = await _attachmentDownloadService.DownloadAsync(
+                    attachment.Url!,
+                    cancellationToken: cancellationToken);
+
+                UpdateAttachmentContent(attachment, content);
+                updated = true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to download attachment {AttachmentId} while preparing notice {NoticeId} for analysis",
+                    attachment.Id,
+                    attachment.NoticeVersion.NoticeId);
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to process attachment {AttachmentId} content while preparing notice {NoticeId} for analysis",
+                    attachment.Id,
+                    attachment.NoticeVersion.NoticeId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Unexpected error while downloading attachment {AttachmentId} for notice {NoticeId}",
+                    attachment.Id,
+                    attachment.NoticeVersion.NoticeId);
+            }
+        }
+
+        if (updated)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private async Task EnsureAttachmentsConvertedToMarkdownAsync(
+        NoticeDbContext context,
+        List<NoticeAttachment> attachments,
+        CancellationToken cancellationToken)
+    {
+        var updated = false;
+
+        foreach (var attachment in attachments)
+        {
+            if (attachment.BinaryContent is null || attachment.BinaryContent.Length == 0)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(attachment.MarkdownContent))
+            {
+                continue;
+            }
+
+            if (!_attachmentMarkdownService.IsSupported(attachment))
+            {
+                continue;
+            }
+
+            try
+            {
+                var markdown = await _attachmentMarkdownService.ConvertToMarkdownAsync(attachment, cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(markdown))
+                {
+                    attachment.MarkdownContent = null;
+                    _logger.LogWarning(
+                        "Markdown conversion produced empty result for attachment {AttachmentId} while preparing notice {NoticeId} for analysis",
+                        attachment.Id,
+                        attachment.NoticeVersion.NoticeId);
+                    continue;
+                }
+
+                attachment.MarkdownContent = markdown;
+                updated = true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to convert attachment {AttachmentId} to Markdown while preparing notice {NoticeId} for analysis",
+                    attachment.Id,
+                    attachment.NoticeVersion.NoticeId);
+            }
+        }
+
+        if (updated)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content)
+    {
+        attachment.BinaryContent = content;
+        attachment.FileSize = content.LongLength;
+        attachment.ContentHash = HashUtilities.ComputeSha256Hex(content);
+        attachment.LastSeenAt = DateTime.UtcNow;
+        attachment.MarkdownContent = null;
     }
 
     private async Task<string> RequestAnalysisAsync(
