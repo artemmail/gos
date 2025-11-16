@@ -33,6 +33,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
 
+    public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -47,6 +49,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureApplicationUser(modelBuilder);
         ConfigureNoticeAnalysis(modelBuilder);
         ConfigureNoticeEmbedding(modelBuilder);
+        ConfigureFavoriteNotice(modelBuilder);
     }
 
     private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
@@ -64,6 +67,12 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .HasMany(u => u.NoticeAnalyses)
             .WithOne(a => a.User)
             .HasForeignKey(a => a.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        userEntity
+            .HasMany(u => u.FavoriteNotices)
+            .WithOne(f => f.User)
+            .HasForeignKey(f => f.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var regionEntity = modelBuilder.Entity<ApplicationUserRegion>();
@@ -118,6 +127,25 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .WithOne(a => a.Notice)
             .HasForeignKey(a => a.NoticeId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasMany(n => n.Favorites)
+            .WithOne(f => f.Notice)
+            .HasForeignKey(f => f.NoticeId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureFavoriteNotice(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<FavoriteNotice>();
+        entity.ToTable("FavoriteNotices");
+        entity.HasKey(f => f.Id);
+
+        entity.Property(f => f.UserId).HasMaxLength(450);
+        entity.Property(f => f.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+        entity.HasIndex(f => new { f.UserId, f.NoticeId })
+            .IsUnique()
+            .HasDatabaseName("UX_FavoriteNotices_User_Notice");
     }
 
     private static void ConfigureNoticeVersion(ModelBuilder modelBuilder)

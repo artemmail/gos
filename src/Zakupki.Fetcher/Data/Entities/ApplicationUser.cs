@@ -21,4 +21,6 @@ public class ApplicationUser : IdentityUser
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     public ICollection<NoticeAnalysis> NoticeAnalyses { get; set; } = new List<NoticeAnalysis>();
+
+    public ICollection<FavoriteNotice> FavoriteNotices { get; set; } = new List<FavoriteNotice>();
 }

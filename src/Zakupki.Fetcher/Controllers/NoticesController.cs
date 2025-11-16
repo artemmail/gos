@@ -120,6 +120,7 @@ public class NoticesController : ControllerBase
         var skip = (page - 1) * pageSize;
 
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
 
         var items = await query
             .Skip(skip)
@@ -135,6 +136,148 @@ public class NoticesController : ControllerBase
                     .FirstOrDefault(),
                 Analysis = n.Analyses
                     .Where(a => currentUserId != null && a.UserId == currentUserId)
+                    .OrderByDescending(a => a.UpdatedAt)
+                    .Select(a => new
+                    {
+                        a.Status,
+                        a.UpdatedAt,
+                        a.CompletedAt,
+                        HasResult = a.Result != null && a.Result != ""
+                    })
+                    .FirstOrDefault(),
+                IsFavorite = includeFavorites && n.Favorites.Any(f => f.UserId == currentUserId)
+            })
+            .Select(x => new NoticeListItemDto(
+                x.Notice.Id,
+                x.Notice.PurchaseNumber,
+                x.Notice.EntryName,
+                x.Notice.PublishDate,
+                x.Notice.EtpName,
+                x.Notice.DocumentType,
+                x.Notice.Source,
+                x.Notice.UpdatedAt,
+                x.Notice.Region,
+                x.Notice.Period,
+                x.Notice.PlacingWayName,
+                x.Notice.PurchaseObjectInfo,
+                x.Notice.MaxPrice,
+                x.Notice.MaxPriceCurrencyCode,
+                x.Notice.MaxPriceCurrencyName,
+                x.Notice.Okpd2Code,
+                x.Notice.Okpd2Name,
+                x.Notice.KvrCode,
+                x.Notice.KvrName,
+                x.Notice.RawJson,
+                x.Notice.CollectingEnd,
+                x.ProcedureSubmissionDate,
+                x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
+                x.Analysis != null ? x.Analysis.Status : null,
+                x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
+                x.IsFavorite))
+            .ToListAsync();
+
+        var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
+        return Ok(result);
+    }
+
+    [HttpGet("favorites")]
+    [Authorize]
+    public async Task<ActionResult<PagedResult<NoticeListItemDto>>> GetFavoriteNotices(
+        [FromQuery] string? search,
+        [FromQuery] string? purchaseNumber,
+        [FromQuery] string? okpd2Codes,
+        [FromQuery] string? kvrCodes,
+        [FromQuery] string? sortField,
+        [FromQuery] string? sortDirection,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        if (pageSize < 1)
+        {
+            pageSize = 20;
+        }
+
+        pageSize = Math.Min(pageSize, 100);
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var query = context.Notices
+            .AsNoTracking()
+            .Where(n => n.Favorites.Any(f => f.UserId == currentUserId));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var trimmedSearch = search.Trim();
+            var likeTerm = $"%{trimmedSearch}%";
+            query = query.Where(n =>
+                EF.Functions.Like(n.PurchaseNumber, likeTerm) ||
+                EF.Functions.Like(n.EntryName, likeTerm) ||
+                (n.EtpName != null && EF.Functions.Like(n.EtpName, likeTerm)) ||
+                (n.DocumentNumber != null && EF.Functions.Like(n.DocumentNumber, likeTerm)) ||
+                (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)) ||
+                (n.Okpd2Code != null && EF.Functions.Like(n.Okpd2Code, likeTerm)) ||
+                (n.Okpd2Name != null && EF.Functions.Like(n.Okpd2Name, likeTerm)) ||
+                (n.KvrCode != null && EF.Functions.Like(n.KvrCode, likeTerm)) ||
+                (n.KvrName != null && EF.Functions.Like(n.KvrName, likeTerm)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(purchaseNumber))
+        {
+            var trimmedNumber = purchaseNumber.Trim();
+            query = query.Where(n => n.PurchaseNumber == trimmedNumber);
+        }
+
+        var okpd2CodeList = ParseCodeList(okpd2Codes);
+
+        if (okpd2CodeList.Count > 0)
+        {
+            query = query.Where(n => n.Okpd2Code != null && okpd2CodeList.Contains(n.Okpd2Code));
+        }
+
+        var kvrCodeList = ParseCodeList(kvrCodes);
+
+        if (kvrCodeList.Count > 0)
+        {
+            query = query.Where(n => n.KvrCode != null && kvrCodeList.Contains(n.KvrCode));
+        }
+
+        var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
+            ? "publishDate"
+            : sortField.Trim().ToLowerInvariant();
+
+        var normalizedSortDirection = string.IsNullOrWhiteSpace(sortDirection)
+            ? "desc"
+            : sortDirection.Trim().ToLowerInvariant();
+
+        query = ApplySorting(query, normalizedSortField, normalizedSortDirection);
+
+        var totalCount = await query.CountAsync();
+        var skip = (page - 1) * pageSize;
+
+        var items = await query
+            .Skip(skip)
+            .Take(pageSize)
+            .Select(n => new
+            {
+                Notice = n,
+                ProcedureSubmissionDate = n.Versions
+                    .Where(v => v.IsActive)
+                    .Select(v => v.ProcedureWindow != null
+                        ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
+                        : null)
+                    .FirstOrDefault(),
+                Analysis = n.Analyses
+                    .Where(a => a.UserId == currentUserId)
                     .OrderByDescending(a => a.UpdatedAt)
                     .Select(a => new
                     {
@@ -170,11 +313,76 @@ public class NoticesController : ControllerBase
                 x.ProcedureSubmissionDate,
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
-                x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null))
+                x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
+                true))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
         return Ok(result);
+    }
+
+    [HttpPost("{noticeId:guid}/favorite")]
+    [Authorize]
+    public async Task<IActionResult> AddFavorite(Guid noticeId)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var exists = await context.FavoriteNotices
+            .AnyAsync(f => f.UserId == currentUserId && f.NoticeId == noticeId);
+
+        if (exists)
+        {
+            return NoContent();
+        }
+
+        var noticeExists = await context.Notices.AnyAsync(n => n.Id == noticeId);
+        if (!noticeExists)
+        {
+            return NotFound();
+        }
+
+        var favorite = new FavoriteNotice
+        {
+            Id = Guid.NewGuid(),
+            NoticeId = noticeId,
+            UserId = currentUserId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.FavoriteNotices.Add(favorite);
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpDelete("{noticeId:guid}/favorite")]
+    [Authorize]
+    public async Task<IActionResult> RemoveFavorite(Guid noticeId)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var favorite = await context.FavoriteNotices
+            .FirstOrDefaultAsync(f => f.UserId == currentUserId && f.NoticeId == noticeId);
+
+        if (favorite == null)
+        {
+            return NotFound();
+        }
+
+        context.FavoriteNotices.Remove(favorite);
+        await context.SaveChangesAsync();
+
+        return NoContent();
     }
 
     [HttpGet("{noticeId:guid}/analysis")]
@@ -636,7 +844,8 @@ public record NoticeListItemDto(
     string? SubmissionProcedureDateRaw,
     bool HasAnalysisAnswer,
     string? AnalysisStatus,
-    DateTime? AnalysisUpdatedAt);
+    DateTime? AnalysisUpdatedAt,
+    bool IsFavorite);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 

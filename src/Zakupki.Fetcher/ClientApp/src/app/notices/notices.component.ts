@@ -4,6 +4,7 @@ import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
@@ -17,6 +18,7 @@ import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notic
 import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
 import { determineRegionFromRawJson, getRegionDisplayName } from '../constants/regions';
+import { FavoritesService } from '../services/favorites.service';
 
 @Component({
   selector: 'app-notices',
@@ -25,6 +27,7 @@ import { determineRegionFromRawJson, getRegionDisplayName } from '../constants/r
 })
 export class NoticesComponent implements AfterViewInit, OnDestroy {
   displayedColumns: string[] = [
+    'favorite',
     'purchaseNumber',
     'region',
     'purchaseObjectInfo',
@@ -52,6 +55,8 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
   isLoading = false;
   errorMessage = '';
   analysisProgress: Record<string, boolean> = {};
+  favoriteProgress: Record<string, boolean> = {};
+  isFavoritesPage = false;
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
@@ -69,8 +74,12 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     private readonly noticesService: NoticesService,
     private readonly dialog: MatDialog,
     private readonly analysisService: NoticeAnalysisService,
-    private readonly snackBar: MatSnackBar
-  ) {}
+    private readonly snackBar: MatSnackBar,
+    private readonly favoritesService: FavoritesService,
+    private readonly route: ActivatedRoute
+  ) {
+    this.isFavoritesPage = this.route.snapshot.data?.['favorites'] === true;
+  }
 
   ngAfterViewInit(): void {
     this.sort.sortChange
@@ -109,17 +118,29 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.noticesService
-      .getNotices({
-        page: pageIndex + 1,
-        pageSize,
-        search: search || undefined,
-        purchaseNumber,
-        okpd2Codes,
-        kvrCodes,
-        sortField,
-        sortDirection
-      })
+    const request$ = this.isFavoritesPage
+      ? this.favoritesService.getFavorites({
+          page: pageIndex + 1,
+          pageSize,
+          search: search || undefined,
+          purchaseNumber,
+          okpd2Codes,
+          kvrCodes,
+          sortField,
+          sortDirection
+        })
+      : this.noticesService.getNotices({
+          page: pageIndex + 1,
+          pageSize,
+          search: search || undefined,
+          purchaseNumber,
+          okpd2Codes,
+          kvrCodes,
+          sortField,
+          sortDirection
+        });
+
+    request$
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => (this.isLoading = false))
@@ -320,5 +341,50 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     }
 
     return regionCode ?? '—';
+  }
+
+  toggleFavorite(notice: NoticeListItem): void {
+    if (this.favoriteProgress[notice.id]) {
+      return;
+    }
+
+    this.favoriteProgress[notice.id] = true;
+
+    const request$ = notice.isFavorite
+      ? this.favoritesService.removeFavorite(notice.id)
+      : this.favoritesService.addFavorite(notice.id);
+
+    request$
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.favoriteProgress[notice.id] = false))
+      )
+      .subscribe({
+        next: () => {
+          notice.isFavorite = !notice.isFavorite;
+          const message = notice.isFavorite ? 'Добавлено в избранное' : 'Удалено из избранного';
+          this.snackBar.open(message, 'Закрыть', { duration: 3000 });
+
+          if (this.isFavoritesPage && !notice.isFavorite) {
+            this.loadNotices();
+          }
+        },
+        error: () => {
+          const message = notice.isFavorite
+            ? 'Не удалось удалить из избранного.'
+            : 'Не удалось добавить в избранное.';
+          this.snackBar.open(message, 'Закрыть', { duration: 4000 });
+        }
+      });
+  }
+
+  get pageTitle(): string {
+    return this.isFavoritesPage ? 'Избранные извещения' : 'Реестр извещений';
+  }
+
+  get pageSubtitle(): string {
+    return this.isFavoritesPage
+      ? 'Здесь отображаются сохранённые записи из общего реестра'
+      : 'Поиск, сортировка и навигация по таблице данных о закупках';
   }
 }
