@@ -156,3 +156,16 @@ mat-table {
   gap: 8px;
   align-items: center;
 }
+
+.favorite-header {
+  width: 56px;
+  text-align: center;
+}
+
+.favorite-cell {
+  text-align: center;
+}
+
+.favorite-button.favorite-active mat-icon {
+  color: #e53935;
+}

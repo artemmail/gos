@@ -2,8 +2,8 @@
   <div class="content-container">
     <mat-card>
       <div class="card-header">
-        <h1>Реестр извещений</h1>
-        <p class="subtitle">Поиск, сортировка и навигация по таблице данных о закупках</p>
+        <h1>{{ pageTitle }}</h1>
+        <p class="subtitle">{{ pageSubtitle }}</p>
       </div>
 
       <form class="filters-form" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
@@ -107,6 +107,24 @@
           </div>
 
           <table mat-table [dataSource]="notices" matSort matSortActive="publishDate" matSortDirection="desc" matSortDisableClear>
+            <ng-container matColumnDef="favorite">
+              <th mat-header-cell *matHeaderCellDef class="favorite-header">
+                <mat-icon fontIcon="favorite"></mat-icon>
+              </th>
+              <td mat-cell *matCellDef="let element" class="favorite-cell">
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="favorite-button"
+                  [ngClass]="{ 'favorite-active': element.isFavorite }"
+                  [disabled]="favoriteProgress[element.id]"
+                  (click)="toggleFavorite(element)"
+                  [attr.aria-label]="element.isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'"
+                >
+                  <mat-icon>{{ element.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+                </button>
+              </td>
+            </ng-container>
             <ng-container matColumnDef="purchaseNumber">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseNumber">Номер закупки</th>
               <td mat-cell *matCellDef="let element">{{ element.purchaseNumber }}</td>

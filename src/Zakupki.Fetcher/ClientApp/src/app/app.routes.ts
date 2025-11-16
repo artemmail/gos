@@ -13,5 +13,11 @@ export const appRoutes: Routes = [
     component: NoticesComponent,
     canActivate: [AuthGuard]
   },
+  {
+    path: 'favorites',
+    component: NoticesComponent,
+    canActivate: [AuthGuard],
+    data: { favorites: true }
+  },
   { path: '**', redirectTo: '' }
 ];

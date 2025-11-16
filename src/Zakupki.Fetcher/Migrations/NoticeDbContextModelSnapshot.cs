@@ -270,6 +270,35 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.FavoriteNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<Guid>("NoticeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoticeId");
+
+                    b.HasIndex("UserId", "NoticeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FavoriteNotices_User_Notice");
+
+                    b.ToTable("FavoriteNotices", (string)null);
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.AttachmentSignature", b =>
                 {
                     b.Property<Guid>("Id")
@@ -931,6 +960,25 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.FavoriteNotice", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.Notice", "Notice")
+                        .WithMany("Favorites")
+                        .HasForeignKey("NoticeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.ApplicationUser", "User")
+                        .WithMany("FavoriteNotices")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notice");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeAnalysis", b =>
                 {
                     b.HasOne("Zakupki.Fetcher.Data.Entities.Notice", "Notice")
@@ -952,6 +1000,8 @@ namespace Zakupki.Fetcher.Migrations
 
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ApplicationUser", b =>
                 {
+                    b.Navigation("FavoriteNotices");
+
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("NoticeAnalyses");
@@ -969,6 +1019,8 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("Analyses");
 
                     b.Navigation("Embeddings");
+
+                    b.Navigation("Favorites");
 
                     b.Navigation("Versions");
                 });

@@ -1,12 +1,26 @@
 <mat-toolbar color="primary" class="app-toolbar">
   <button mat-button routerLink="/" class="app-title">Zakupki Notices</button>
-  <span class="spacer"></span>
   <ng-container *ngIf="user$ | async as user; else loginLink">
+    <nav class="nav-links">
+      <a
+        mat-button
+        routerLink="/"
+        routerLinkActive="active-link"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        Реестр
+      </a>
+      <a mat-button routerLink="/favorites" routerLinkActive="active-link">
+        Избранное
+      </a>
+    </nav>
+    <span class="spacer"></span>
     <span class="user-name">{{ user.displayName || user.email }}</span>
     <button mat-button (click)="openCompanyProfileDialog()">Данные компании</button>
     <button mat-button (click)="onLogout()">Выйти</button>
   </ng-container>
   <ng-template #loginLink>
+    <span class="spacer"></span>
     <button mat-button routerLink="/login">Войти</button>
   </ng-template>
 </mat-toolbar>

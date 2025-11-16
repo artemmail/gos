@@ -25,6 +25,7 @@ export interface NoticeListItem {
   hasAnalysisAnswer: boolean;
   analysisStatus: string | null;
   analysisUpdatedAt: string | null;
+  isFavorite: boolean;
 }
 
 export interface NoticeListResponse {

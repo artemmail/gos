@@ -74,4 +74,6 @@ public class Notice
     public ICollection<NoticeAnalysis> Analyses { get; set; } = new List<NoticeAnalysis>();
 
     public ICollection<NoticeEmbedding> Embeddings { get; set; } = new List<NoticeEmbedding>();
+
+    public ICollection<FavoriteNotice> Favorites { get; set; } = new List<FavoriteNotice>();
 }
