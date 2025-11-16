@@ -11,5 +11,13 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
+  <div class="copy-actions" *ngIf="data.prompt">
+    <button mat-stroked-button color="primary" type="button" (click)="copyPrompt(data.prompt)">
+      <mat-icon fontIcon="content_copy"></mat-icon>
+      <span>Копировать запрос</span>
+    </button>
+    <span class="copy-status success" *ngIf="copyStatus === 'success'">Запрос скопирован</span>
+    <span class="copy-status error" *ngIf="copyStatus === 'error'">Не удалось скопировать</span>
+  </div>
   <button mat-button (click)="close()">Закрыть</button>
 </mat-dialog-actions>

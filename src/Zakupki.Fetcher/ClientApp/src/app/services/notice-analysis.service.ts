@@ -12,6 +12,7 @@ export interface NoticeAnalysisResponse {
   error?: string | null;
   updatedAt: string | null;
   completedAt?: string | null;
+  prompt?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

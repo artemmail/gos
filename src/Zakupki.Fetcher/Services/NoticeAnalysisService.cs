@@ -193,7 +193,7 @@ public sealed class NoticeAnalysisService
 
             await context.SaveChangesAsync(cancellationToken);
 
-            return ToResponse(analysis);
+            return ToResponse(analysis, prompt);
         }
         catch (NoticeAnalysisException)
         {
@@ -236,6 +236,7 @@ public sealed class NoticeAnalysisService
                 null,
                 null,
                 DateTime.UtcNow,
+                null,
                 null);
         }
 
@@ -694,7 +695,7 @@ public sealed class NoticeAnalysisService
         return builder.ToString();
     }
 
-    private static NoticeAnalysisResponse ToResponse(NoticeAnalysis analysis)
+    private static NoticeAnalysisResponse ToResponse(NoticeAnalysis analysis, string? prompt = null)
     {
         var hasAnswer = analysis.Status == NoticeAnalysisStatus.Completed &&
                         !string.IsNullOrWhiteSpace(analysis.Result);
@@ -706,6 +707,7 @@ public sealed class NoticeAnalysisService
             analysis.Result,
             analysis.Error,
             analysis.UpdatedAt,
-            analysis.CompletedAt);
+            analysis.CompletedAt,
+            prompt);
     }
 }

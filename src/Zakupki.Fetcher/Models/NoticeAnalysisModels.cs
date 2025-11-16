@@ -9,4 +9,5 @@ public sealed record NoticeAnalysisResponse(
     string? Result,
     string? Error,
     DateTime UpdatedAt,
-    DateTime? CompletedAt);
+    DateTime? CompletedAt,
+    string? Prompt);
