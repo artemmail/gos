@@ -3,4 +3,5 @@ export interface NoticeAnalysisDialogData {
   entryName: string;
   result: string;
   completedAt: string | null;
+  prompt?: string | null;
 }
