@@ -109,10 +109,10 @@ public sealed class NoticeAnalysisService
                 true);
         }
 
-        if (attachments.Any(a => string.IsNullOrWhiteSpace(a.MarkdownContent)))
+        if (!attachments.Any(a => !string.IsNullOrWhiteSpace(a.MarkdownContent)))
         {
             throw new NoticeAnalysisException(
-                "Сконвертируйте все вложения в Markdown перед запуском анализа.",
+                "Сконвертируйте хотя бы одно вложение в Markdown перед запуском анализа.",
                 true);
         }
 
