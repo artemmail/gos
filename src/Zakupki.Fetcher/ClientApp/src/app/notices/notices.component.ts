@@ -16,6 +16,7 @@ import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
 import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
+import { getRegionDisplayName } from '../constants/regions';
 
 @Component({
   selector: 'app-notices',
@@ -25,6 +26,7 @@ import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analy
 export class NoticesComponent implements AfterViewInit, OnDestroy {
   displayedColumns: string[] = [
     'purchaseNumber',
+    'region',
     'purchaseObjectInfo',
     'okpd2Code',
     'okpd2Name',
@@ -304,5 +306,15 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
       .filter(code => code.length > 0);
 
     return codes.length > 0 ? codes.join(',') : undefined;
+  }
+
+  getRegionLabel(region: string | null): string {
+    const label = getRegionDisplayName(region);
+
+    if (label) {
+      return label;
+    }
+
+    return region ?? '—';
   }
 }
