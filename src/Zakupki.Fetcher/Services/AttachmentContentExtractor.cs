@@ -4,8 +4,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using SharpCompress.Archives;
 using SharpCompress.Archives.Rar;
 using SharpCompress.Common;
+using SharpCompress.Common.Rar;
 using Zakupki.Fetcher.Data.Entities;
 
 namespace Zakupki.Fetcher.Services;
