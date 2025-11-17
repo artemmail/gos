@@ -523,8 +523,7 @@ public class NoticesController : ControllerBase
         try
         {
             var content = await _attachmentDownloadService.DownloadAsync(attachment.Url!, cancellationToken: cancellationToken);
-            var processed = _attachmentContentExtractor.Process(attachment, content);
-            UpdateAttachmentContent(attachment, processed.Content, processed.FileNameOverride);
+            UpdateAttachmentContent(attachment, content, null);
             await context.SaveChangesAsync(cancellationToken);
             return Ok(MapAttachment(attachment));
         }
@@ -609,8 +608,7 @@ public class NoticesController : ControllerBase
             try
             {
                 var content = await _attachmentDownloadService.DownloadAsync(attachment.Url!, cancellationToken: cancellationToken);
-                var processed = _attachmentContentExtractor.Process(attachment, content);
-                UpdateAttachmentContent(attachment, processed.Content, processed.FileNameOverride);
+                UpdateAttachmentContent(attachment, content, null);
                 downloaded++;
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException)
@@ -667,7 +665,9 @@ public class NoticesController : ControllerBase
                 continue;
             }
 
-            if (!_attachmentMarkdownService.IsSupported(attachment))
+            var attachmentForConversion = PrepareAttachmentForConversion(attachment);
+
+            if (!_attachmentMarkdownService.IsSupported(attachmentForConversion))
             {
                 unsupported++;
                 continue;
@@ -675,7 +675,7 @@ public class NoticesController : ControllerBase
 
             try
             {
-                var markdown = await _attachmentMarkdownService.ConvertToMarkdownAsync(attachment, cancellationToken);
+                var markdown = await _attachmentMarkdownService.ConvertToMarkdownAsync(attachmentForConversion, cancellationToken);
                 if (string.IsNullOrWhiteSpace(markdown))
                 {
                     attachment.MarkdownContent = null;
@@ -740,6 +740,28 @@ public class NoticesController : ControllerBase
         return rawCodes
             .Split(CodeSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+    }
+
+    private NoticeAttachment PrepareAttachmentForConversion(NoticeAttachment attachment)
+    {
+        if (attachment.BinaryContent is null || attachment.BinaryContent.Length == 0)
+        {
+            throw new InvalidOperationException("Attachment does not contain binary content for conversion.");
+        }
+
+        var processed = _attachmentContentExtractor.Process(attachment, attachment.BinaryContent);
+
+        if (ReferenceEquals(processed.Content, attachment.BinaryContent) && string.IsNullOrWhiteSpace(processed.FileNameOverride))
+        {
+            return attachment;
+        }
+
+        return new NoticeAttachment
+        {
+            Id = attachment.Id,
+            FileName = processed.FileNameOverride ?? attachment.FileName,
+            BinaryContent = processed.Content
+        };
     }
 
     private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content, string? newFileName)
