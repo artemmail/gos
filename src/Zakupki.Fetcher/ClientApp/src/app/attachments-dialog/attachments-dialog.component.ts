@@ -26,7 +26,17 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
   errorMessage = '';
   infoMessage = '';
 
-  private readonly supportedExtensions = ['.doc', '.docx', '.pdf', '.html', '.htm'];
+  private readonly supportedExtensions = [
+    '.doc',
+    '.docx',
+    '.pdf',
+    '.html',
+    '.htm',
+    '.xls',
+    '.xlsx',
+    '.zip',
+    '.rar'
+  ];
 
   private readonly destroy$ = new Subject<void>();
 
