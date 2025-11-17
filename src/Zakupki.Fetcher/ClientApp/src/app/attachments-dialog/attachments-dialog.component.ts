@@ -26,17 +26,17 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
   errorMessage = '';
   infoMessage = '';
 
-  private readonly supportedExtensions = [
+  private readonly convertibleExtensions = [
     '.doc',
     '.docx',
     '.pdf',
     '.html',
     '.htm',
     '.xls',
-    '.xlsx',
-    '.zip',
-    '.rar'
+    '.xlsx'
   ];
+
+  private readonly archiveExtensions = ['.zip', '.rar'];
 
   private readonly destroy$ = new Subject<void>();
 
@@ -220,8 +220,26 @@ export class AttachmentsDialogComponent implements OnInit, OnDestroy {
       return false;
     }
 
-    const extension = this.getExtension(fileName);
-    return extension.length > 0 && this.supportedExtensions.includes(extension);
+    let currentName = fileName.toLowerCase();
+
+    while (currentName.length > 0) {
+      const extension = this.getExtension(currentName);
+      if (!extension) {
+        return false;
+      }
+
+      if (this.convertibleExtensions.includes(extension)) {
+        return true;
+      }
+
+      if (!this.archiveExtensions.includes(extension)) {
+        return false;
+      }
+
+      currentName = currentName.substring(0, currentName.lastIndexOf(extension));
+    }
+
+    return false;
   }
 
   private getExtension(fileName: string): string {
