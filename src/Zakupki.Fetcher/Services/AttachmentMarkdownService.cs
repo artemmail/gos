@@ -10,114 +10,248 @@ using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
 
-namespace Zakupki.Fetcher.Services;
-
-public class AttachmentMarkdownService
+namespace Zakupki.Fetcher.Services
 {
-    private static readonly Dictionary<string, string> FormatMappings = new(StringComparer.OrdinalIgnoreCase)
+    public class AttachmentMarkdownService
     {
-        [".doc"] = "docx",
-        [".docx"] = "docx",
-        [".pdf"] = "docx",
-        [".html"] = "html",
-        [".htm"] = "html",
-        [".xls"] = "html",
-        [".xlsx"] = "html"
-    };
-
-    private readonly AttachmentConversionOptions _options;
-    private readonly ILogger<AttachmentMarkdownService> _logger;
-
-    public AttachmentMarkdownService(
-        IOptions<AttachmentConversionOptions> options,
-        ILogger<AttachmentMarkdownService> logger)
-    {
-        _options = options.Value;
-        _logger = logger;
-    }
-
-    public bool IsSupported(NoticeAttachment attachment)
-    {
-        if (attachment is null)
+        private static readonly Dictionary<string, string> FormatMappings = new(StringComparer.OrdinalIgnoreCase)
         {
-            throw new ArgumentNullException(nameof(attachment));
+            [".doc"] = "docx",
+            [".docx"] = "docx",
+            [".pdf"] = "html",   // PDF → HTML → Markdown
+            [".html"] = "html",
+            [".htm"] = "html",
+            [".xls"] = "html",   // XLS/XLSX → HTML → Markdown
+            [".xlsx"] = "html"
+        };
+
+        private readonly AttachmentConversionOptions _options;
+        private readonly ILogger<AttachmentMarkdownService> _logger;
+
+        public AttachmentMarkdownService(
+            IOptions<AttachmentConversionOptions> options,
+            ILogger<AttachmentMarkdownService> logger)
+        {
+            _options = options.Value;
+            _logger = logger;
         }
 
-        if (string.IsNullOrWhiteSpace(attachment.FileName))
+        public bool IsSupported(NoticeAttachment attachment)
         {
-            return false;
-        }
-
-        var extension = Path.GetExtension(attachment.FileName);
-        return !string.IsNullOrWhiteSpace(extension) && FormatMappings.ContainsKey(extension);
-    }
-
-    public async Task<string> ConvertToMarkdownAsync(NoticeAttachment attachment, CancellationToken cancellationToken)
-    {
-        if (attachment is null)
-        {
-            throw new ArgumentNullException(nameof(attachment));
-        }
-
-        if (attachment.BinaryContent is null || attachment.BinaryContent.Length == 0)
-        {
-            throw new InvalidOperationException("Attachment does not contain binary content for conversion.");
-        }
-
-        if (string.IsNullOrWhiteSpace(attachment.FileName))
-        {
-            throw new InvalidOperationException("Attachment file name is missing.");
-        }
-
-        var extension = Path.GetExtension(attachment.FileName);
-
-        if (string.IsNullOrWhiteSpace(extension) || !FormatMappings.TryGetValue(extension, out var format))
-        {
-            throw new NotSupportedException($"Conversion for files with extension '{extension}' is not supported.");
-        }
-
-        var pandocPath = _options.PandocPath;
-
-        if (string.IsNullOrWhiteSpace(pandocPath))
-        {
-            throw new InvalidOperationException("PandocPath is not configured. Conversion cannot be performed.");
-        }
-
-        var tempDirectory = Path.GetTempPath();
-        var tempFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
-        var tempFilePath = Path.Combine(tempDirectory, tempFileName);
-
-        await File.WriteAllBytesAsync(tempFilePath, attachment.BinaryContent, cancellationToken).ConfigureAwait(false);
-
-        var inputFilePath = tempFilePath;
-        var filesToCleanup = new List<string> { tempFilePath };
-
-        if (string.Equals(extension, ".doc", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            inputFilePath = await ConvertToDocxAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
-            filesToCleanup.Add(inputFilePath);
-        }
-        else if (string.Equals(extension, ".xls", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
-        {
-            inputFilePath = await ConvertSpreadsheetToHtmlAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
-            filesToCleanup.Add(inputFilePath);
-        }
-
-        try
-        {
-            var arguments = BuildPandocArguments(inputFilePath, format);
-            var workingDirectory = GetWorkingDirectory();
-
-            if (!Directory.Exists(workingDirectory))
+            if (attachment is null)
             {
-                throw new InvalidOperationException($"Указанный рабочий каталог Pandoc '{workingDirectory}' не существует.");
+                throw new ArgumentNullException(nameof(attachment));
             }
+
+            if (string.IsNullOrWhiteSpace(attachment.FileName))
+            {
+                return false;
+            }
+
+            var extension = Path.GetExtension(attachment.FileName);
+            return !string.IsNullOrWhiteSpace(extension) && FormatMappings.ContainsKey(extension);
+        }
+
+        public async Task<string> ConvertToMarkdownAsync(NoticeAttachment attachment, CancellationToken cancellationToken)
+        {
+            if (attachment is null)
+            {
+                throw new ArgumentNullException(nameof(attachment));
+            }
+
+            if (attachment.BinaryContent is null || attachment.BinaryContent.Length == 0)
+            {
+                throw new InvalidOperationException("Attachment does not contain binary content for conversion.");
+            }
+
+            if (string.IsNullOrWhiteSpace(attachment.FileName))
+            {
+                throw new InvalidOperationException("Attachment file name is missing.");
+            }
+
+            var extension = Path.GetExtension(attachment.FileName);
+
+            if (string.IsNullOrWhiteSpace(extension) || !FormatMappings.TryGetValue(extension, out var format))
+            {
+                throw new NotSupportedException($"Conversion for files with extension '{extension}' is not supported.");
+            }
+
+            var pandocPath = _options.PandocPath;
+
+            if (string.IsNullOrWhiteSpace(pandocPath))
+            {
+                throw new InvalidOperationException("PandocPath is not configured. Conversion cannot be performed.");
+            }
+
+            var tempDirectory = Path.GetTempPath();
+            var tempFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+            var tempFilePath = Path.Combine(tempDirectory, tempFileName);
+
+            await File.WriteAllBytesAsync(tempFilePath, attachment.BinaryContent, cancellationToken).ConfigureAwait(false);
+
+            var inputFilePath = tempFilePath;
+            var filesToCleanup = new List<string> { tempFilePath };
+
+            // DOC → DOCX через LibreOffice
+            if (string.Equals(extension, ".doc", StringComparison.OrdinalIgnoreCase))
+            {
+                inputFilePath = await ConvertToDocxAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
+                filesToCleanup.Add(inputFilePath);
+            }
+            // PDF / XLS / XLSX → HTML через LibreOffice
+            else if (string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(extension, ".xls", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                inputFilePath = await ConvertToHtmlAsync(tempFilePath, cancellationToken).ConfigureAwait(false);
+                filesToCleanup.Add(inputFilePath);
+            }
+            // DOCX / HTML / HTM идут напрямую в Pandoc
+
+            try
+            {
+                var arguments = BuildPandocArguments(inputFilePath, format);
+                var workingDirectory = GetWorkingDirectory();
+
+                if (!Directory.Exists(workingDirectory))
+                {
+                    throw new InvalidOperationException($"Указанный рабочий каталог Pandoc '{workingDirectory}' не существует.");
+                }
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = pandocPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WorkingDirectory = workingDirectory
+                };
+
+                using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+
+                try
+                {
+                    process.Start();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to start Pandoc process for attachment {AttachmentId}", attachment.Id);
+                    throw new InvalidOperationException("Не удалось запустить процесс Pandoc для конвертации файла.", ex);
+                }
+
+                var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+                var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+                var markdown = await outputTask.ConfigureAwait(false);
+                var errors = await errorTask.ConfigureAwait(false);
+
+                if (process.ExitCode != 0)
+                {
+                    _logger.LogError(
+                        "Pandoc conversion failed for attachment {AttachmentId} with exit code {ExitCode}. Errors: {Errors}",
+                        attachment.Id,
+                        process.ExitCode,
+                        errors);
+
+                    throw new InvalidOperationException("Конвертация файла в Markdown завершилась с ошибкой.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(errors))
+                {
+                    _logger.LogWarning(
+                        "Pandoc reported warnings during conversion of attachment {AttachmentId}: {Errors}",
+                        attachment.Id,
+                        errors);
+                }
+
+                return markdown;
+            }
+            finally
+            {
+                foreach (var filePath in filesToCleanup)
+                {
+                    try
+                    {
+                        if (File.Exists(filePath))
+                        {
+                            File.Delete(filePath);
+                        }
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        _logger.LogWarning(cleanupException, "Failed to delete temporary file {TempFilePath}", filePath);
+                    }
+                }
+            }
+        }
+
+        private static string BuildPandocArguments(string inputFilePath, string format)
+        {
+            var builder = new StringBuilder();
+            builder.Append("--from=").Append(format).Append(' ');
+            builder.Append("--to=gfm ");
+            builder.Append("--standalone ");
+            builder.Append('"').Append(inputFilePath).Append('"');
+            return builder.ToString();
+        }
+
+        private string GetWorkingDirectory()
+        {
+            if (!string.IsNullOrWhiteSpace(_options.PandocWorkingDirectory))
+            {
+                return _options.PandocWorkingDirectory!;
+            }
+
+            return Directory.GetCurrentDirectory();
+        }
+
+        /// <summary>
+        /// DOC → DOCX через LibreOffice (Writer).
+        /// </summary>
+        private async Task<string> ConvertToDocxAsync(string sourceFilePath, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
+            {
+                throw new InvalidOperationException("LibreOfficePath is not configured. Conversion to .docx cannot be performed.");
+            }
+
+            var libreOfficePath = _options.LibreOfficePath!;
+            if (!File.Exists(libreOfficePath))
+            {
+                throw new InvalidOperationException(
+                    $"LibreOffice executable not found at '{libreOfficePath}'. Проверь путь в настройках.");
+            }
+
+            var libreOfficeDir = Path.GetDirectoryName(libreOfficePath)
+                                 ?? throw new InvalidOperationException(
+                                     $"Не удалось определить каталог LibreOffice по пути '{libreOfficePath}'.");
+
+            var outputDirectory = Path.GetDirectoryName(sourceFilePath) ?? Path.GetTempPath();
+            var outputFilePath = Path.ChangeExtension(sourceFilePath, ".docx");
+
+            if (File.Exists(outputFilePath))
+            {
+                File.Delete(outputFilePath);
+            }
+
+            var arguments =
+                "--headless --nologo --norestore " +
+                "--convert-to \"docx:MS Word 2007 XML\" " +
+                $"--outdir \"{outputDirectory}\" " +
+                $"\"{sourceFilePath}\"";
+
+            var consoleCommand = $"\"{libreOfficePath}\" {arguments}";
+            _logger.LogInformation("LibreOffice DOC→DOCX console command: {Command}", consoleCommand);
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = pandocPath,
+                FileName = libreOfficePath,          // soffice.exe
                 Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -125,7 +259,7 @@ public class AttachmentMarkdownService
                 StandardErrorEncoding = Encoding.UTF8,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                WorkingDirectory = workingDirectory
+                WorkingDirectory = libreOfficeDir    // каталог установки LO
             };
 
             using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
@@ -136,8 +270,8 @@ public class AttachmentMarkdownService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to start Pandoc process for attachment {AttachmentId}", attachment.Id);
-                throw new InvalidOperationException("Не удалось запустить процесс Pandoc для конвертации файла.", ex);
+                _logger.LogError(ex, "Failed to start LibreOffice process for conversion to DOCX for file {SourceFile}", sourceFilePath);
+                throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации файла в .docx.", ex);
             }
 
             var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -145,210 +279,126 @@ public class AttachmentMarkdownService
 
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
-            var markdown = await outputTask.ConfigureAwait(false);
-            var errors = await errorTask.ConfigureAwait(false);
+            var stdOutput = await outputTask.ConfigureAwait(false);
+            var stdError = await errorTask.ConfigureAwait(false);
 
             if (process.ExitCode != 0)
             {
                 _logger.LogError(
-                    "Pandoc conversion failed for attachment {AttachmentId} with exit code {ExitCode}. Errors: {Errors}",
-                    attachment.Id,
+                    "LibreOffice conversion to DOCX failed for file {SourceFile} with exit code {ExitCode}. Output: {Output}. Errors: {Errors}",
+                    sourceFilePath,
                     process.ExitCode,
-                    errors);
-
-                throw new InvalidOperationException("Конвертация файла в Markdown завершилась с ошибкой.");
+                    stdOutput,
+                    stdError);
+                throw new InvalidOperationException("Конвертация файла в .docx завершилась с ошибкой.");
             }
 
-            if (!string.IsNullOrWhiteSpace(errors))
+            if (!File.Exists(outputFilePath))
             {
-                _logger.LogWarning(
-                    "Pandoc reported warnings during conversion of attachment {AttachmentId}: {Errors}",
-                    attachment.Id,
-                    errors);
+                _logger.LogError(
+                    "LibreOffice conversion to DOCX did not produce the expected file for {SourceFile}. Output: {Output}. Errors: {Errors}",
+                    sourceFilePath,
+                    stdOutput,
+                    stdError);
+                throw new InvalidOperationException("Не удалось получить .docx файл после конвертации документа.");
             }
 
-            return markdown;
+            return outputFilePath;
         }
-        finally
+
+        /// <summary>
+        /// PDF / XLS / XLSX → HTML через LibreOffice.
+        /// </summary>
+        private async Task<string> ConvertToHtmlAsync(string sourceFilePath, CancellationToken cancellationToken)
         {
-            foreach (var filePath in filesToCleanup)
+            if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
             {
-                try
-                {
-                    if (File.Exists(filePath))
-                    {
-                        File.Delete(filePath);
-                    }
-                }
-                catch (Exception cleanupException)
-                {
-                    _logger.LogWarning(cleanupException, "Failed to delete temporary file {TempFilePath}", filePath);
-                }
+                throw new InvalidOperationException("LibreOfficePath is not configured. Conversion of files cannot be performed.");
             }
+
+            var libreOfficePath = _options.LibreOfficePath!;
+            if (!File.Exists(libreOfficePath))
+            {
+                throw new InvalidOperationException(
+                    $"LibreOffice executable not found at '{libreOfficePath}'. Проверь путь в настройках.");
+            }
+
+            var libreOfficeDir = Path.GetDirectoryName(libreOfficePath)
+                                 ?? throw new InvalidOperationException(
+                                     $"Не удалось определить каталог LibreOffice по пути '{libreOfficePath}'.");
+
+            var outputDirectory = Path.GetDirectoryName(sourceFilePath) ?? Path.GetTempPath();
+            var outputFilePath = Path.ChangeExtension(sourceFilePath, ".html");
+
+            if (File.Exists(outputFilePath))
+            {
+                File.Delete(outputFilePath);
+            }
+
+            var arguments =
+                "--headless --nologo --norestore " +
+                "--convert-to html " +
+                $"--outdir \"{outputDirectory}\" " +
+                $"\"{sourceFilePath}\"";
+
+            var consoleCommand = $"\"{libreOfficePath}\" {arguments}";
+            _logger.LogInformation("LibreOffice →HTML console command: {Command}", consoleCommand);
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = libreOfficePath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = libreOfficeDir
+            };
+
+            using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+
+            try
+            {
+                process.Start();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to start LibreOffice process for HTML conversion (file {SourceFile})", sourceFilePath);
+                throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации файла в HTML.", ex);
+            }
+
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+            var stdOutput = await outputTask.ConfigureAwait(false);
+            var stdError = await errorTask.ConfigureAwait(false);
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogError(
+                    "LibreOffice HTML conversion failed for file {SourceFile} with exit code {ExitCode}. Output: {Output}. Errors: {Errors}",
+                    sourceFilePath,
+                    process.ExitCode,
+                    stdOutput,
+                    stdError);
+                throw new InvalidOperationException("Конвертация файла в HTML завершилась с ошибкой.");
+            }
+
+            if (!File.Exists(outputFilePath))
+            {
+                _logger.LogError(
+                    "LibreOffice HTML conversion did not produce the expected file for {SourceFile}. Output: {Output}. Errors: {Errors}",
+                    sourceFilePath,
+                    stdOutput,
+                    stdError);
+                throw new InvalidOperationException("Не удалось получить HTML файл после конвертации файла.");
+            }
+
+            return outputFilePath;
         }
-    }
-
-    private static string BuildPandocArguments(string inputFilePath, string format)
-    {
-        var builder = new StringBuilder();
-        builder.Append("--from=").Append(format).Append(' ');
-        builder.Append("--to=gfm ");
-        builder.Append("--standalone ");
-        builder.Append('"').Append(inputFilePath).Append('"');
-        return builder.ToString();
-    }
-
-    private string GetWorkingDirectory()
-    {
-        if (!string.IsNullOrWhiteSpace(_options.PandocWorkingDirectory))
-        {
-            return _options.PandocWorkingDirectory!;
-        }
-
-        return Directory.GetCurrentDirectory();
-    }
-
-    private async Task<string> ConvertToDocxAsync(string sourceFilePath, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
-        {
-            throw new InvalidOperationException("LibreOfficePath is not configured. Conversion to .docx cannot be performed.");
-        }
-
-        var libreOfficePath = _options.LibreOfficePath!;
-        var outputDirectory = Path.GetDirectoryName(sourceFilePath) ?? Path.GetTempPath();
-        var outputFilePath = Path.ChangeExtension(sourceFilePath, ".docx");
-
-        if (File.Exists(outputFilePath))
-        {
-            File.Delete(outputFilePath);
-        }
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = libreOfficePath,
-            Arguments = $"--headless --convert-to docx --outdir \"{outputDirectory}\" \"{sourceFilePath}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = outputDirectory
-        };
-
-        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-
-        try
-        {
-            process.Start();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start LibreOffice process for conversion to DOCX for file {SourceFile}", sourceFilePath);
-            throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации файла в .docx.", ex);
-        }
-
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-        var stdOutput = await outputTask.ConfigureAwait(false);
-        var stdError = await errorTask.ConfigureAwait(false);
-
-        if (process.ExitCode != 0)
-        {
-            _logger.LogError(
-                "LibreOffice conversion to DOCX failed for file {SourceFile} with exit code {ExitCode}. Output: {Output}. Errors: {Errors}",
-                sourceFilePath,
-                process.ExitCode,
-                stdOutput,
-                stdError);
-            throw new InvalidOperationException("Конвертация файла в .docx завершилась с ошибкой.");
-        }
-
-        if (!File.Exists(outputFilePath))
-        {
-            _logger.LogError(
-                "LibreOffice conversion to DOCX did not produce the expected file for {SourceFile}. Output: {Output}. Errors: {Errors}",
-                sourceFilePath,
-                stdOutput,
-                stdError);
-            throw new InvalidOperationException("Не удалось получить .docx файл после конвертации документа.");
-        }
-
-        return outputFilePath;
-    }
-
-    private async Task<string> ConvertSpreadsheetToHtmlAsync(string sourceFilePath, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(_options.LibreOfficePath))
-        {
-            throw new InvalidOperationException("LibreOfficePath is not configured. Conversion of spreadsheet files cannot be performed.");
-        }
-
-        var libreOfficePath = _options.LibreOfficePath!;
-        var outputDirectory = Path.GetDirectoryName(sourceFilePath) ?? Path.GetTempPath();
-        var outputFilePath = Path.ChangeExtension(sourceFilePath, ".html");
-
-        if (File.Exists(outputFilePath))
-        {
-            File.Delete(outputFilePath);
-        }
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = libreOfficePath,
-            Arguments = $"--headless --convert-to html --outdir \"{outputDirectory}\" \"{sourceFilePath}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = outputDirectory
-        };
-
-        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-
-        try
-        {
-            process.Start();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start LibreOffice process for spreadsheet conversion");
-            throw new InvalidOperationException("Не удалось запустить LibreOffice для конвертации файла таблицы.", ex);
-        }
-
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-        var stdOutput = await outputTask.ConfigureAwait(false);
-        var stdError = await errorTask.ConfigureAwait(false);
-
-        if (process.ExitCode != 0)
-        {
-            _logger.LogError(
-                "LibreOffice spreadsheet conversion failed with exit code {ExitCode}. Output: {Output}. Errors: {Errors}",
-                process.ExitCode,
-                stdOutput,
-                stdError);
-            throw new InvalidOperationException("Конвертация файла таблицы в HTML завершилась с ошибкой.");
-        }
-
-        if (!File.Exists(outputFilePath))
-        {
-            _logger.LogError(
-                "LibreOffice spreadsheet conversion did not produce the expected HTML file. Output: {Output}. Errors: {Errors}",
-                stdOutput,
-                stdError);
-            throw new InvalidOperationException("Не удалось получить HTML файл после конвертации файла таблицы.");
-        }
-
-        return outputFilePath;
     }
 }
