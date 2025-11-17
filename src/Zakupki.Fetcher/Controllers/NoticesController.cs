@@ -25,6 +25,7 @@ public class NoticesController : ControllerBase
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
+    private readonly AttachmentContentExtractor _attachmentContentExtractor;
     private readonly NoticeAnalysisService _noticeAnalysisService;
     private readonly ILogger<NoticesController> _logger;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
@@ -34,12 +35,14 @@ public class NoticesController : ControllerBase
         IDbContextFactory<NoticeDbContext> dbContextFactory,
         AttachmentDownloadService attachmentDownloadService,
         AttachmentMarkdownService attachmentMarkdownService,
+        AttachmentContentExtractor attachmentContentExtractor,
         NoticeAnalysisService noticeAnalysisService,
         ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
         _attachmentMarkdownService = attachmentMarkdownService;
+        _attachmentContentExtractor = attachmentContentExtractor;
         _noticeAnalysisService = noticeAnalysisService;
         _logger = logger;
     }
@@ -520,7 +523,8 @@ public class NoticesController : ControllerBase
         try
         {
             var content = await _attachmentDownloadService.DownloadAsync(attachment.Url!, cancellationToken: cancellationToken);
-            UpdateAttachmentContent(attachment, content);
+            var processed = _attachmentContentExtractor.Process(attachment, content);
+            UpdateAttachmentContent(attachment, processed.Content, processed.FileNameOverride);
             await context.SaveChangesAsync(cancellationToken);
             return Ok(MapAttachment(attachment));
         }
@@ -605,7 +609,8 @@ public class NoticesController : ControllerBase
             try
             {
                 var content = await _attachmentDownloadService.DownloadAsync(attachment.Url!, cancellationToken: cancellationToken);
-                UpdateAttachmentContent(attachment, content);
+                var processed = _attachmentContentExtractor.Process(attachment, content);
+                UpdateAttachmentContent(attachment, processed.Content, processed.FileNameOverride);
                 downloaded++;
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException)
@@ -737,13 +742,18 @@ public class NoticesController : ControllerBase
             .ToList();
     }
 
-    private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content)
+    private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content, string? newFileName)
     {
         attachment.BinaryContent = content;
         attachment.FileSize = content.LongLength;
         attachment.ContentHash = HashUtilities.ComputeSha256Hex(content);
         attachment.LastSeenAt = DateTime.UtcNow;
         attachment.MarkdownContent = null;
+
+        if (!string.IsNullOrWhiteSpace(newFileName))
+        {
+            attachment.FileName = newFileName;
+        }
     }
 
     private static IQueryable<Notice> ApplySorting(IQueryable<Notice> query, string sortField, string sortDirection)

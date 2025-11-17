@@ -53,6 +53,7 @@ builder.Services
 
 builder.Services.AddHttpClient<ZakupkiClient>();
 builder.Services.AddHttpClient<NoticeAnalysisService>();
+builder.Services.AddSingleton<AttachmentContentExtractor>();
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
 if (string.IsNullOrWhiteSpace(connectionString))

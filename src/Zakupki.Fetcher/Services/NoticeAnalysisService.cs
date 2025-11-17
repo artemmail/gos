@@ -33,6 +33,7 @@ public sealed class NoticeAnalysisService
     private readonly HttpClient _httpClient;
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly AttachmentDownloadService _attachmentDownloadService;
+    private readonly AttachmentContentExtractor _attachmentContentExtractor;
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
     private readonly OpenAiOptions _options;
     private readonly ILogger<NoticeAnalysisService> _logger;
@@ -41,6 +42,7 @@ public sealed class NoticeAnalysisService
         HttpClient httpClient,
         IDbContextFactory<NoticeDbContext> dbContextFactory,
         AttachmentDownloadService attachmentDownloadService,
+        AttachmentContentExtractor attachmentContentExtractor,
         AttachmentMarkdownService attachmentMarkdownService,
         IOptions<OpenAiOptions> options,
         ILogger<NoticeAnalysisService> logger)
@@ -48,6 +50,7 @@ public sealed class NoticeAnalysisService
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         _attachmentDownloadService = attachmentDownloadService ?? throw new ArgumentNullException(nameof(attachmentDownloadService));
+        _attachmentContentExtractor = attachmentContentExtractor ?? throw new ArgumentNullException(nameof(attachmentContentExtractor));
         _attachmentMarkdownService = attachmentMarkdownService ?? throw new ArgumentNullException(nameof(attachmentMarkdownService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -268,7 +271,8 @@ public sealed class NoticeAnalysisService
                     attachment.Url!,
                     cancellationToken: cancellationToken);
 
-                UpdateAttachmentContent(attachment, content);
+                var processed = _attachmentContentExtractor.Process(attachment, content);
+                UpdateAttachmentContent(attachment, processed.Content, processed.FileNameOverride);
                 updated = true;
             }
             catch (OperationCanceledException)
@@ -368,13 +372,18 @@ public sealed class NoticeAnalysisService
         }
     }
 
-    private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content)
+    private static void UpdateAttachmentContent(NoticeAttachment attachment, byte[] content, string? newFileName)
     {
         attachment.BinaryContent = content;
         attachment.FileSize = content.LongLength;
         attachment.ContentHash = HashUtilities.ComputeSha256Hex(content);
         attachment.LastSeenAt = DateTime.UtcNow;
         attachment.MarkdownContent = null;
+
+        if (!string.IsNullOrWhiteSpace(newFileName))
+        {
+            attachment.FileName = newFileName;
+        }
     }
 
     private async Task<string> RequestAnalysisAsync(
