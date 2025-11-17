@@ -25,6 +25,31 @@ namespace Zakupki.Fetcher.Services
             [".xlsx"] = "html"
         };
 
+        private const string LuaFilterFileName = "parse-html.lua";
+
+        /// <summary>
+        /// Lua-фильтр, который перепарсивает raw HTML-блоки (в т.ч. таблицы)
+        /// в нормальные pandoc-блоки, чтобы на выходе были markdown-таблицы,
+        /// а не сырой HTML.
+        /// </summary>
+        private const string LuaFilterContent = @"
+function RawBlock(raw)
+  if raw.format and raw.format:match('html') then
+    local doc = pandoc.read(raw.text, 'html')
+    return doc.blocks
+  end
+  return raw
+end
+
+function RawInline(raw)
+  if raw.format and raw.format:match('html') then
+    local doc = pandoc.read(raw.text, 'html')
+    return doc.blocks
+  end
+  return raw
+end
+";
+
         private readonly AttachmentConversionOptions _options;
         private readonly ILogger<AttachmentMarkdownService> _logger;
 
@@ -110,13 +135,20 @@ namespace Zakupki.Fetcher.Services
 
             try
             {
-                var arguments = BuildPandocArguments(inputFilePath, format);
                 var workingDirectory = GetWorkingDirectory();
 
                 if (!Directory.Exists(workingDirectory))
                 {
                     throw new InvalidOperationException($"Указанный рабочий каталог Pandoc '{workingDirectory}' не существует.");
                 }
+
+                // Гарантируем наличие Lua-фильтра в папке с exe
+                var luaFilterPath = EnsureLuaFilterFileInAppDirectory();
+
+                var arguments = BuildPandocArguments(inputFilePath, format, luaFilterPath);
+
+                var consoleCommand = $"\"{pandocPath}\" {arguments}";
+                _logger.LogInformation("Pandoc console command: {Command}", consoleCommand);
 
                 var startInfo = new ProcessStartInfo
                 {
@@ -191,15 +223,25 @@ namespace Zakupki.Fetcher.Services
             }
         }
 
-        private static string BuildPandocArguments(string inputFilePath, string format)
+        private static string BuildPandocArguments(string inputFilePath, string format, string luaFilterPath)
         {
             var builder = new StringBuilder();
+
+            // исходный формат (html/docx)
             builder.Append("--from=").Append(format).Append(' ');
-            builder.Append("--to=gfm ");
+
+            // Lua-фильтр — полный путь к файлу в папке с exe
+            builder.Append("--lua-filter=\"").Append(luaFilterPath).Append("\" ");
+
+            // Обычный markdown с расширениями таблиц
+            builder.Append("--to=markdown-simple_tables+multiline_tables+grid_tables+pipe_tables+table_captions ");
             builder.Append("--standalone ");
+            builder.Append("--wrap=none ");
+
             builder.Append('"').Append(inputFilePath).Append('"');
             return builder.ToString();
         }
+
 
         private string GetWorkingDirectory()
         {
@@ -209,6 +251,32 @@ namespace Zakupki.Fetcher.Services
             }
 
             return Directory.GetCurrentDirectory();
+        }
+
+        /// <summary>
+        /// Гарантирует, что Lua-фильтр лежит в папке с исполняемым файлом приложения.
+        /// </summary>
+        private string EnsureLuaFilterFileInAppDirectory()
+        {
+            var appDirectory = AppContext.BaseDirectory;
+            var path = Path.Combine(appDirectory, LuaFilterFileName);
+
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    // UTF-8 без BOM
+                    File.WriteAllText(path, LuaFilterContent, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    _logger.LogInformation("Lua filter for Pandoc created at {Path}", path);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create Lua filter file {Path}", path);
+                throw new InvalidOperationException("Не удалось подготовить Lua-фильтр для Pandoc.", ex);
+            }
+
+            return path;
         }
 
         /// <summary>
