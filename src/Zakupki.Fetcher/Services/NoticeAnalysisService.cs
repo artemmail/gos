@@ -173,7 +173,7 @@ public sealed class NoticeAnalysisService
         try
         {
             var regions = user.Regions
-                .Select(r => r.Region)
+                .Select(r => UserCompanyService.ResolveRegionName(r.Region))
                 .Where(r => !string.IsNullOrWhiteSpace(r))
                 .Select(r => r!.Trim())
                 .Where(r => r.Length > 0)
@@ -636,7 +636,9 @@ public sealed class NoticeAnalysisService
         builder.AppendLine($"Номер закупки: {notice.PurchaseNumber}");
         builder.AppendLine($"Наименование извещения: {notice.EntryName}");
         builder.AppendLine($"Предмет закупки: {notice.PurchaseObjectInfo ?? "не указан"}");
-        builder.AppendLine($"Регион: {notice.Region ?? "не указан"}");
+
+        var noticeRegion = UserCompanyService.ResolveRegionName(notice.Region) ?? notice.Region ?? "не указан";
+        builder.AppendLine($"Регион: {noticeRegion}");
         builder.AppendLine($"Период публикации: {notice.Period ?? "не указан"}");
         builder.AppendLine($"Площадка: {notice.EtpName ?? "не указана"}");
         builder.AppendLine($"Способ размещения: {notice.PlacingWayName ?? "не указан"}");
@@ -688,7 +690,7 @@ public sealed class NoticeAnalysisService
         var totalCharacters = 0;
         var index = 0;
 
-        foreach (var attachment in attachments)
+        foreach (var attachment in OrderAttachmentsForPrompt(attachments))
         {
             index++;
 
@@ -725,6 +727,42 @@ public sealed class NoticeAnalysisService
         }
 
         return builder.ToString();
+    }
+
+    private static IEnumerable<NoticeAttachment> OrderAttachmentsForPrompt(IEnumerable<NoticeAttachment> attachments)
+    {
+        return attachments
+            .OrderBy(GetAttachmentPriority)
+            .ThenBy(a => a.FileName ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int GetAttachmentPriority(NoticeAttachment attachment)
+    {
+        var fileName = attachment.FileName ?? string.Empty;
+        var lowerName = fileName.ToLowerInvariant();
+        var extension = Path.GetExtension(fileName)?.ToLowerInvariant() ?? string.Empty;
+
+        if (ContainsExtension(lowerName, extension, ".docx"))
+        {
+            return 0;
+        }
+
+        if (ContainsExtension(lowerName, extension, ".doc"))
+        {
+            return 1;
+        }
+
+        if (ContainsExtension(lowerName, extension, ".pdf"))
+        {
+            return 2;
+        }
+
+        return 3;
+    }
+
+    private static bool ContainsExtension(string lowerName, string extension, string expected)
+    {
+        return extension == expected || lowerName.Contains(expected, StringComparison.Ordinal);
     }
 
     private static NoticeAnalysisResponse ToResponse(NoticeAnalysis analysis, string? prompt = null)

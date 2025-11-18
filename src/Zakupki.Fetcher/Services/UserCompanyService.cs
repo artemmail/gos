@@ -250,6 +250,24 @@ public sealed class UserCompanyService
         return normalized;
     }
 
+    public static string? ResolveRegionName(string? region)
+    {
+        if (string.IsNullOrWhiteSpace(region))
+        {
+            return null;
+        }
+
+        var code = MapRegionToCode(region);
+
+        if (!string.IsNullOrWhiteSpace(code) &&
+            _regionsByCode.TryGetValue(code, out var regionOption))
+        {
+            return regionOption.Name;
+        }
+
+        return region.Trim();
+    }
+
     private readonly NoticeDbContext _dbContext;
 
     public UserCompanyService(NoticeDbContext dbContext)
