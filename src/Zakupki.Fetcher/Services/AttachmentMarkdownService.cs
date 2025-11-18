@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
+using System.Text.RegularExpressions;
 
 namespace Zakupki.Fetcher.Services
 {
@@ -28,11 +30,32 @@ namespace Zakupki.Fetcher.Services
         private const string LuaFilterFileName = "parse-html.lua";
 
         /// <summary>
-        /// Lua-фильтр, который перепарсивает raw HTML-блоки (в т.ч. таблицы)
-        /// в нормальные pandoc-блоки, чтобы на выходе были markdown-таблицы,
-        /// а не сырой HTML.
+        /// Lua-фильтр:
+        /// 1) перепарсивает raw HTML-блоки (в т.ч. таблицы) в нормальные pandoc-блоки;
+        /// 2) любые таблицы превращает в одну JSON-строку (Paragraph) без лишних управляющих последовательностей.
         /// </summary>
         private const string LuaFilterContent = @"
+local dq = string.char(34)
+
+-- минимальное экранирование для JSON:
+--  - убираем переводы строк (меняем на пробелы)
+--  - экранируем только обратный слэш
+local function esc(s)
+  s = s:gsub('\\', '\\\\')
+  s = s:gsub('\r', ' ')
+  s = s:gsub('\n', ' ')
+  return s
+end
+
+local function json_array_of_strings(list)
+  local out = {}
+  for i, v in ipairs(list) do
+    out[i] = dq .. esc(v) .. dq
+  end
+  return '[' .. table.concat(out, ',') .. ']'
+end
+
+-- Перепарс сырых HTML-блоков, чтобы таблицы из raw html стали нормальными Table
 function RawBlock(raw)
   if raw.format and raw.format:match('html') then
     local doc = pandoc.read(raw.text, 'html')
@@ -47,6 +70,42 @@ function RawInline(raw)
     return doc.blocks
   end
   return raw
+end
+
+-- Любую таблицу превращаем в одну JSON-строку
+function Table(tbl)
+  local simple = pandoc.utils.to_simple_table(tbl)
+  if not simple then
+    return tbl
+  end
+
+  -- заголовки
+  local headers = {}
+  for i, cell in ipairs(simple.headers) do
+    headers[i] = pandoc.utils.stringify(cell)
+  end
+
+  -- строки
+  local rowJsonParts = {}
+  for r, row in ipairs(simple.rows) do
+    local cols = {}
+    for c, cell in ipairs(row) do
+      cols[c] = pandoc.utils.stringify(cell)
+    end
+    rowJsonParts[r] = json_array_of_strings(cols)
+  end
+
+  local headerJson = json_array_of_strings(headers)
+  local rowsJson = '[' .. table.concat(rowJsonParts, ',') .. ']'
+
+  local json = '{'
+    .. dq .. 'type' .. dq .. ':' .. dq .. 'table' .. dq
+    .. ',' .. dq .. 'header' .. dq .. ':' .. headerJson
+    .. ',' .. dq .. 'rows' .. dq .. ':' .. rowsJson
+    .. '}'
+
+  -- возвращаем как обычный параграф с одной строкой JSON
+  return pandoc.Para({ pandoc.Str(json) })
 end
 ";
 
@@ -75,6 +134,32 @@ end
 
             var extension = Path.GetExtension(attachment.FileName);
             return !string.IsNullOrWhiteSpace(extension) && FormatMappings.ContainsKey(extension);
+        }
+
+        public static string RemoveControlChars(string? input, bool removeJsonSymbols = false)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input ?? string.Empty;
+
+            var sb = new StringBuilder(input.Length);
+
+            foreach (char c in input)
+            {
+                // 1) отбрасываем все управляющие символы (в т.ч. \r, \n, \t)
+                if (char.IsControl(c))
+                    continue;
+
+                // 2) при необходимости убираем "служебные" знаки JSON
+                if (removeJsonSymbols)
+                {
+                    if (c == '\\' || c == '"' || c == '[' || c == ']')
+                        continue;
+                }
+
+                sb.Append(c);
+            }
+
+            return sb.ToString();
         }
 
         public async Task<string> ConvertToMarkdownAsync(NoticeAttachment attachment, CancellationToken cancellationToken)
@@ -202,7 +287,15 @@ end
                         errors);
                 }
 
-                return markdown;
+
+                var unescaped = Regex.Unescape(markdown);
+                var cleaned = RemoveControlChars(unescaped, removeJsonSymbols: true);
+
+
+                
+
+                //var t = markdown.Replace("\\_","_").Replace("\\\"\"","\"");
+                return cleaned;
             }
             finally
             {
@@ -233,15 +326,14 @@ end
             // Lua-фильтр — полный путь к файлу в папке с exe
             builder.Append("--lua-filter=\"").Append(luaFilterPath).Append("\" ");
 
-            // Обычный markdown с расширениями таблиц
-            builder.Append("--to=markdown-simple_tables+multiline_tables+grid_tables+pipe_tables+table_captions ");
+            // Обычный markdown. Таблицы уже переписаны в JSON-фрагменты.
+            builder.Append("--to=markdown ");
             builder.Append("--standalone ");
             builder.Append("--wrap=none ");
 
             builder.Append('"').Append(inputFilePath).Append('"');
             return builder.ToString();
         }
-
 
         private string GetWorkingDirectory()
         {
@@ -263,7 +355,7 @@ end
 
             try
             {
-                if (!File.Exists(path))
+              //  if (!File.Exists(path))
                 {
                     // UTF-8 без BOM
                     File.WriteAllText(path, LuaFilterContent, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
