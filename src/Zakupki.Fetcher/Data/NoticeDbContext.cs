@@ -15,6 +15,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<NoticeVersion> NoticeVersions => Set<NoticeVersion>();
 
+    public DbSet<Contract> Contracts => Set<Contract>();
+
     public DbSet<ProcedureWindow> ProcedureWindows => Set<ProcedureWindow>();
 
     public DbSet<NoticeAttachment> NoticeAttachments => Set<NoticeAttachment>();
@@ -40,6 +42,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         base.OnModelCreating(modelBuilder);
         ConfigureNotice(modelBuilder);
         ConfigureNoticeVersion(modelBuilder);
+        ConfigureContract(modelBuilder);
         ConfigureProcedureWindow(modelBuilder);
         ConfigureNoticeAttachment(modelBuilder);
         ConfigureAttachmentSignature(modelBuilder);
@@ -175,6 +178,37 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.HasOne(v => v.SearchVector)
             .WithOne(s => s.NoticeVersion)
             .HasForeignKey<NoticeSearchVector>(s => s.NoticeVersionId);
+    }
+
+    private static void ConfigureContract(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<Contract>();
+        entity.ToTable("Contracts");
+        entity.HasKey(c => c.Id);
+
+        entity.Property(c => c.Source).HasMaxLength(100);
+        entity.Property(c => c.DocumentType).HasMaxLength(100);
+        entity.Property(c => c.EntryName).HasMaxLength(256);
+        entity.Property(c => c.Region).HasMaxLength(128);
+        entity.Property(c => c.Period).HasMaxLength(64);
+        entity.Property(c => c.ExternalId).HasMaxLength(128);
+        entity.Property(c => c.RegNumber).HasMaxLength(128);
+        entity.Property(c => c.Number).HasMaxLength(64);
+        entity.Property(c => c.SchemeVersion).HasMaxLength(64);
+        entity.Property(c => c.PurchaseNumber).HasMaxLength(64);
+        entity.Property(c => c.LotNumber).HasMaxLength(64);
+        entity.Property(c => c.ContractSubject).HasColumnType("nvarchar(max)");
+        entity.Property(c => c.Price).HasColumnType("decimal(18,2)");
+        entity.Property(c => c.CurrencyCode).HasMaxLength(32);
+        entity.Property(c => c.CurrencyName).HasMaxLength(128);
+        entity.Property(c => c.Okpd2Code).HasMaxLength(64);
+        entity.Property(c => c.Okpd2Name).HasMaxLength(512);
+        entity.Property(c => c.Href).HasMaxLength(512);
+        entity.Property(c => c.RawJson).HasColumnType("nvarchar(max)");
+
+        entity.HasIndex(c => c.ExternalId)
+            .IsUnique()
+            .HasDatabaseName("UX_Contracts_ExternalId");
     }
 
     private static void ConfigureProcedureWindow(ModelBuilder modelBuilder)

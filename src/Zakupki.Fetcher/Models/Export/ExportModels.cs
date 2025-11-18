@@ -28,6 +28,12 @@ public class Export
     public EpNotificationEzk2020? EpNotificationEzk2020 { get; set; }
 
     /// <summary>
+    /// Contract payloads that are returned for signed agreements.
+    /// </summary>
+    [XmlElement(ElementName = "contract", Namespace = Ns.Export)]
+    public ContractExport? Contract { get; set; }
+
+    /// <summary>
     /// Provides a convenient access point to the populated notification regardless of its specific type.
     /// </summary>
     [XmlIgnore]
