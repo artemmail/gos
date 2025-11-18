@@ -7,7 +7,46 @@
   <p class="timestamp" *ngIf="data.completedAt">
     Получено: {{ data.completedAt | date: 'short' }}
   </p>
-  <div class="analysis-text" [innerText]="data.result"></div>
+
+  <ng-container *ngIf="hasStructuredResult; else fallbackResult">
+    <div class="analysis-overview" *ngIf="decisionScoreTen !== null || recommendation !== null">
+      <div class="score-pill" *ngIf="decisionScoreTen !== null">
+        <span class="pill-label">Итоговый балл</span>
+        <span class="pill-score">{{ decisionScoreTen | number: '1.1-1' }}/10</span>
+      </div>
+      <span
+        class="recommendation-chip"
+        [ngClass]="{
+          positive: recommendation === true,
+          negative: recommendation === false
+        }"
+        *ngIf="recommendation !== null"
+      >
+        {{ recommendation ? 'Рекомендуем участвовать' : 'Участие не рекомендовано' }}
+      </span>
+    </div>
+
+    <div class="summary-card" *ngIf="summaryText">
+      <h3>Краткий вывод</h3>
+      <p>{{ summaryText }}</p>
+    </div>
+
+    <div class="score-sections" *ngIf="scoreSections.length > 0">
+      <div class="score-section" *ngFor="let section of scoreSections">
+        <div class="section-heading">
+          <h3>{{ section.title }}</h3>
+          <span class="section-score" *ngIf="section.score !== null">{{ section.score | number: '1.1-1' }}/10</span>
+        </div>
+        <p class="short-comment" *ngIf="section.shortComment">{{ section.shortComment }}</p>
+        <p class="detailed-comment" *ngIf="section.detailedComment">{{ section.detailedComment }}</p>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-template #fallbackResult>
+    <div class="analysis-text" *ngIf="data.result" [innerText]="data.result"></div>
+    <p class="no-result" *ngIf="!data.result">Результат анализа пока не получен.</p>
+  </ng-template>
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
