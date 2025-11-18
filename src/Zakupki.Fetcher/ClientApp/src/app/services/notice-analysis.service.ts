@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { TenderAnalysisResult } from '../models/notice-analysis.models';
@@ -38,5 +38,12 @@ export class NoticeAnalysisService {
 
   getStatus(noticeId: string): Observable<NoticeAnalysisResponse> {
     return this.http.get<NoticeAnalysisResponse>(`${this.baseUrl}/${noticeId}/analysis`);
+  }
+
+  downloadReport(noticeId: string): Observable<HttpResponse<Blob>> {
+    return this.http.get(`${this.baseUrl}/${noticeId}/analysis/report`, {
+      responseType: 'blob',
+      observe: 'response'
+    });
   }
 }

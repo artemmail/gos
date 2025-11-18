@@ -27,6 +27,7 @@ public class NoticesController : ControllerBase
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
     private readonly AttachmentContentExtractor _attachmentContentExtractor;
     private readonly NoticeAnalysisService _noticeAnalysisService;
+    private readonly NoticeAnalysisReportService _noticeAnalysisReportService;
     private readonly ILogger<NoticesController> _logger;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
@@ -37,6 +38,7 @@ public class NoticesController : ControllerBase
         AttachmentMarkdownService attachmentMarkdownService,
         AttachmentContentExtractor attachmentContentExtractor,
         NoticeAnalysisService noticeAnalysisService,
+        NoticeAnalysisReportService noticeAnalysisReportService,
         ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
@@ -44,6 +46,7 @@ public class NoticesController : ControllerBase
         _attachmentMarkdownService = attachmentMarkdownService;
         _attachmentContentExtractor = attachmentContentExtractor;
         _noticeAnalysisService = noticeAnalysisService;
+        _noticeAnalysisReportService = noticeAnalysisReportService;
         _logger = logger;
     }
 
@@ -428,6 +431,32 @@ public class NoticesController : ControllerBase
         {
             _logger.LogError(ex, "Failed to analyze notice {NoticeId}", noticeId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{noticeId:guid}/analysis/report")]
+    [Authorize]
+    public async Task<IActionResult> DownloadAnalysisReport(Guid noticeId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var report = await _noticeAnalysisReportService.CreateAsync(noticeId, userId, cancellationToken);
+            return File(report.Content, report.ContentType, report.FileName);
+        }
+        catch (NoticeAnalysisException ex) when (ex.IsValidation)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build notice analysis report for notice {NoticeId}", noticeId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Не удалось сформировать файл отчёта." });
         }
     }
 

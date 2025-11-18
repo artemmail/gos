@@ -292,10 +292,11 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     notice.hasAnalysisAnswer = response.hasAnswer;
     notice.analysisUpdatedAt = response.updatedAt ?? null;
 
-    if (response.status === 'Completed' && (response.result || response.structuredResult)) {
-      const data: NoticeAnalysisDialogData = {
-        purchaseNumber: notice.purchaseNumber,
-        entryName: notice.entryName,
+      if (response.status === 'Completed' && (response.result || response.structuredResult)) {
+        const data: NoticeAnalysisDialogData = {
+          noticeId: notice.id,
+          purchaseNumber: notice.purchaseNumber,
+          entryName: notice.entryName,
         result: response.result ?? null,
         completedAt: response.completedAt ?? null,
         prompt: response.prompt ?? null,

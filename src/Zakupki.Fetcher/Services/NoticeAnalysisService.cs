@@ -694,7 +694,7 @@ public sealed class NoticeAnalysisService
         }
     }
 
-    private static TenderAnalysisResult? TryParseTenderAnalysisResult(string? json)
+    internal static TenderAnalysisResult? TryParseTenderAnalysisResult(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
