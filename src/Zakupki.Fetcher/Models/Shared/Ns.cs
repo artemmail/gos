@@ -9,4 +9,5 @@ internal static class Ns
     public const string Common = "http://zakupki.gov.ru/oos/common/1";
     public const string EPtypes = "http://zakupki.gov.ru/oos/EPtypes/1";
     public const string Export = "http://zakupki.gov.ru/oos/export/1";
+    public const string Types = "http://zakupki.gov.ru/oos/types/1";
 }

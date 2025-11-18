@@ -58,7 +58,15 @@ public sealed class NoticeProcessor
         var notification = export.AnyNotification;
         if (notification is null)
         {
-            _logger.LogWarning("Document {EntryName} does not contain a supported notification payload", document.EntryName);
+            if (export.Contract is not null)
+            {
+                await ProcessContractAsync(export.Contract, document, cancellationToken);
+            }
+            else
+            {
+                _logger.LogWarning("Document {EntryName} does not contain a supported payload", document.EntryName);
+            }
+
             return;
         }
 
@@ -140,6 +148,86 @@ public sealed class NoticeProcessor
         _logger.LogInformation("Imported notice {ExternalId} version {VersionNumber}", externalId, version!.VersionNumber);
     }
 
+    private async Task ProcessContractAsync(ContractExport contract, NoticeDocument document, CancellationToken cancellationToken)
+    {
+        var externalId = FirstNonEmpty(contract.RegNum, contract.Id, document.EntryName);
+        if (string.IsNullOrWhiteSpace(externalId))
+        {
+            _logger.LogWarning("Unable to determine an external identifier for contract entry {EntryName}", document.EntryName);
+            return;
+        }
+
+        var serializedContract = JsonSerializer.Serialize(contract, JsonSerializerOptions);
+
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+
+        var notice = await dbContext.Notices.FirstOrDefaultAsync(n => n.ExternalId == externalId, cancellationToken);
+        var isNewNotice = notice is null;
+        if (isNewNotice)
+        {
+            notice = new Notice
+            {
+                Id = Guid.NewGuid(),
+                CreatedAt = now
+            };
+        }
+
+        MapContractNotice(notice!, document, contract, serializedContract, externalId, now);
+
+        if (isNewNotice)
+        {
+            dbContext.Notices.Add(notice!);
+        }
+
+        var version = await dbContext.NoticeVersions
+            .Include(v => v.Attachments)
+                .ThenInclude(a => a.Signatures)
+            .Include(v => v.ProcedureWindow)
+            .FirstOrDefaultAsync(v => v.NoticeId == notice!.Id && v.VersionNumber == contract.VersionNumber, cancellationToken);
+
+        var isNewVersion = version is null;
+        if (isNewVersion)
+        {
+            version = new NoticeVersion
+            {
+                Id = Guid.NewGuid(),
+                NoticeId = notice!.Id,
+                Notice = notice!,
+                InsertedAt = now
+            };
+            notice!.Versions.Add(version);
+            dbContext.NoticeVersions.Add(version);
+        }
+
+        MapContractNoticeVersion(version!, document, serializedContract, contract, externalId, now);
+
+        var contractEntity = await dbContext.Contracts
+            .FirstOrDefaultAsync(c => c.ExternalId == externalId, cancellationToken);
+
+        var isNewContract = contractEntity is null;
+        if (isNewContract)
+        {
+            contractEntity = new Contract
+            {
+                Id = Guid.NewGuid(),
+                CreatedAt = now
+            };
+        }
+
+        MapContractEntity(contractEntity!, document, contract, serializedContract, externalId, now);
+
+        if (isNewContract)
+        {
+            dbContext.Contracts.Add(contractEntity!);
+        }
+
+        await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Imported contract {ExternalId} version {VersionNumber}", externalId, version!.VersionNumber);
+    }
+
     private static Export LoadExport(NoticeDocument document)
     {
         using var stream = new MemoryStream(document.Content);
@@ -194,6 +282,81 @@ public sealed class NoticeProcessor
         notice.RawJson = serializedNotification;
         notice.CollectingEnd = procedureInfo?.CollectingInfo?.EndDt;
         notice.UpdatedAt = now;
+    }
+
+    private static void MapContractNotice(
+        Notice notice,
+        NoticeDocument document,
+        ContractExport contract,
+        string serializedContract,
+        string externalId,
+        DateTime now)
+    {
+        notice.Source = document.Source;
+        notice.DocumentType = document.DocumentType;
+        notice.Region = FormatDocumentRegion(document.Region);
+        notice.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        notice.EntryName = document.EntryName;
+        notice.ExternalId = externalId;
+        notice.VersionNumber = contract.VersionNumber;
+        notice.SchemeVersion = contract.SchemeVersion;
+        notice.PurchaseNumber = contract.Foundation?.FcsOrder?.Order?.NotificationNumber ?? externalId;
+        notice.DocumentNumber = contract.Number;
+        notice.PublishDate = contract.PublishDate;
+        notice.Href = contract.Href;
+        notice.PlacingWayCode = null;
+        notice.PlacingWayName = null;
+        notice.EtpCode = null;
+        notice.EtpName = null;
+        notice.EtpUrl = null;
+        notice.ContractConclusionOnSt83Ch2 = null;
+        notice.PurchaseObjectInfo = contract.ContractSubject;
+        notice.Article15FeaturesInfo = null;
+        notice.MaxPrice = contract.PriceInfo?.Price;
+        notice.MaxPriceCurrencyCode = contract.PriceInfo?.Currency?.Code;
+        notice.MaxPriceCurrencyName = contract.PriceInfo?.Currency?.Name;
+        var okpd2 = ExtractContractOkpd2(contract.Products);
+        notice.Okpd2Code = okpd2.Code;
+        notice.Okpd2Name = okpd2.Name;
+        notice.KvrCode = null;
+        notice.KvrName = null;
+        notice.RawJson = serializedContract;
+        notice.CollectingEnd = null;
+        notice.UpdatedAt = now;
+    }
+
+    private static void MapContractEntity(
+        Contract entity,
+        NoticeDocument document,
+        ContractExport contract,
+        string serializedContract,
+        string externalId,
+        DateTime now)
+    {
+        entity.Source = document.Source;
+        entity.DocumentType = document.DocumentType;
+        entity.EntryName = document.EntryName;
+        entity.Region = FormatDocumentRegion(document.Region);
+        entity.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        entity.ExternalId = externalId;
+        entity.RegNumber = contract.RegNum ?? externalId;
+        entity.Number = contract.Number;
+        entity.VersionNumber = contract.VersionNumber;
+        entity.SchemeVersion = contract.SchemeVersion;
+        entity.PurchaseNumber = contract.Foundation?.FcsOrder?.Order?.NotificationNumber ?? externalId;
+        entity.LotNumber = contract.Foundation?.FcsOrder?.Order?.LotNumber;
+        entity.ContractSubject = contract.ContractSubject;
+        entity.Price = contract.PriceInfo?.Price;
+        entity.CurrencyCode = contract.PriceInfo?.Currency?.Code;
+        entity.CurrencyName = contract.PriceInfo?.Currency?.Name;
+        var okpd2 = ExtractContractOkpd2(contract.Products);
+        entity.Okpd2Code = okpd2.Code;
+        entity.Okpd2Name = okpd2.Name;
+        entity.Href = contract.Href;
+        entity.PublishDate = contract.PublishDate;
+        entity.SignDate = contract.SignDate;
+        entity.RawJson = serializedContract;
+        entity.UpdatedAt = now;
     }
 
     private static string? DetermineRegionCode(EpNotificationEf2020 notification, NoticeDocument document)
@@ -309,6 +472,24 @@ public sealed class NoticeProcessor
         return (okpd2Code, okpd2Name, kvrCode, kvrName);
     }
 
+    private static (string? Code, string? Name) ExtractContractOkpd2(ContractProducts? products)
+    {
+        var firstProduct = products?.Items?.FirstOrDefault(p => p?.Okpd2 is not null);
+        if (firstProduct?.Okpd2 is null)
+        {
+            return default;
+        }
+
+        var code = TrimToNull(firstProduct.Okpd2.Code);
+        var name = TrimToNull(firstProduct.Okpd2.Name);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            name = TrimToNull(firstProduct.Name);
+        }
+
+        return (code, name);
+    }
+
     private static (string? Code, string? Name) ExtractOkpd2(Okpd2InfoContainer? container)
     {
         if (container is null)
@@ -378,6 +559,24 @@ public sealed class NoticeProcessor
         version.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
         version.RawJson = serializedNotification;
         version.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
+        version.LastSeenAt = now;
+        version.SourceFileName = document.EntryName;
+    }
+
+    private static void MapContractNoticeVersion(
+        NoticeVersion version,
+        NoticeDocument document,
+        string serializedContract,
+        ContractExport contract,
+        string externalId,
+        DateTime now)
+    {
+        version.ExternalId = externalId;
+        version.VersionNumber = contract.VersionNumber;
+        version.IsActive = true;
+        version.VersionReceivedAt = contract.PublishDate ?? contract.SignDate ?? now;
+        version.RawJson = serializedContract;
+        version.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedContract));
         version.LastSeenAt = now;
         version.SourceFileName = document.EntryName;
     }
