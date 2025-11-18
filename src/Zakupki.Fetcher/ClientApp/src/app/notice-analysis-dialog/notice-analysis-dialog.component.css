@@ -23,6 +23,116 @@
   line-height: 1.5;
 }
 
+.analysis-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.score-pill {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #e8eaf6;
+  color: #1a237e;
+  font-weight: 600;
+}
+
+.pill-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.pill-score {
+  font-size: 18px;
+}
+
+.recommendation-chip {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.recommendation-chip.positive {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.recommendation-chip.negative {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+.summary-card {
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: #fafafa;
+}
+
+.summary-card h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.summary-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.score-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.score-section {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.section-heading h3 {
+  margin: 0;
+}
+
+.section-score {
+  font-weight: 600;
+  font-size: 18px;
+  color: #1a237e;
+}
+
+.short-comment {
+  margin: 12px 0 6px;
+  font-weight: 600;
+}
+
+.detailed-comment {
+  margin: 0;
+  white-space: pre-line;
+  color: rgba(0, 0, 0, 0.74);
+}
+
+.no-result {
+  margin: 0;
+  color: rgba(0, 0, 0, 0.6);
+  font-style: italic;
+}
+
 .copy-actions {
   display: flex;
   align-items: center;

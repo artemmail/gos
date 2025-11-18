@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+import { TenderAnalysisResult } from '../models/notice-analysis.models';
+
 export type NoticeAnalysisStatus = 'NotStarted' | 'InProgress' | 'Completed' | 'Failed';
 
 export interface NoticeAnalysisResponse {
@@ -13,6 +15,9 @@ export interface NoticeAnalysisResponse {
   updatedAt: string | null;
   completedAt?: string | null;
   prompt?: string | null;
+  structuredResult?: TenderAnalysisResult | null;
+  decisionScore?: number | null;
+  recommended?: boolean | null;
 }
 
 @Injectable({ providedIn: 'root' })
