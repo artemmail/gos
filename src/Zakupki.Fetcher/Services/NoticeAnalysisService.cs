@@ -24,6 +24,62 @@ public sealed class NoticeAnalysisService
 {
     private const int MaxAttachmentCharacters = 4000;
     private const int MaxTotalAttachmentCharacters = 16000;
+    private const string StructuredResponseInstructions = @"Ты — эксперт по госзакупкам в РФ и аналитик по рентабельности контрактов.
+
+Тебе передают:
+1) Профиль компании (чем занимается, какие регионы целевые, какие товары/услуги производит).
+2) Описание конкретной закупки (номер, предмет, регион, НМЦК, площадка, сроки и т.д.).
+3) Выжимки из вложений (части ТЗ, проекта контракта, требований к участникам и т.п.).
+
+Твоя задача — оценить эту закупку для данной компании по трём критериям:
+- profitability (рентабельность),
+- attractiveness (выгодность / общая привлекательность),
+- risk (риски).
+
+Для каждого из этих трёх критериев ты обязан выдать:
+- score — числовую оценку (от 0.0 до 1.0, где 0 — плохо, 1 — максимально хорошо),
+- shortComment — 1–2 предложения краткого комментария на русском языке,
+- detailedComment — подробный комментарий на русском языке в формате Markdown (можно использовать **жирный текст**, списки, переносы строк).
+
+Также ты обязан выдать:
+- decisionScore — интегральный балл (0.0–1.0), усредняющий три критерия или рассчитанный по твоей разумной формуле,
+- recommended — булево значение: true, если стоит участвовать компании в закупке, false — если не стоит,
+- summary — краткий общий вывод (1–3 предложения на русском).
+
+Важно:
+- Отвечай строго одним JSON-объектом в формате UTF-8 без каких-либо пояснений, текста до или после JSON.
+- Не добавляй комментарии, не используй поля, которых нет в схеме.
+- Все комментарии должны быть на русском языке.";
+
+    private const string PromptSuffix = @"Пожалуйста, проанализируй эту закупку для указанной компании и выдай результат строго в следующей JSON-структуре:
+
+{
+  ""scores"": {
+    ""profitability"": {
+      ""score"": number,
+      ""shortComment"": ""string"",
+      ""detailedComment"": ""string (Markdown)""
+    },
+    ""attractiveness"": {
+      ""score"": number,
+      ""shortComment"": ""string"",
+      ""detailedComment"": ""string (Markdown)""
+    },
+    ""risk"": {
+      ""score"": number,
+      ""shortComment"": ""string"",
+      ""detailedComment"": ""string (Markdown)""
+    }
+  },
+  ""decisionScore"": number,
+  ""recommended"": boolean,
+  ""summary"": ""string""
+}
+
+Где:
+- все числа в диапазоне от 0.0 до 1.0,
+- все комментарии — на русском языке,
+- detailedComment — полноценный Markdown-текст с переносами строк.";
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
@@ -188,15 +244,19 @@ public sealed class NoticeAnalysisService
                 activeVersion.ProcedureWindow);
 
             var answer = await RequestAnalysisAsync(prompt, cancellationToken);
+            var structuredResult = DeserializeTenderAnalysisResult(answer);
+            var serializedResult = JsonSerializer.Serialize(structuredResult, SerializerOptions);
 
             analysis.Status = NoticeAnalysisStatus.Completed;
-            analysis.Result = answer;
+            analysis.Result = serializedResult;
+            analysis.DecisionScore = structuredResult.DecisionScore;
+            analysis.Recommended = structuredResult.Recommended;
             analysis.CompletedAt = DateTime.UtcNow;
             analysis.UpdatedAt = analysis.CompletedAt.Value;
 
             await context.SaveChangesAsync(cancellationToken);
 
-            return ToResponse(analysis, prompt);
+            return ToResponse(analysis, prompt, structuredResult);
         }
         catch (NoticeAnalysisException)
         {
@@ -239,6 +299,9 @@ public sealed class NoticeAnalysisService
                 null,
                 null,
                 DateTime.UtcNow,
+                null,
+                null,
+                null,
                 null,
                 null);
         }
@@ -413,19 +476,7 @@ public sealed class NoticeAnalysisService
         string prompt,
         CancellationToken cancellationToken)
     {
-        // Поведение модели — через instructions
-        var instructions = @"
-Ты — эксперт по государственным закупкам.
-Используя данные о закупке, профиле компании и вложениях, оцени, подходит ли закупка компании.
-Ответ должен быть на русском языке и учитывать соответствие предмета закупки, условий и регионов.
-
-Сформируй ответ в следующем виде:
-1. Итог: подходит ли закупка (подходит / не подходит / требуется уточнение).
-2. Обоснование: ключевые факторы соответствия или несоответствия.
-3. Рекомендации: что делать компании дальше.
-
-Ответ должен быть кратким, но информативным.
-".Trim();
+        var instructions = StructuredResponseInstructions;
 
         var requestBody = new
         {
@@ -611,6 +662,67 @@ public sealed class NoticeAnalysisService
         return string.Empty;
     }
 
+    private TenderAnalysisResult DeserializeTenderAnalysisResult(string answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            throw new NoticeAnalysisException(
+                "Сервис анализа вернул пустой ответ.",
+                false);
+        }
+
+        try
+        {
+            var result = JsonSerializer.Deserialize<TenderAnalysisResult>(answer, SerializerOptions)
+                ?? throw new NoticeAnalysisException(
+                    "Сервис анализа вернул пустой ответ.",
+                    false);
+
+            NormalizeTenderAnalysisResult(result);
+            return result;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse tender analysis result: {Answer}", answer);
+            throw new NoticeAnalysisException(
+                "Сервис анализа вернул ответ в неверном формате.",
+                false,
+                ex);
+        }
+    }
+
+    private static TenderAnalysisResult? TryParseTenderAnalysisResult(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            var result = JsonSerializer.Deserialize<TenderAnalysisResult>(json, SerializerOptions);
+            if (result is null)
+            {
+                return null;
+            }
+
+            NormalizeTenderAnalysisResult(result);
+            return result;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static void NormalizeTenderAnalysisResult(TenderAnalysisResult result)
+    {
+        result.Scores ??= new TenderScores();
+        result.Scores.Profitability ??= new ScoreSection();
+        result.Scores.Attractiveness ??= new ScoreSection();
+        result.Scores.Risk ??= new ScoreSection();
+    }
+
     private static string BuildPrompt(
         Notice notice,
         string companyInfo,
@@ -620,19 +732,15 @@ public sealed class NoticeAnalysisService
     {
         var builder = new StringBuilder();
 
-        // Здесь ТОЛЬКО данные, без инструкций к модели
-
-        builder.AppendLine("Профиль компании:");
+        builder.AppendLine("ПРОФИЛЬ КОМПАНИИ:");
         builder.AppendLine(companyInfo.Trim());
         builder.AppendLine();
 
-        if (regions.Count > 0)
-        {
-            builder.AppendLine("Целевые регионы компании: " + string.Join(", ", regions));
-            builder.AppendLine();
-        }
+        builder.AppendLine("ЦЕЛЕВЫЕ РЕГИОНЫ КОМПАНИИ:");
+        builder.AppendLine(regions.Count > 0 ? string.Join(", ", regions) : "не указаны");
+        builder.AppendLine();
 
-        builder.AppendLine("Основная информация о закупке:");
+        builder.AppendLine("ОПИСАНИЕ ЗАКУПКИ:");
         builder.AppendLine($"Номер закупки: {notice.PurchaseNumber}");
         builder.AppendLine($"Наименование извещения: {notice.EntryName}");
         builder.AppendLine($"Предмет закупки: {notice.PurchaseObjectInfo ?? "не указан"}");
@@ -685,7 +793,7 @@ public sealed class NoticeAnalysisService
         }
 
         builder.AppendLine();
-        builder.AppendLine("Фрагменты вложений (Markdown):");
+        builder.AppendLine("ФРАГМЕНТЫ ВЛОЖЕНИЙ (Markdown):");
 
         var totalCharacters = 0;
         var index = 0;
@@ -726,6 +834,9 @@ public sealed class NoticeAnalysisService
             }
         }
 
+        builder.AppendLine();
+        builder.AppendLine(PromptSuffix);
+
         return builder.ToString();
     }
 
@@ -765,10 +876,17 @@ public sealed class NoticeAnalysisService
         return extension == expected || lowerName.Contains(expected, StringComparison.Ordinal);
     }
 
-    private static NoticeAnalysisResponse ToResponse(NoticeAnalysis analysis, string? prompt = null)
+    private static NoticeAnalysisResponse ToResponse(
+        NoticeAnalysis analysis,
+        string? prompt = null,
+        TenderAnalysisResult? structuredResult = null)
     {
         var hasAnswer = analysis.Status == NoticeAnalysisStatus.Completed &&
                         !string.IsNullOrWhiteSpace(analysis.Result);
+
+        structuredResult ??= TryParseTenderAnalysisResult(analysis.Result);
+        var decisionScore = analysis.DecisionScore ?? structuredResult?.DecisionScore;
+        var recommended = analysis.Recommended ?? structuredResult?.Recommended;
 
         return new NoticeAnalysisResponse(
             analysis.NoticeId,
@@ -778,6 +896,9 @@ public sealed class NoticeAnalysisService
             analysis.Error,
             analysis.UpdatedAt,
             analysis.CompletedAt,
-            prompt);
+            prompt,
+            structuredResult,
+            decisionScore,
+            recommended);
     }
 }

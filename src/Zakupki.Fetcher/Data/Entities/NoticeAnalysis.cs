@@ -14,6 +14,10 @@ public class NoticeAnalysis
 
     public string? Result { get; set; }
 
+    public double? DecisionScore { get; set; }
+
+    public bool? Recommended { get; set; }
+
     public string? Error { get; set; }
 
     public DateTime CreatedAt { get; set; }
