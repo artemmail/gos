@@ -50,13 +50,28 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <div class="copy-actions" *ngIf="data.prompt">
-    <button mat-stroked-button color="primary" type="button" (click)="copyPrompt(data.prompt)">
-      <mat-icon fontIcon="content_copy"></mat-icon>
-      <span>Копировать запрос</span>
+  <div class="analysis-actions" *ngIf="data.prompt || canDownloadReport">
+    <div class="copy-actions" *ngIf="data.prompt">
+      <button mat-stroked-button color="primary" type="button" (click)="copyPrompt(data.prompt)">
+        <mat-icon fontIcon="content_copy"></mat-icon>
+        <span>Копировать запрос</span>
+      </button>
+      <span class="copy-status success" *ngIf="copyStatus === 'success'">Запрос скопирован</span>
+      <span class="copy-status error" *ngIf="copyStatus === 'error'">Не удалось скопировать</span>
+    </div>
+
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      class="download-report-button"
+      *ngIf="canDownloadReport"
+      (click)="downloadReport()"
+      [disabled]="reportInProgress"
+    >
+      <mat-icon fontIcon="download"></mat-icon>
+      <span>{{ reportInProgress ? 'Формирование…' : 'Скачать отчёт' }}</span>
     </button>
-    <span class="copy-status success" *ngIf="copyStatus === 'success'">Запрос скопирован</span>
-    <span class="copy-status error" *ngIf="copyStatus === 'error'">Не удалось скопировать</span>
   </div>
   <button mat-button (click)="close()">Закрыть</button>
 </mat-dialog-actions>

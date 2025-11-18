@@ -78,6 +78,7 @@ builder.Services
     .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<UserCompanyService>();
+builder.Services.AddScoped<NoticeAnalysisReportService>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {

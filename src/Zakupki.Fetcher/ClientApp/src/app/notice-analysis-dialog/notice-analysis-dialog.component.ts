@@ -1,8 +1,12 @@
 import { Component, Inject } from '@angular/core';
+import { HttpResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { finalize } from 'rxjs/operators';
 
 import { NoticeAnalysisDialogData } from './notice-analysis-dialog.models';
 import { TenderAnalysisResult, TenderScores } from '../models/notice-analysis.models';
+import { NoticeAnalysisService } from '../services/notice-analysis.service';
 
 interface ScoreSectionView {
   title: string;
@@ -23,9 +27,12 @@ export class NoticeAnalysisDialogComponent {
   decisionScoreTen: number | null = null;
   recommendation: boolean | null = null;
   summaryText: string | null = null;
+  reportInProgress = false;
 
   constructor(
     private readonly dialogRef: MatDialogRef<NoticeAnalysisDialogComponent>,
+    private readonly noticeAnalysisService: NoticeAnalysisService,
+    private readonly snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) public readonly data: NoticeAnalysisDialogData
   ) {
     this.structuredResult = this.resolveStructuredResult(data);
@@ -47,6 +54,10 @@ export class NoticeAnalysisDialogComponent {
     return !!this.structuredResult;
   }
 
+  get canDownloadReport(): boolean {
+    return !!this.data.noticeId && this.hasStructuredResult;
+  }
+
   async copyPrompt(prompt: string | null | undefined): Promise<void> {
     if (!prompt) {
       return;
@@ -62,6 +73,70 @@ export class NoticeAnalysisDialogComponent {
         }
       }, 3000);
     }
+  }
+
+  downloadReport(): void {
+    if (!this.data.noticeId || this.reportInProgress) {
+      return;
+    }
+
+    this.reportInProgress = true;
+    this.noticeAnalysisService
+      .downloadReport(this.data.noticeId)
+      .pipe(finalize(() => (this.reportInProgress = false)))
+      .subscribe({
+        next: response => this.handleReportResponse(response),
+        error: error => {
+          const message = error?.error?.message ?? 'Не удалось сформировать файл отчёта.';
+          this.snackBar.open(message, 'Закрыть', { duration: 5000 });
+        }
+      });
+  }
+
+  private handleReportResponse(response: HttpResponse<Blob>): void {
+    const blob = response.body;
+    if (!blob) {
+      this.snackBar.open('Ответ сервера не содержит файл отчёта.', 'Закрыть', { duration: 5000 });
+      return;
+    }
+
+    const fileName = this.extractFileName(response) ?? this.buildFallbackFileName();
+    this.triggerDownload(blob, fileName);
+  }
+
+  private extractFileName(response: HttpResponse<Blob>): string | null {
+    const disposition = response.headers.get('content-disposition');
+    if (!disposition) {
+      return null;
+    }
+
+    const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+    if (utf8Match?.[1]) {
+      try {
+        return decodeURIComponent(utf8Match[1]);
+      } catch {
+        return utf8Match[1];
+      }
+    }
+
+    const asciiMatch = /filename="?([^";]+)"?/i.exec(disposition);
+    return asciiMatch?.[1] ?? null;
+  }
+
+  private buildFallbackFileName(): string {
+    const suffix = this.data.purchaseNumber?.trim()?.length ? `_${this.data.purchaseNumber.trim()}` : '';
+    return `Анализ${suffix}.docx`;
+  }
+
+  private triggerDownload(blob: Blob, fileName: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 
   private async writeToClipboard(text: string): Promise<boolean> {

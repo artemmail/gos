@@ -26,6 +26,7 @@
     <PackageReference Include="AspNet.Security.OAuth.Yandex" Version="7.0.0" />
     <PackageReference Include="AspNet.Security.OAuth.Vkontakte" Version="7.0.0" />
     <PackageReference Include="SharpCompress" Version="0.37.2" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.2" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">

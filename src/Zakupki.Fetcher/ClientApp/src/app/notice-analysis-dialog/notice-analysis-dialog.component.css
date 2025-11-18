@@ -133,11 +133,24 @@
   font-style: italic;
 }
 
-.copy-actions {
+.analysis-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-right: auto;
+  flex-wrap: wrap;
+}
+
+.copy-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.download-report-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .copy-status {
