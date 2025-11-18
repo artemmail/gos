@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Rar;
@@ -86,7 +87,7 @@ public class AttachmentContentExtractor
                 attachment.FileName);
             return new AttachmentContentExtractionResult(content, null);
         }
-        catch (RarException ex)
+       /* catch (RarException ex)
         {
             _logger.LogWarning(
                 ex,
@@ -94,7 +95,7 @@ public class AttachmentContentExtractor
                 attachment.Id,
                 attachment.FileName);
             return new AttachmentContentExtractionResult(content, null);
-        }
+        }*/
         catch (Exception ex)
         {
             _logger.LogWarning(
@@ -109,7 +110,7 @@ public class AttachmentContentExtractor
     private static byte[]? TryExtractFromZip(byte[] content, string desiredFileName)
     {
         using var stream = new MemoryStream(content);
-        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false, Encoding.GetEncoding(866));
         var entries = archive.Entries
             .Where(e => !string.IsNullOrWhiteSpace(e.Name))
             .ToList();

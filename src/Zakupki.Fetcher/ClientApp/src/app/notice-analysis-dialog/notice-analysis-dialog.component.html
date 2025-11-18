@@ -1,5 +1,5 @@
 <h2 mat-dialog-title>
-  Анализ закупки {{ data.purchaseNumber }}
+  Анализ закупки 1 {{ data.purchaseNumber }}
 </h2>
 
 <mat-dialog-content class="analysis-content">
@@ -22,7 +22,7 @@
         }"
         *ngIf="recommendation !== null"
       >
-        {{ recommendation ? 'Рекомендуем участвовать' : 'Участие не рекомендовано' }}
+        {{ recommendation ? 'Заказ подходит' : 'Заказ не подходит' }}
       </span>
     </div>
 

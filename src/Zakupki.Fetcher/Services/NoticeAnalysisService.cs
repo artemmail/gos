@@ -22,8 +22,8 @@ namespace Zakupki.Fetcher.Services;
 
 public sealed class NoticeAnalysisService
 {
-    private const int MaxAttachmentCharacters = 4000;
-    private const int MaxTotalAttachmentCharacters = 16000;
+    private const int MaxAttachmentCharacters = 40000;
+    private const int MaxTotalAttachmentCharacters = 160000;
     private const string StructuredResponseInstructions = @"Ты — эксперт по госзакупкам в РФ и аналитик по рентабельности контрактов.
 
 Тебе передают:
