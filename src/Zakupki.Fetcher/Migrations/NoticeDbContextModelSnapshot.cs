@@ -743,6 +743,12 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<Guid>("NoticeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<double?>("DecisionScore")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("Recommended")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Result")
                         .HasColumnType("nvarchar(max)");
 

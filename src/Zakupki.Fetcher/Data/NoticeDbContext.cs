@@ -274,6 +274,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(a => a.Status).HasMaxLength(32);
         entity.Property(a => a.Result).HasColumnType("nvarchar(max)");
+        entity.Property(a => a.DecisionScore).HasColumnType("float");
+        entity.Property(a => a.Recommended).HasColumnType("bit");
         entity.Property(a => a.Error).HasColumnType("nvarchar(max)");
 
         entity.HasIndex(a => new { a.NoticeId, a.UserId })

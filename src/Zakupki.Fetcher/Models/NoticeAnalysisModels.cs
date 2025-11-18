@@ -10,4 +10,7 @@ public sealed record NoticeAnalysisResponse(
     string? Error,
     DateTime UpdatedAt,
     DateTime? CompletedAt,
-    string? Prompt);
+    string? Prompt,
+    TenderAnalysisResult? StructuredResult,
+    double? DecisionScore,
+    bool? Recommended);
