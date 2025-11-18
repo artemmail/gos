@@ -1,0 +1,30 @@
+# meta
+purchaseNumber	docKind	placingCode	placingName	customerName	customerINN	customerKPP	maxPrice	currency	publishDate	appStart	appEnd	platform	okpd2	name
+0858400000125000112	export			МЕЖРЕГИОНАЛЬНЫЙ ФИЛИАЛ ФЕДЕРАЛЬНОГО КАЗЕННОГО УЧРЕЖДЕНИЯ "ЦЕНТР ПО ОБЕСПЕЧЕНИЮ ДЕЯТЕЛЬНОСТИ КАЗНАЧЕЙСТВА РОССИИ" В Г. РОСТОВЕ-НА-ДОНУ	7709895509	616743001		RUB	2025-10-09T19:22:17.185+03:00		2025-12-03		31.09.14.110	МЕЖРЕГИОНАЛЬНЫЙ ФИЛИАЛ ФЕДЕРАЛЬНОГО КАЗЕННОГО УЧРЕЖДЕНИЯ "ЦЕНТР ПО ОБЕСПЕЧЕНИЮ ДЕЯТЕЛЬНОСТИ КАЗНАЧЕЙСТВА РОССИИ" В Г. РОСТОВЕ-НА-ДОНУ
+# files
+ordinal	source	url	saved_as	content_type	bytes
+p001_001	package	https://zakupki.gov.ru/epz/contract/contractCard/common-info.html?reestrNumber=1770989550925003831	p001_001__038-2025 Проект контракта.docx		
+p001_002	package	https://zakupki.gov.ru/epz/contract/printForm/view.html?contractInfoId=103099983	p001_002__view.html		
+p001_003	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=A63B7321F08A42DC8721D421CD47217C	p001_003__038-2025 Проект контракта.docx		
+p001_004	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=98E03BC6D9784514B8A5E42B038133BE	p001_004__Печатная форма электронного контракта.html		
+p001_005	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=8EDCBB8F3F7F4C17A332B692F5E21B6F	p001_005__Электронный контракт.xml		
+p003_001	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=3EF2A33EB506496291B7B9E042A8C619	p003_001__Сертификат профиль Topline.pdf		
+p003_002	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=FF64D760D3814F7D8BE2D5008DB506D6	p003_002__Сертификат соответствия стеклопакеты.pdf		
+p003_003	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=1FB1049A90D74D00B303C9C1FE405A51	p003_003__Сертификат фурнитура REZE.pdf		
+p003_004	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=07637EA4669B4A16AAE7BB401842A18A	p003_004__Сэндвич-панели (эва-Юг)_2023-2026.pdf		
+p003_005	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=97626108B48349FE9D42AC9B191DB0EE	p003_005__UPD_20251028_1770989550925003831.zip		
+p003_006	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=91586AF6EDFF465A872BDDEF1705835C	p003_006__Сертификат армировка 2024-2027.pdf		
+p003_007	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=35BB71DE40FE40F49C8AB80EB88BE145	p003_007__Гарантийный талон.doc		
+p003_008	package	https://zakupki.gov.ru/epz/contract/printForm/view.html?contractProcedureId=389863753	p003_008__view.html		
+p003_009	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=E2E2A40F5D624B0D87CE5DCEB6F6E6BE	p003_009__счет 001.jpg		
+p004_001	package	https://zakupki.gov.ru/epz/contract/contractCard/common-info.html?reestrNumber=1770989550925003831	p004_001__038-2025 Проект контракта.docx		
+p004_002	package	https://zakupki.gov.ru/epz/contract/printForm/view.html?contractInfoId=103586121	p004_002__view.html		
+p004_003	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=A63B7321F08A42DC8721D421CD47217C	p004_003__038-2025 Проект контракта.docx		
+p004_004	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=98E03BC6D9784514B8A5E42B038133BE	p004_004__Печатная форма электронного контракта.html		
+p004_005	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=8EDCBB8F3F7F4C17A332B692F5E21B6F	p004_005__Электронный контракт.xml		
+p005_001	package	https://zakupki.gov.ru/epz/contract/printForm/view.html?contractProcedureId=390665670	p005_001__view.html		
+p005_002	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=5F947C3009E848C998126F12FC0822A7	p005_002__Платёжное поручение (получено автоматически из электронного бюджета).xml		
+p005_003	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=E25F6EEC527E499DBD1B9A2E15141FE8	p005_003__Платёжное поручение.html		
+p006_001	package	https://zakupki.gov.ru/epz/contract/printForm/view.html?contractProcedureId=390794791	p006_001__view.html		
+p006_002	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=5F947C3009E848C998126F12FC0822A7	p006_002__Платёжное поручение (получено автоматически из электронного бюджета).xml		
+p006_003	package	https://zakupki.gov.ru/44fz/filestore/public/1.0/download/rgk2/file.html?uid=E25F6EEC527E499DBD1B9A2E15141FE8	p006_003__Платёжное поручение.html		
