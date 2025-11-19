@@ -18,9 +18,9 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             v => ConvertBytesToVector(v ?? Array.Empty<byte>()));
 
     private static readonly ValueComparer<double[]> NoticeEmbeddingVectorComparer = new(
-        AreVectorsEqual,
-        GetVectorHashCode,
-        SnapshotVector);
+        (left, right) => AreVectorsEqual(left, right),
+        vector => GetVectorHashCode(vector),
+        vector => SnapshotVector(vector));
 
     private static bool AreVectorsEqual(double[]? left, double[]? right)
     {
