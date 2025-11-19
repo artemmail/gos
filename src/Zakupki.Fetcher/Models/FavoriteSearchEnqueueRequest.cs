@@ -6,6 +6,8 @@ public sealed class FavoriteSearchEnqueueRequest
 
     public DateTime? CollectingEndLimit { get; set; }
 
+    public bool ExpiredOnly { get; set; }
+
     public int Top { get; set; } = 20;
 
     public int Limit { get; set; } = 500;

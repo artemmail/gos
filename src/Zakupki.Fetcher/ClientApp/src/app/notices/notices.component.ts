@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, OnDestroy, ViewChild } from '@angular/core';
-import { FormControl, FormGroup } from '@angular/forms';
+import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
@@ -19,6 +19,8 @@ import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
 import { determineRegionFromRawJson, getRegionDisplayName } from '../constants/regions';
 import { FavoritesService } from '../services/favorites.service';
+import { FavoriteSearchService } from '../services/favorite-search.service';
+import { FavoriteSearchEnqueueRequest } from '../models/favorite-search.models';
 
 @Component({
   selector: 'app-notices',
@@ -65,6 +67,16 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     kvrCodes: new FormControl<string>('', { nonNullable: true })
   });
 
+  favoriteSearchForm = new FormGroup({
+    query: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(3)]
+    }),
+    expiredOnly: new FormControl<boolean>(false, { nonNullable: true })
+  });
+
+  favoriteSearchInProgress = false;
+
   private readonly destroy$ = new Subject<void>();
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
@@ -76,6 +88,7 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     private readonly analysisService: NoticeAnalysisService,
     private readonly snackBar: MatSnackBar,
     private readonly favoritesService: FavoritesService,
+    private readonly favoriteSearchService: FavoriteSearchService,
     private readonly route: ActivatedRoute
   ) {
     this.isFavoritesPage = this.route.snapshot.data?.['favorites'] === true;
@@ -292,11 +305,11 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     notice.hasAnalysisAnswer = response.hasAnswer;
     notice.analysisUpdatedAt = response.updatedAt ?? null;
 
-      if (response.status === 'Completed' && (response.result || response.structuredResult)) {
-        const data: NoticeAnalysisDialogData = {
-          noticeId: notice.id,
-          purchaseNumber: notice.purchaseNumber,
-          entryName: notice.entryName,
+    if (response.status === 'Completed' && (response.result || response.structuredResult)) {
+      const data: NoticeAnalysisDialogData = {
+        noticeId: notice.id,
+        purchaseNumber: notice.purchaseNumber,
+        entryName: notice.entryName,
         result: response.result ?? null,
         completedAt: response.completedAt ?? null,
         prompt: response.prompt ?? null,
@@ -391,5 +404,45 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     return this.isFavoritesPage
       ? 'Здесь отображаются сохранённые записи из общего реестра'
       : 'Поиск, сортировка и навигация по таблице данных о закупках';
+  }
+
+  enqueueFavoriteSearch(): void {
+    if (this.favoriteSearchInProgress) {
+      return;
+    }
+
+    if (this.favoriteSearchForm.invalid) {
+      this.favoriteSearchForm.markAllAsTouched();
+      return;
+    }
+
+    const query = this.favoriteSearchForm.controls.query.value.trim();
+    const expiredOnly = this.favoriteSearchForm.controls.expiredOnly.value;
+
+    const payload: FavoriteSearchEnqueueRequest = {
+      query,
+      collectingEndLimit: new Date().toISOString(),
+      expiredOnly,
+      top: 20,
+      limit: 500
+    };
+
+    this.favoriteSearchInProgress = true;
+
+    this.favoriteSearchService
+      .enqueue(payload)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.favoriteSearchInProgress = false))
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Задача поиска добавлена в очередь.', 'Закрыть', { duration: 4000 });
+        },
+        error: error => {
+          const message = error?.error?.message ?? 'Не удалось поставить задачу в очередь.';
+          this.snackBar.open(message, 'Закрыть', { duration: 6000 });
+        }
+      });
   }
 }
