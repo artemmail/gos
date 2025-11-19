@@ -35,6 +35,11 @@ public sealed class FavoriteSearchQueueService : IFavoriteSearchQueueService
             return new FavoriteSearchEnqueueResult(false, FavoriteSearchEnqueueError.Disabled, "Очередь недоступна");
         }
 
+        if (string.IsNullOrWhiteSpace(_options.ResolveCommandQueueName()))
+        {
+            return new FavoriteSearchEnqueueResult(false, FavoriteSearchEnqueueError.Disabled, "Очередь не сконфигурирована");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Query) || request.CollectingEndLimit is null)
         {
             return new FavoriteSearchEnqueueResult(false, FavoriteSearchEnqueueError.Invalid, "Укажите запрос и дату CollectingEnd");

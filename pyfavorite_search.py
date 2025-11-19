@@ -43,8 +43,22 @@ DEFAULT_CONFIG_PATH = os.environ.get(
 )
 
 
+def _get_connection_string(config: Dict[str, Any]) -> str:
+    connection_strings = config.get("ConnectionStrings") or {}
+    overrides = [
+        os.environ.get("ODBC_CONNECTION_STRING"),
+        connection_strings.get("Default"),
+        connection_strings.get("DefaultConnection"),
+        connection_strings.get("DefaultConnectionString"),
+    ]
+    for candidate in overrides:
+        if candidate:
+            return candidate
+    raise RuntimeError("Не найдена строка подключения в разделе ConnectionStrings")
+
+
 def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
-    connection = appsettings["ConnectionStrings"]["Default"]
+    connection = _get_connection_string(appsettings)
     server = database = username = password = None
     for part in connection.split(";"):
         key, _, value = part.partition("=")
@@ -65,6 +79,45 @@ def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
         f"SERVER={server};DATABASE={database};UID={username};PWD={password};"
         "TrustServerCertificate=Yes;MARS_Connection=Yes"
     )
+
+
+def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str):
+            candidate = value.strip()
+        else:
+            candidate = str(value).strip()
+        if candidate:
+            return candidate
+    return None
+
+
+def _parse_int(value: Optional[Any], default: int) -> int:
+    try:
+        if value is None:
+            raise ValueError
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_float(value: Optional[Any], default: float) -> float:
+    try:
+        if value is None:
+            raise ValueError
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_bool(value: Optional[Any]) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "y"}
 
 
 @dataclass
@@ -210,29 +263,100 @@ class FavoriteSearchEngine:
 class RabbitFavoriteWorker:
     def __init__(self, config: Dict[str, Any]):
         event_bus = config.get("EventBus") or {}
-        if not event_bus.get("Enabled", False):
+        if not _parse_bool(event_bus.get("Enabled", True)):
             raise RuntimeError("Event bus disabled in configuration")
         self._event_bus = event_bus
-        self._connection_params = pika.ConnectionParameters(
-            host=event_bus["BusAccess"]["Host"],
-            heartbeat=60,
-            blocked_connection_timeout=120,
-            credentials=pika.PlainCredentials(
-                event_bus["BusAccess"]["UserName"], event_bus["BusAccess"]["Password"]
+        bus_access = event_bus.get("BusAccess") or {}
+        broker = _first_non_empty(os.environ.get("EVENTBUS_BROKER"), event_bus.get("Broker"))
+        if not broker:
+            raise RuntimeError("Event bus exchange (Broker) не настроен")
+
+        command_queue = _first_non_empty(
+            os.environ.get("EVENTBUS_COMMAND_QUEUE_NAME"),
+            event_bus.get("CommandQueueName"),
+            event_bus.get("QueueName"),
+        )
+        if not command_queue:
+            raise RuntimeError("Command queue name is not configured in appsettings.json")
+
+        response_queue = _first_non_empty(
+            os.environ.get("EVENTBUS_QUEUE_NAME"),
+            event_bus.get("QueueName"),
+        )
+
+        heartbeat_seconds = max(
+            1,
+            _parse_int(
+                os.environ.get("EVENTBUS_HEARTBEAT_SECONDS") or event_bus.get("HeartbeatSeconds"),
+                60,
             ),
+        )
+        blocked_timeout = max(
+            1.0,
+            _parse_float(
+                os.environ.get("EVENTBUS_BLOCKED_CONNECTION_TIMEOUT")
+                or event_bus.get("BlockedConnectionTimeout"),
+                120.0,
+            ),
+        )
+        consumer_timeout_ms = max(
+            0,
+            _parse_int(
+                os.environ.get("EVENTBUS_CONSUMER_TIMEOUT_MS"),
+                event_bus.get("ConsumerTimeoutMs", 0),
+            ),
+        )
+        retry_count_value = os.environ.get("EVENTBUS_RETRY_COUNT") or event_bus.get("RetryCount", 5)
+        retry_count = max(0, _parse_int(retry_count_value, 5))
+        retry_delay_seconds = max(
+            1.0,
+            _parse_float(os.environ.get("EVENTBUS_RETRY_DELAY"), event_bus.get("RetryDelaySeconds", 5.0)),
+        )
+        prefetch_count = max(
+            1,
+            _parse_int(os.environ.get("EVENTBUS_PREFETCH_COUNT"), event_bus.get("PrefetchCount", 1)),
+        )
+
+        host = _first_non_empty(os.environ.get("EVENTBUS_HOST"), bus_access.get("Host")) or "localhost"
+        username = _first_non_empty(os.environ.get("EVENTBUS_USERNAME"), bus_access.get("UserName")) or "guest"
+        password = _first_non_empty(os.environ.get("EVENTBUS_PASSWORD"), bus_access.get("Password")) or "guest"
+
+        self._connection_params = pika.ConnectionParameters(
+            host=host,
+            heartbeat=heartbeat_seconds,
+            blocked_connection_timeout=blocked_timeout,
+            credentials=pika.PlainCredentials(username, password),
         )
         connection_string = build_odbc_connection_string(config)
         self._engine = FavoriteSearchEngine(connection_string)
-        self._command_queue = event_bus["CommandQueueName"]
-        self._exchange = event_bus["Broker"]
-        self._exchange_type = event_bus.get("ExchangeType", "direct")
+        self._command_queue = command_queue
+        self._response_queue = response_queue
+        self._exchange = broker
+        self._exchange_type = _first_non_empty(os.environ.get("EVENTBUS_EXCHANGE_TYPE"), event_bus.get("ExchangeType")) or "direct"
+        self._prefetch_count = prefetch_count
+        self._consumer_timeout_ms = consumer_timeout_ms
+        self._retry_count = retry_count
+        self._retry_delay_seconds = retry_delay_seconds
         self._logger = logging.getLogger("favorite_worker")
+        self._logger.info(
+            "favorite_worker configured host=%s exchange=%s command_queue=%s response_queue=%s consumer_timeout_ms=%s",
+            host,
+            self._exchange,
+            self._command_queue,
+            self._response_queue or "(none)",
+            self._consumer_timeout_ms if self._consumer_timeout_ms > 0 else "off",
+        )
 
     def _declare(self, channel: pika.adapters.blocking_connection.BlockingChannel) -> None:
+        queue_arguments = None
+        if self._consumer_timeout_ms > 0:
+            queue_arguments = {"x-consumer-timeout": self._consumer_timeout_ms}
         channel.exchange_declare(exchange=self._exchange, exchange_type=self._exchange_type, durable=True)
-        channel.queue_declare(queue=self._command_queue, durable=True)
+        channel.queue_declare(queue=self._command_queue, durable=True, arguments=queue_arguments)
         channel.queue_bind(queue=self._command_queue, exchange=self._exchange, routing_key=self._command_queue)
-        channel.basic_qos(prefetch_count=1)
+        if self._response_queue:
+            channel.queue_declare(queue=self._response_queue, durable=True, arguments=queue_arguments)
+        channel.basic_qos(prefetch_count=self._prefetch_count)
 
     def _process_message(self, body: bytes) -> Tuple[int, List[str]]:
         payload = json.loads(body.decode("utf-8"))
@@ -242,40 +366,59 @@ class RabbitFavoriteWorker:
         return added, notice_ids
 
     def run(self) -> None:
+        attempts = 0
         while True:
+            connection = None
             try:
-                with pika.BlockingConnection(self._connection_params) as connection:
-                    channel = connection.channel()
-                    self._declare(channel)
+                connection = pika.BlockingConnection(self._connection_params)
+                attempts = 0
+                channel = connection.channel()
+                self._declare(channel)
 
-                    def callback(ch, method, properties, body):  # type: ignore[override]
-                        try:
-                            added, notice_ids = self._process_message(body)
-                            self._logger.info(
-                                "Processed favorite command: added=%s notices=%s",
-                                added,
-                                notice_ids,
-                            )
-                            ch.basic_ack(method.delivery_tag)
-                        except (pyodbc.Error, pika.exceptions.AMQPError) as exc:
-                            self._logger.exception("Transient error: %s", exc)
-                            ch.basic_nack(method.delivery_tag, requeue=True)
-                        except Exception:
-                            self._logger.exception("Failed to process message")
-                            ch.basic_ack(method.delivery_tag)
+                def callback(ch, method, properties, body):  # type: ignore[override]
+                    try:
+                        added, notice_ids = self._process_message(body)
+                        self._logger.info(
+                            "Processed favorite command: added=%s notices=%s",
+                            added,
+                            notice_ids,
+                        )
+                        ch.basic_ack(method.delivery_tag)
+                    except (pyodbc.Error, pika.exceptions.AMQPError) as exc:
+                        self._logger.exception("Transient error: %s", exc)
+                        ch.basic_nack(method.delivery_tag, requeue=True)
+                    except Exception:
+                        self._logger.exception("Failed to process message")
+                        ch.basic_ack(method.delivery_tag)
 
-                    channel.basic_consume(queue=self._command_queue, on_message_callback=callback)
-                    self._logger.info("Waiting for favorite search commands ...")
-                    channel.start_consuming()
-            except pika.exceptions.AMQPConnectionError as exc:
-                self._logger.error("RabbitMQ connection lost: %s", exc)
-                time.sleep(5)
+                channel.basic_consume(queue=self._command_queue, on_message_callback=callback)
+                self._logger.info("Waiting for favorite search commands ...")
+                channel.start_consuming()
             except KeyboardInterrupt:
                 self._logger.info("Stopping worker")
                 break
+            except pika.exceptions.AMQPConnectionError as exc:
+                attempts += 1
+                max_attempts_text = self._retry_count if self._retry_count > 0 else "∞"
+                self._logger.error(
+                    "RabbitMQ connection lost: %s (attempt %s/%s)",
+                    exc,
+                    attempts,
+                    max_attempts_text,
+                )
+                if self._retry_count > 0 and attempts >= self._retry_count:
+                    self._logger.error("Maximum retry attempts exceeded")
+                    raise
+                time.sleep(self._retry_delay_seconds)
             except Exception:
                 self._logger.exception("Unexpected error")
-                time.sleep(5)
+                time.sleep(self._retry_delay_seconds)
+            finally:
+                if connection is not None and getattr(connection, "is_open", False):
+                    try:
+                        connection.close()
+                    except Exception:
+                        pass
 
 
 def load_config(path: str) -> Dict[str, Any]:

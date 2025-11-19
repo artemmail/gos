@@ -36,6 +36,7 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         var channel = EnsureChannel();
         var payload = JsonSerializer.Serialize(command);
         var body = Encoding.UTF8.GetBytes(payload);
+        var commandQueueName = GetCommandQueueName();
 
         var properties = channel.CreateBasicProperties();
         properties.Persistent = true;
@@ -45,7 +46,7 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
 
         channel.BasicPublish(
             exchange: _options.Broker,
-            routingKey: _options.CommandQueueName,
+            routingKey: commandQueueName,
             mandatory: false,
             basicProperties: properties,
             body: body);
@@ -109,6 +110,8 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
 
     private void DeclareInfrastructure(IModel channel)
     {
+        var commandQueueName = GetCommandQueueName();
+
         channel.ExchangeDeclare(
             exchange: _options.Broker,
             type: _options.ExchangeType,
@@ -117,16 +120,27 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
             arguments: null);
 
         channel.QueueDeclare(
-            queue: _options.CommandQueueName,
+            queue: commandQueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
             arguments: null);
 
         channel.QueueBind(
-            queue: _options.CommandQueueName,
+            queue: commandQueueName,
             exchange: _options.Broker,
-            routingKey: _options.CommandQueueName);
+            routingKey: commandQueueName);
+    }
+
+    private string GetCommandQueueName()
+    {
+        var commandQueueName = _options.ResolveCommandQueueName();
+        if (string.IsNullOrWhiteSpace(commandQueueName))
+        {
+            throw new InvalidOperationException("Command queue name is not configured in EventBus options.");
+        }
+
+        return commandQueueName;
     }
 
     private void DisposeChannel()
