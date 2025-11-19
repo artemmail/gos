@@ -99,6 +99,16 @@ def _parse_bool(value: Optional[Any]) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
+def _vector_field_to_bytes(value) -> bytes:
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    if isinstance(value, bytearray):
+        return bytes(value)
+    return bytes(value)
+
+
 @dataclass
 class FavoriteSearchCommand:
     user_id: str
@@ -191,6 +201,7 @@ class FavoriteSearchEngine:
             n.PurchaseNumber,
             n.EntryName,
             n.PurchaseObjectInfo,
+            e.Dimensions,
             e.Vector
         FROM NoticeEmbeddings e
         INNER JOIN Notices n ON n.Id = e.NoticeId
@@ -210,15 +221,25 @@ class FavoriteSearchEngine:
                 r.PurchaseNumber,
                 r.EntryName,
                 r.PurchaseObjectInfo,
-                r.Vector,
+                int(r.Dimensions),
+                _vector_field_to_bytes(r.Vector),
             )
             for r in cursor.fetchall()
         ]
 
     @staticmethod
     def _parse_vectors(rows):
-        import json as _json
-        return np.array([_json.loads(v) for *_, v in rows], dtype=np.float32)
+        vectors = []
+        for *_, dims, vector_bytes in rows:
+            buffer = memoryview(vector_bytes)
+            expected_length = dims * 8
+            if buffer.nbytes != expected_length:
+                raise ValueError(
+                    f"Некорректный размер вектора: ожидалось {expected_length} байт, получено {buffer.nbytes}"
+                )
+            vectors.append(np.frombuffer(buffer, dtype=np.float64, count=dims).astype(np.float32))
+
+        return np.array(vectors, dtype=np.float32)
 
     @staticmethod
     def _cosine_similarity(query_vec, matrix):
@@ -257,7 +278,7 @@ class FavoriteSearchEngine:
 
             print(f"\nTOP-{top_k} RESULTS:\n" + "=" * 80)
             for rank, i in enumerate(top_idx, 1):
-                rid, purchase, entry, obj, _ = rows[i]
+                rid, purchase, entry, obj, _, _ = rows[i]
                 print(f"{rank}. score={sims[i]:.4f}")
                 print(f"   PurchaseNumber: {purchase}")
                 print(f"   NoticeId:       {rid}")
@@ -282,7 +303,7 @@ class FavoriteSearchEngine:
             print("\nSaving favorites:\n" + "=" * 80)
 
             for rank, i in enumerate(top_idx, 1):
-                rid, purchase, entry, obj, _ = rows[i]
+                rid, purchase, entry, obj, _, _ = rows[i]
                 notice_ids.append(rid)
 
                 fid = str(uuid.uuid4())

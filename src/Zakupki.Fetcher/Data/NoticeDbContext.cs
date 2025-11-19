@@ -1,11 +1,54 @@
+using System;
+using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Zakupki.Fetcher.Data.Entities;
 
 namespace Zakupki.Fetcher.Data;
 
 public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
+    private const int NoticeEmbeddingVectorDimensions = 768;
+
+    private static readonly ValueConverter<double[], byte[]> NoticeEmbeddingVectorConverter =
+        new(
+            v => ConvertVectorToBytes(v ?? Array.Empty<double>()),
+            v => ConvertBytesToVector(v ?? Array.Empty<byte>()));
+
+    private static readonly ValueComparer<double[]> NoticeEmbeddingVectorComparer = new(
+        (left, right) =>
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left is null || right is null)
+            {
+                return false;
+            }
+
+            return left.SequenceEqual(right);
+        },
+        vector =>
+        {
+            if (vector is null)
+            {
+                return 0;
+            }
+
+            var hash = new HashCode();
+            foreach (var value in vector)
+            {
+                hash.Add(value);
+            }
+
+            return hash.ToHashCode();
+        },
+        vector => vector is null ? Array.Empty<double>() : vector.ToArray());
+
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
     {
@@ -290,7 +333,12 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.HasKey(e => e.Id);
 
         entity.Property(e => e.Model).HasMaxLength(200);
-        entity.Property(e => e.Vector).HasColumnType("nvarchar(max)");
+
+        var vectorProperty = entity.Property(e => e.Vector)
+            .HasColumnType($"vector(float64, {NoticeEmbeddingVectorDimensions})")
+            .HasConversion(NoticeEmbeddingVectorConverter);
+
+        vectorProperty.Metadata.SetValueComparer(NoticeEmbeddingVectorComparer);
         entity.Property(e => e.Source).HasMaxLength(100);
 
         entity.HasOne(e => e.Notice)
@@ -340,5 +388,23 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Cascade);
 
         entity.HasIndex(r => r.Token).IsUnique();
+    }
+
+    private static byte[] ConvertVectorToBytes(double[] vector)
+    {
+        ArgumentNullException.ThrowIfNull(vector);
+
+        var buffer = new byte[vector.Length * sizeof(double)];
+        Buffer.BlockCopy(vector, 0, buffer, 0, buffer.Length);
+        return buffer;
+    }
+
+    private static double[] ConvertBytesToVector(byte[] bytes)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+
+        var vector = new double[bytes.Length / sizeof(double)];
+        Buffer.BlockCopy(bytes, 0, vector, 0, bytes.Length);
+        return vector;
     }
 }
