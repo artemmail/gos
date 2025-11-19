@@ -18,36 +18,45 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             v => ConvertBytesToVector(v ?? Array.Empty<byte>()));
 
     private static readonly ValueComparer<double[]> NoticeEmbeddingVectorComparer = new(
-        (left, right) =>
+        AreVectorsEqual,
+        GetVectorHashCode,
+        SnapshotVector);
+
+    private static bool AreVectorsEqual(double[]? left, double[]? right)
+    {
+        if (ReferenceEquals(left, right))
         {
-            if (ReferenceEquals(left, right))
-            {
-                return true;
-            }
+            return true;
+        }
 
-            if (left is null || right is null)
-            {
-                return false;
-            }
-
-            return left.SequenceEqual(right);
-        },
-        vector =>
+        if (left is null || right is null)
         {
-            if (vector is null)
-            {
-                return 0;
-            }
+            return false;
+        }
 
-            var hash = new HashCode();
-            foreach (var value in vector)
-            {
-                hash.Add(value);
-            }
+        return left.SequenceEqual(right);
+    }
 
-            return hash.ToHashCode();
-        },
-        vector => vector is null ? Array.Empty<double>() : vector.ToArray());
+    private static int GetVectorHashCode(double[]? vector)
+    {
+        if (vector is null)
+        {
+            return 0;
+        }
+
+        var hash = new HashCode();
+        foreach (var value in vector)
+        {
+            hash.Add(value);
+        }
+
+        return hash.ToHashCode();
+    }
+
+    private static double[] SnapshotVector(double[]? vector)
+    {
+        return vector == null ? Array.Empty<double>() : vector.ToArray();
+    }
 
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
