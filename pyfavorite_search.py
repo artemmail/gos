@@ -78,16 +78,28 @@ class FavoriteSearchCommand:
 
     @classmethod
     def from_payload(cls, payload: Dict[str, Any]) -> "FavoriteSearchCommand":
-        collecting_end = payload.get("collectingEndLimit")
+        def first_present(*keys: str, default: Optional[Any] = None) -> Any:
+            for key in keys:
+                if key in payload:
+                    return payload[key]
+            return default
+
+        collecting_end = first_present("collectingEndLimit", "CollectingEndLimit")
         if not collecting_end:
             raise ValueError("collectingEndLimit is required")
         collecting_end_dt = datetime.fromisoformat(collecting_end.replace("Z", "+00:00"))
-        top = max(1, int(payload.get("top", 20)))
-        limit = max(top, int(payload.get("limit", 500)))
-        expired_only = bool(payload.get("expiredOnly", False))
+        query = first_present("query", "Query")
+        if not query or not str(query).strip():
+            raise ValueError("query is required")
+        user_id = first_present("userId", "UserId")
+        if not user_id:
+            raise ValueError("userId is required")
+        top = max(1, int(first_present("top", "Top", default=20)))
+        limit = max(top, int(first_present("limit", "Limit", default=500)))
+        expired_only = bool(first_present("expiredOnly", "ExpiredOnly", default=False))
         return cls(
-            user_id=payload["userId"],
-            query=payload["query"].strip(),
+            user_id=str(user_id),
+            query=str(query).strip(),
             collecting_end_limit=collecting_end_dt.astimezone(timezone.utc),
             expired_only=expired_only,
             top=top,
