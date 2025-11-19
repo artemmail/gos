@@ -46,8 +46,9 @@ public sealed class FavoriteSearchQueueService : IFavoriteSearchQueueService
         var collectingEndLimit = DateTime.SpecifyKind(request.CollectingEndLimit.Value, DateTimeKind.Utc).ToUniversalTime();
         var top = Math.Clamp(request.Top, 1, 100);
         var limit = Math.Clamp(request.Limit, top, top * 50);
+        var expiredOnly = request.ExpiredOnly;
 
-        var dedupKey = FavoriteSearchCommand.CreateDeduplicationKey(userId, normalizedQuery, collectingEndLimit);
+        var dedupKey = FavoriteSearchCommand.CreateDeduplicationKey(userId, normalizedQuery, collectingEndLimit, expiredOnly);
 
         if (_memoryCache.TryGetValue(dedupKey, out _))
         {
@@ -59,14 +60,15 @@ public sealed class FavoriteSearchQueueService : IFavoriteSearchQueueService
         var ttlMinutes = Math.Max(1, _options.InFlightDeduplicationMinutes);
         entry.SetAbsoluteExpiration(TimeSpan.FromMinutes(ttlMinutes));
 
-        var command = new FavoriteSearchCommand
-        {
-            UserId = userId,
-            Query = normalizedQuery,
-            CollectingEndLimit = collectingEndLimit,
-            Top = top,
-            Limit = limit
-        };
+            var command = new FavoriteSearchCommand
+            {
+                UserId = userId,
+                Query = normalizedQuery,
+                CollectingEndLimit = collectingEndLimit,
+                ExpiredOnly = expiredOnly,
+                Top = top,
+                Limit = limit
+            };
 
         try
         {

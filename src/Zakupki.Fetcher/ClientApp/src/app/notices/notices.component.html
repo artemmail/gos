@@ -6,6 +6,51 @@
         <p class="subtitle">{{ pageSubtitle }}</p>
       </div>
 
+      <section class="user-card" aria-label="Карточка пользователя">
+        <form
+          class="favorite-search-form"
+          [formGroup]="favoriteSearchForm"
+          (ngSubmit)="enqueueFavoriteSearch()">
+          <div class="user-card-row">
+            <div class="user-card-label">Найти заказы</div>
+            <div class="user-card-controls">
+              <mat-form-field appearance="outline" class="query-field">
+                <mat-label>Запрос</mat-label>
+                <input
+                  matInput
+                  formControlName="query"
+                  placeholder="Например, поставка медицинского оборудования"
+                >
+                <mat-error *ngIf="favoriteSearchForm.controls.query.hasError('required')">
+                  Укажите запрос
+                </mat-error>
+                <mat-error *ngIf="favoriteSearchForm.controls.query.hasError('minlength')">
+                  Минимум 3 символа
+                </mat-error>
+              </mat-form-field>
+
+              <mat-checkbox formControlName="expiredOnly" class="expired-checkbox">
+                Искать истекшие
+              </mat-checkbox>
+
+              <button
+                mat-raised-button
+                color="accent"
+                type="submit"
+                [disabled]="favoriteSearchInProgress"
+              >
+                <mat-icon fontIcon="search"></mat-icon>
+                <span *ngIf="!favoriteSearchInProgress">Поиск</span>
+                <span *ngIf="favoriteSearchInProgress">Процесс идёт…</span>
+              </button>
+            </div>
+          </div>
+          <p class="favorite-search-hint">
+            Задача отправится в очередь. Дата окончания подачи определяется автоматически по текущему времени.
+          </p>
+        </form>
+      </section>
+
       <form class="filters-form" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
         <div class="filters-grid">
           <mat-form-field appearance="outline" class="filter-field full-width">

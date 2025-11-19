@@ -9,6 +9,7 @@ following shape::
         "userId": "...",
         "query": "text",
         "collectingEndLimit": "2025-01-01T00:00:00Z",
+        "expiredOnly": false,
         "top": 20,
         "limit": 500
     }
@@ -71,6 +72,7 @@ class FavoriteSearchCommand:
     user_id: str
     query: str
     collecting_end_limit: datetime
+    expired_only: bool = False
     top: int = 20
     limit: int = 500
 
@@ -82,10 +84,12 @@ class FavoriteSearchCommand:
         collecting_end_dt = datetime.fromisoformat(collecting_end.replace("Z", "+00:00"))
         top = max(1, int(payload.get("top", 20)))
         limit = max(top, int(payload.get("limit", 500)))
+        expired_only = bool(payload.get("expiredOnly", False))
         return cls(
             user_id=payload["userId"],
             query=payload["query"].strip(),
             collecting_end_limit=collecting_end_dt.astimezone(timezone.utc),
+            expired_only=expired_only,
             top=top,
             limit=limit,
         )
@@ -109,18 +113,34 @@ class FavoriteSearchEngine:
         return conn
 
     def _fetch_candidates(
-        self, cursor: pyodbc.Cursor, limit: int, collecting_end_limit: datetime
+        self,
+        cursor: pyodbc.Cursor,
+        limit: int,
+        collecting_end_limit: datetime,
+        expired_only: bool,
     ) -> List[Tuple[str, str]]:
-        sql = """
-        SELECT TOP (?)
-            n.Id,
-            e.Vector
-        FROM [NoticeEmbeddings] AS e
-        INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
-        WHERE e.Model = ?
-          AND (n.CollectingEnd IS NULL OR n.CollectingEnd <= ?)
-        ORDER BY n.UpdatedAt DESC
-        """
+        if expired_only:
+            sql = """
+            SELECT TOP (?)
+                n.Id,
+                e.Vector
+            FROM [NoticeEmbeddings] AS e
+            INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
+            WHERE e.Model = ?
+              AND (n.CollectingEnd IS NULL OR n.CollectingEnd <= ?)
+            ORDER BY n.UpdatedAt DESC
+            """
+        else:
+            sql = """
+            SELECT TOP (?)
+                n.Id,
+                e.Vector
+            FROM [NoticeEmbeddings] AS e
+            INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
+            WHERE e.Model = ?
+              AND (n.CollectingEnd IS NULL OR n.CollectingEnd >= ?)
+            ORDER BY n.UpdatedAt DESC
+            """
         cursor.execute(sql, limit, self._model_name, collecting_end_limit)
         return [(str(row.Id), row.Vector) for row in cursor.fetchall()]
 
@@ -137,7 +157,12 @@ class FavoriteSearchEngine:
     def search(self, command: FavoriteSearchCommand) -> List[str]:
         with self._connect() as conn:
             cursor = conn.cursor()
-            rows = self._fetch_candidates(cursor, command.limit, command.collecting_end_limit)
+            rows = self._fetch_candidates(
+                cursor,
+                command.limit,
+                command.collecting_end_limit,
+                command.expired_only,
+            )
             scored = self._score(command.query, rows)
             top_sorted = sorted(scored, key=lambda x: x[1], reverse=True)[: command.top]
             return [notice_id for notice_id, _ in top_sorted]

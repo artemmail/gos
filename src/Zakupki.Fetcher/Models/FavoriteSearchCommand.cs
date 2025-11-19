@@ -14,14 +14,21 @@ public sealed class FavoriteSearchCommand
 
     public int Limit { get; init; }
 
-    public static string CreateDeduplicationKey(string userId, string query, DateTime collectingEndLimit)
+    public bool ExpiredOnly { get; init; }
+
+    public static string CreateDeduplicationKey(
+        string userId,
+        string query,
+        DateTime collectingEndLimit,
+        bool expiredOnly)
     {
         var normalizedQuery = query.Trim().ToLowerInvariant();
         var normalizedDate = collectingEndLimit.ToUniversalTime().ToString("O");
-        return $"{userId}:{normalizedQuery}:{normalizedDate}";
+        var expiredSuffix = expiredOnly ? "expired" : "active";
+        return $"{userId}:{normalizedQuery}:{normalizedDate}:{expiredSuffix}";
     }
 
-    public string GetDeduplicationKey() => CreateDeduplicationKey(UserId, Query, CollectingEndLimit);
+    public string GetDeduplicationKey() => CreateDeduplicationKey(UserId, Query, CollectingEndLimit, ExpiredOnly);
 
     public byte[] GetDeduplicationKeyBytes() => Encoding.UTF8.GetBytes(GetDeduplicationKey());
 }
