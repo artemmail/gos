@@ -18,6 +18,9 @@ public sealed class EventBusOptions
 
     public BusAccessOptions BusAccess { get; set; } = new();
 
+    public string ResolveCommandQueueName() =>
+        string.IsNullOrWhiteSpace(CommandQueueName) ? QueueName : CommandQueueName;
+
     public sealed class BusAccessOptions
     {
         public string Host { get; set; } = "localhost";

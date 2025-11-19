@@ -36,6 +36,7 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         var channel = EnsureChannel();
         var payload = JsonSerializer.Serialize(command);
         var body = Encoding.UTF8.GetBytes(payload);
+        var commandQueueName = GetCommandQueueName();
 
         var properties = channel.CreateBasicProperties();
         properties.Persistent = true;
@@ -44,8 +45,8 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         properties.Headers["x-deduplication-header"] = command.GetDeduplicationKeyBytes();
 
         channel.BasicPublish(
-            exchange: _options.Broker,
-            routingKey: _options.CommandQueueName,
+            exchange: string.Empty,
+            routingKey: commandQueueName,
             mandatory: false,
             basicProperties: properties,
             body: body);
@@ -84,6 +85,11 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
                 RequestedHeartbeat = TimeSpan.FromSeconds(30)
             };
 
+            if (!string.IsNullOrWhiteSpace(_options.Broker))
+            {
+                factory.ClientProvidedName = _options.Broker;
+            }
+
             var retries = Math.Max(1, _options.BusAccess.RetryCount);
             Exception? lastException = null;
             for (var attempt = 0; attempt < retries; attempt++)
@@ -109,24 +115,25 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
 
     private void DeclareInfrastructure(IModel channel)
     {
-        channel.ExchangeDeclare(
-            exchange: _options.Broker,
-            type: _options.ExchangeType,
-            durable: true,
-            autoDelete: false,
-            arguments: null);
+        var commandQueueName = GetCommandQueueName();
 
         channel.QueueDeclare(
-            queue: _options.CommandQueueName,
+            queue: commandQueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
             arguments: null);
+    }
 
-        channel.QueueBind(
-            queue: _options.CommandQueueName,
-            exchange: _options.Broker,
-            routingKey: _options.CommandQueueName);
+    private string GetCommandQueueName()
+    {
+        var commandQueueName = _options.ResolveCommandQueueName();
+        if (string.IsNullOrWhiteSpace(commandQueueName))
+        {
+            throw new InvalidOperationException("Command queue name is not configured in EventBus options.");
+        }
+
+        return commandQueueName;
     }
 
     private void DisposeChannel()
