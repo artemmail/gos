@@ -45,7 +45,7 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         properties.Headers["x-deduplication-header"] = command.GetDeduplicationKeyBytes();
 
         channel.BasicPublish(
-            exchange: _options.Broker,
+            exchange: string.Empty,
             routingKey: commandQueueName,
             mandatory: false,
             basicProperties: properties,
@@ -85,6 +85,11 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
                 RequestedHeartbeat = TimeSpan.FromSeconds(30)
             };
 
+            if (!string.IsNullOrWhiteSpace(_options.Broker))
+            {
+                factory.ClientProvidedName = _options.Broker;
+            }
+
             var retries = Math.Max(1, _options.BusAccess.RetryCount);
             Exception? lastException = null;
             for (var attempt = 0; attempt < retries; attempt++)
@@ -112,24 +117,12 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
     {
         var commandQueueName = GetCommandQueueName();
 
-        channel.ExchangeDeclare(
-            exchange: _options.Broker,
-            type: _options.ExchangeType,
-            durable: true,
-            autoDelete: false,
-            arguments: null);
-
         channel.QueueDeclare(
             queue: commandQueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
             arguments: null);
-
-        channel.QueueBind(
-            queue: commandQueueName,
-            exchange: _options.Broker,
-            routingKey: commandQueueName);
     }
 
     private string GetCommandQueueName()
