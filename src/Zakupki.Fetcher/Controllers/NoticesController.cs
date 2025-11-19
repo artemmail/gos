@@ -29,6 +29,7 @@ public class NoticesController : ControllerBase
     private readonly NoticeAnalysisService _noticeAnalysisService;
     private readonly NoticeAnalysisReportService _noticeAnalysisReportService;
     private readonly ILogger<NoticesController> _logger;
+    private readonly IFavoriteSearchQueueService _favoriteSearchQueueService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
 
@@ -39,6 +40,7 @@ public class NoticesController : ControllerBase
         AttachmentContentExtractor attachmentContentExtractor,
         NoticeAnalysisService noticeAnalysisService,
         NoticeAnalysisReportService noticeAnalysisReportService,
+        IFavoriteSearchQueueService favoriteSearchQueueService,
         ILogger<NoticesController> logger)
     {
         _dbContextFactory = dbContextFactory;
@@ -47,7 +49,41 @@ public class NoticesController : ControllerBase
         _attachmentContentExtractor = attachmentContentExtractor;
         _noticeAnalysisService = noticeAnalysisService;
         _noticeAnalysisReportService = noticeAnalysisReportService;
+        _favoriteSearchQueueService = favoriteSearchQueueService;
         _logger = logger;
+    }
+
+    [HttpPost("favorite-search")]
+    [Authorize]
+    public async Task<IActionResult> EnqueueFavoriteSearch(
+        [FromBody] FavoriteSearchEnqueueRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request == null)
+        {
+            return BadRequest(new { message = "Тело запроса пустое" });
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _favoriteSearchQueueService.EnqueueAsync(userId, request, cancellationToken);
+
+        if (result.Enqueued)
+        {
+            return Accepted(new { message = "Задача добавлена" });
+        }
+
+        return result.Error switch
+        {
+            FavoriteSearchEnqueueError.Disabled => StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = result.Message ?? "Очередь недоступна" }),
+            FavoriteSearchEnqueueError.Duplicate => Conflict(new { message = result.Message ?? "Запрос уже в очереди" }),
+            FavoriteSearchEnqueueError.Invalid => BadRequest(new { message = result.Message ?? "Некорректные параметры" }),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.Message ?? "Не удалось поставить задачу" })
+        };
     }
 
     [HttpGet]

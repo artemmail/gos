@@ -1,0 +1,161 @@
+using System.Collections.Generic;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
+using Zakupki.Fetcher.Models;
+using Zakupki.Fetcher.Options;
+
+namespace Zakupki.Fetcher.Services;
+
+public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
+{
+    private readonly EventBusOptions _options;
+    private readonly ILogger<RabbitMqEventBusPublisher> _logger;
+    private readonly object _syncRoot = new();
+    private IConnection? _connection;
+    private IModel? _channel;
+
+    public RabbitMqEventBusPublisher(IOptions<EventBusOptions> options, ILogger<RabbitMqEventBusPublisher> logger)
+    {
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public Task PublishFavoriteSearchAsync(FavoriteSearchCommand command, CancellationToken cancellationToken)
+    {
+        if (!_options.Enabled)
+        {
+            throw new InvalidOperationException("Event bus disabled");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var channel = EnsureChannel();
+        var payload = JsonSerializer.Serialize(command);
+        var body = Encoding.UTF8.GetBytes(payload);
+
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+        properties.Headers = properties.Headers ?? new Dictionary<string, object>();
+        properties.Headers["x-deduplication-header"] = command.GetDeduplicationKeyBytes();
+
+        channel.BasicPublish(
+            exchange: _options.Broker,
+            routingKey: _options.CommandQueueName,
+            mandatory: false,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogDebug(
+            "Favorite search task published for user {UserId} (CollectingEnd={CollectingEnd})",
+            command.UserId,
+            command.CollectingEndLimit);
+
+        return Task.CompletedTask;
+    }
+
+    private IModel EnsureChannel()
+    {
+        if (_channel is { IsOpen: true })
+        {
+            return _channel;
+        }
+
+        lock (_syncRoot)
+        {
+            if (_channel is { IsOpen: true })
+            {
+                return _channel;
+            }
+
+            DisposeChannel();
+
+            var factory = new ConnectionFactory
+            {
+                HostName = _options.BusAccess.Host,
+                UserName = _options.BusAccess.UserName,
+                Password = _options.BusAccess.Password,
+                DispatchConsumersAsync = true,
+                AutomaticRecoveryEnabled = true,
+                RequestedHeartbeat = TimeSpan.FromSeconds(30)
+            };
+
+            var retries = Math.Max(1, _options.BusAccess.RetryCount);
+            Exception? lastException = null;
+            for (var attempt = 0; attempt < retries; attempt++)
+            {
+                try
+                {
+                    _connection = factory.CreateConnection();
+                    _channel = _connection.CreateModel();
+                    DeclareInfrastructure(_channel);
+                    return _channel;
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    _logger.LogWarning(ex, "Не удалось подключиться к RabbitMQ (attempt {Attempt}/{Total})", attempt + 1, retries);
+                    Thread.Sleep(TimeSpan.FromSeconds(2));
+                }
+            }
+
+            throw new InvalidOperationException("Unable to connect to RabbitMQ", lastException);
+        }
+    }
+
+    private void DeclareInfrastructure(IModel channel)
+    {
+        channel.ExchangeDeclare(
+            exchange: _options.Broker,
+            type: _options.ExchangeType,
+            durable: true,
+            autoDelete: false,
+            arguments: null);
+
+        channel.QueueDeclare(
+            queue: _options.CommandQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
+
+        channel.QueueBind(
+            queue: _options.CommandQueueName,
+            exchange: _options.Broker,
+            routingKey: _options.CommandQueueName);
+    }
+
+    private void DisposeChannel()
+    {
+        try
+        {
+            _channel?.Dispose();
+        }
+        catch
+        {
+            // ignored
+        }
+
+        try
+        {
+            _connection?.Dispose();
+        }
+        catch
+        {
+            // ignored
+        }
+
+        _channel = null;
+        _connection = null;
+    }
+
+    public void Dispose()
+    {
+        DisposeChannel();
+        GC.SuppressFinalize(this);
+    }
+}

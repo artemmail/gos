@@ -39,6 +39,8 @@ builder.Configuration
 builder.Services.Configure<ZakupkiOptions>(builder.Configuration.GetSection("Zakupki"));
 builder.Services.Configure<AttachmentConversionOptions>(builder.Configuration.GetSection("AttachmentConversion"));
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
+builder.Services.Configure<EventBusOptions>(builder.Configuration.GetSection("EventBus"));
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(new CookieContainer());
 builder.Services
     .AddHttpClient<AttachmentDownloadService>()
@@ -79,6 +81,8 @@ builder.Services
 
 builder.Services.AddScoped<UserCompanyService>();
 builder.Services.AddScoped<NoticeAnalysisReportService>();
+builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();
+builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueService>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {
