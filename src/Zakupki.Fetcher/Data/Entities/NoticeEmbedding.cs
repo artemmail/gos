@@ -12,7 +12,7 @@ public class NoticeEmbedding
 
     public int Dimensions { get; set; }
 
-    public string Vector { get; set; } = null!;
+    public double[] Vector { get; set; } = Array.Empty<double>();
 
     public string? Source { get; set; }
 

@@ -632,9 +632,9 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Vector")
+                    b.Property<double[]>("Vector")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("vector(float64, 768)");
 
                     b.HasKey("Id");
 

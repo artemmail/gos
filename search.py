@@ -91,18 +91,28 @@ def get_db_connection() -> pyodbc.Connection:
     return conn
 
 
+def _ensure_bytes(value) -> bytes:
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    if isinstance(value, bytearray):
+        return bytes(value)
+    return bytes(value)
+
+
 # === РАБОТА С ЭМБЕДДИНГАМИ ===
 
 def fetch_notice_embeddings(
     cursor: pyodbc.Cursor,
     model_name: str,
     limit: int
-) -> List[Tuple[str, str, str, str, str]]:
+) -> List[Tuple[str, str, str, str, int, bytes]]:
     """
     Забираем из базы эмбеддинги и данные по закупке.
 
     Возвращаем список кортежей:
-        (notice_id, purchase_number, entry_name, purchase_object_info, vector_json)
+        (notice_id, purchase_number, entry_name, purchase_object_info, dims, vector_bytes)
 
     Если limit > 0 — добавляем TOP (limit),
     если limit == 0 — забираем все.
@@ -115,6 +125,7 @@ def fetch_notice_embeddings(
         n.PurchaseNumber,
         n.EntryName,
         n.PurchaseObjectInfo,
+        e.Dimensions,
         e.Vector
     FROM [NoticeEmbeddings] AS e
     INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
@@ -125,29 +136,34 @@ def fetch_notice_embeddings(
     cursor.execute(sql, model_name)
     rows = cursor.fetchall()
 
-    result: List[Tuple[str, str, str, str, str]] = []
+    result: List[Tuple[str, str, str, str, int, bytes]] = []
     for row in rows:
         result.append((
             str(row.Id),
             row.PurchaseNumber,
             row.EntryName,
             row.PurchaseObjectInfo,
-            row.Vector
+            int(row.Dimensions),
+            _ensure_bytes(row.Vector)
         ))
     return result
 
 
-def parse_vectors(rows: List[Tuple[str, str, str, str, str]]) -> np.ndarray:
+def parse_vectors(rows: List[Tuple[str, str, str, str, int, bytes]]) -> np.ndarray:
     """
-    Преобразуем JSON-векторы в numpy-массив размера (N, D).
+    Преобразуем бинарные SQL VECTOR в numpy-массив размера (N, D).
 
-    rows: (notice_id, purchase_number, entry_name, purchase_object_info, vector_json)
+    rows: (notice_id, purchase_number, entry_name, purchase_object_info, dims, vector_bytes)
     """
-    import json as _json
-
     vectors = []
-    for _, _, _, _, vector_json in rows:
-        vec = _json.loads(vector_json)
+    for _, _, _, _, dims, vector_bytes in rows:
+        buffer = memoryview(vector_bytes)
+        expected_length = dims * 8
+        if buffer.nbytes != expected_length:
+            raise ValueError(
+                f"Некорректный размер вектора: ожидалось {expected_length} байт, получено {buffer.nbytes}"
+            )
+        vec = np.frombuffer(buffer, dtype=np.float64, count=dims).astype(np.float32)
         vectors.append(vec)
 
     return np.array(vectors, dtype=np.float32)
@@ -229,7 +245,7 @@ def main():
         # если нужно проверить конкретный PurchaseNumber
         if args.check_pn:
             target_index = None
-            for i, (_, purchase_number, _, _, _) in enumerate(rows):
+            for i, (_, purchase_number, _, _, _, _) in enumerate(rows):
                 if purchase_number == args.check_pn:
                     target_index = i
                     break
@@ -256,7 +272,7 @@ def main():
         print(f"ТОП-{top_k} результатов:")
         print("=" * 80)
         for rank, idx in enumerate(top_indices, start=1):
-            notice_id, purchase_number, entry_name, purchase_object_info, _ = rows[idx]
+            notice_id, purchase_number, entry_name, purchase_object_info, _, _ = rows[idx]
             score = sims[idx]
             print(f"{rank:2d}. score={score:.4f}")
             print(f"    ЕИС ID (PurchaseNumber): {purchase_number}")

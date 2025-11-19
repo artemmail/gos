@@ -31,6 +31,7 @@ import numpy as np
 
 APPSETTINGS_PATH = "appsettings.json"  # поменяй, если файл называется иначе
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+VECTOR_DIMENSIONS = 768
 BATCH_SIZE = 64
 ODBC_DRIVER = "{ODBC Driver 17 for SQL Server}"  # или "{ODBC Driver 18 for SQL Server}"
 
@@ -132,6 +133,12 @@ def build_notice_text(row: pyodbc.Row) -> str:
     return "\n".join(parts)
 
 
+def vector_to_bytes(vector: np.ndarray) -> bytes:
+    """Преобразует numpy-вектор в бинарный блок float64 для SQL VECTOR."""
+
+    return np.asarray(vector, dtype=np.float64).tobytes()
+
+
 def fetch_notices_for_indexing(cursor: pyodbc.Cursor, model_name: str, limit: int) -> List[pyodbc.Row]:
     """
     Выбираем Notice, для которых нет эмбеддинга указанной модели
@@ -181,10 +188,15 @@ def upsert_embeddings(
     Для каждого Notice:
       - удаляем старую запись по (NoticeId, Model),
       - вставляем новую с вектором.
-    Вектор сохраняем как JSON-массив чисел (string).
+    Вектор сохраняем как SQL Server VECTOR(FLOAT64, N).
     """
     now = dt.datetime.utcnow()
     dims = embeddings.shape[1]
+
+    if dims != VECTOR_DIMENSIONS:
+        raise ValueError(
+            f"Размерность эмбеддинга {dims} не совпадает с ожидаемым значением {VECTOR_DIMENSIONS}"
+        )
 
     delete_sql = """
     DELETE FROM [NoticeEmbeddings]
@@ -204,12 +216,9 @@ def upsert_embeddings(
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """
 
-    import json as _json
-
     for row, emb in zip(rows, embeddings):
         notice_id = row.Id
-        emb_list = emb.astype(float).tolist()
-        vector_json = _json.dumps(emb_list)
+        vector_bytes = pyodbc.Binary(vector_to_bytes(emb))
 
         embedding_id = uuid.uuid4()
 
@@ -223,7 +232,7 @@ def upsert_embeddings(
             str(notice_id),
             model_name,
             dims,
-            vector_json,
+            vector_bytes,
             now,
             now,
             source
