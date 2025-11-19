@@ -331,29 +331,4 @@ app.MapWhen(context =>
         });
     });
 
-await EnsureDatabaseMigratedAsync(app.Services);
-await EnsureDefaultRolesAsync(app.Services);
-
 await app.RunAsync();
-
-static async Task EnsureDatabaseMigratedAsync(IServiceProvider services)
-{
-    using var scope = services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<NoticeDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
-
-static async Task EnsureDefaultRolesAsync(IServiceProvider services)
-{
-    using var scope = services.CreateScope();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
-    var defaultRoles = new[] { "Free" };
-    foreach (var role in defaultRoles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole(role));
-        }
-    }
-}
