@@ -35,6 +35,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pika
 import pyodbc
+import torch
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
@@ -165,11 +166,13 @@ class FavoriteSearchEngine:
         self._connection_string = connection_string
         self._model_name = model_name
         self._model: Optional[SentenceTransformer] = None
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
 
     @property
     def model(self) -> SentenceTransformer:
         if self._model is None:
-            self._model = SentenceTransformer(self._model_name)
+            print(f"Загружаю модель {self._model_name} на устройстве {self._device}...")
+            self._model = SentenceTransformer(self._model_name, device=self._device)
         return self._model
 
     def _connect(self) -> pyodbc.Connection:
@@ -177,87 +180,185 @@ class FavoriteSearchEngine:
         conn.autocommit = False
         return conn
 
-    def _fetch_candidates(
+    def _fetch_notice_embeddings(
         self,
         cursor: pyodbc.Cursor,
         limit: int,
         collecting_end_limit: datetime,
         expired_only: bool,
-    ) -> List[Tuple[str, str]]:
-        if expired_only:
-            sql = """
-            SELECT TOP (?)
-                n.Id,
-                e.Vector
-            FROM [NoticeEmbeddings] AS e
-            INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
-            WHERE e.Model = ?
-              AND (n.CollectingEnd IS NULL OR n.CollectingEnd <= ?)
-            ORDER BY n.UpdatedAt DESC
-            """
-        else:
-            sql = """
-            SELECT TOP (?)
-                n.Id,
-                e.Vector
-            FROM [NoticeEmbeddings] AS e
-            INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
-            WHERE e.Model = ?
-              AND (n.CollectingEnd IS NULL OR n.CollectingEnd >= ?)
-            ORDER BY n.UpdatedAt DESC
-            """
-        cursor.execute(sql, limit, self._model_name, collecting_end_limit)
-        return [(str(row.Id), row.Vector) for row in cursor.fetchall()]
+    ) -> List[Tuple[str, str, str, str, str]]:
+        top_clause = f"TOP ({limit}) " if limit and limit > 0 else ""
+        filters = ["e.Model = ?"]
+        params: List[Any] = [self._model_name]
+        if collecting_end_limit:
+            if expired_only:
+                filters.append("(n.CollectingEnd IS NULL OR n.CollectingEnd <= ?)")
+            else:
+                filters.append("(n.CollectingEnd IS NULL OR n.CollectingEnd >= ?)")
+            params.append(collecting_end_limit)
 
-    def _score(self, query: str, rows: Sequence[Tuple[str, str]]) -> List[Tuple[str, float]]:
-        if not rows:
-            return []
-        query_vec = self.model.encode(query)
-        vectors = np.array([json.loads(vector_json) for _, vector_json in rows], dtype=np.float32)
-        query_norm = query_vec / (np.linalg.norm(query_vec) + 1e-12)
-        matrix_norm = vectors / (np.linalg.norm(vectors, axis=1, keepdims=True) + 1e-12)
-        sims = matrix_norm @ query_norm
-        return list(zip((row_id for row_id, _ in rows), sims))
-
-    def search(self, command: FavoriteSearchCommand) -> List[str]:
-        with self._connect() as conn:
-            cursor = conn.cursor()
-            rows = self._fetch_candidates(
-                cursor,
-                command.limit,
-                command.collecting_end_limit,
-                command.expired_only,
+        where_clause = " AND ".join(filters)
+        sql = f"""
+        SELECT {top_clause}
+            n.Id,
+            n.PurchaseNumber,
+            n.EntryName,
+            n.PurchaseObjectInfo,
+            e.Vector
+        FROM [NoticeEmbeddings] AS e
+        INNER JOIN [Notices] AS n ON n.Id = e.NoticeId
+        WHERE {where_clause}
+        ORDER BY n.UpdatedAt DESC
+        """
+        cursor.execute(sql, *params)
+        rows = cursor.fetchall()
+        result: List[Tuple[str, str, str, str, str]] = []
+        for row in rows:
+            result.append(
+                (
+                    str(row.Id),
+                    row.PurchaseNumber,
+                    row.EntryName,
+                    row.PurchaseObjectInfo,
+                    row.Vector,
+                )
             )
-            scored = self._score(command.query, rows)
-            top_sorted = sorted(scored, key=lambda x: x[1], reverse=True)[: command.top]
-            return [notice_id for notice_id, _ in top_sorted]
+        return result
 
-    def add_to_favorites(self, command: FavoriteSearchCommand, notice_ids: Sequence[str]) -> int:
-        if not notice_ids:
-            return 0
+    @staticmethod
+    def _parse_vectors(rows: Sequence[Tuple[str, str, str, str, str]]) -> np.ndarray:
+        vectors = [json.loads(vector_json) for *_, vector_json in rows]
+        return np.array(vectors, dtype=np.float32)
+
+    @staticmethod
+    def _cosine_similarity(query_vec: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+        q = query_vec / (np.linalg.norm(query_vec) + 1e-12)
+        matrix_norm = matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12)
+        return matrix_norm @ q
+
+    @staticmethod
+    def _print_top_results(
+        rows: Sequence[Tuple[str, str, str, str, str]],
+        sims: np.ndarray,
+        top_indices: Sequence[int],
+    ) -> None:
+        print()
+        print(f"ТОП-{len(top_indices)} результатов (перед сохранением в избранное):")
+        print("=" * 80)
+        for rank, idx in enumerate(top_indices, start=1):
+            notice_id, purchase_number, entry_name, purchase_object_info, _ = rows[idx]
+            score = sims[idx]
+            print(f"{rank:2d}. score={score:.4f}")
+            print(f"    ЕИС ID (PurchaseNumber): {purchase_number}")
+            print(f"    NoticeId:               {notice_id}")
+            if purchase_object_info:
+                print(f"    Предмет закупки:        {purchase_object_info}")
+            print(f"    EntryName:              {entry_name}")
+            print("-" * 80)
+
+    @staticmethod
+    def _upsert_favorites(
+        cursor: pyodbc.Cursor,
+        rows: Sequence[Tuple[str, str, str, str, str]],
+        sims: np.ndarray,
+        top_indices: Sequence[int],
+        user_id: str,
+    ) -> Tuple[int, List[str]]:
+        now = datetime.utcnow()
+        insert_sql = """
+        INSERT INTO [FavoriteNotices] (Id, NoticeId, UserId, CreatedAt)
+        SELECT ?, ?, ?, ?
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM [FavoriteNotices]
+            WHERE UserId = ? AND NoticeId = ?
+        )
+        """
+
+        print()
+        print("Сохраняю в избранное:")
+        print("=" * 80)
+
         added = 0
+        notice_ids: List[str] = []
+        for rank, idx in enumerate(top_indices, start=1):
+            notice_id, purchase_number, entry_name, purchase_object_info, _ = rows[idx]
+            score = sims[idx]
+            favorite_id = uuid.uuid4()
+            cursor.execute(
+                insert_sql,
+                str(favorite_id),
+                notice_id,
+                user_id,
+                now,
+                user_id,
+                notice_id,
+            )
+            status = "УЖЕ ЕСТЬ"
+            if cursor.rowcount and cursor.rowcount > 0:
+                status = "ДОБАВЛЕНО"
+                added += 1
+            notice_ids.append(notice_id)
+            print(f"{rank:2d}. [{status}] score={score:.4f}")
+            print(f"    ЕИС ID (PurchaseNumber): {purchase_number}")
+            print(f"    NoticeId:               {notice_id}")
+            if purchase_object_info:
+                print(f"    Предмет закупки:        {purchase_object_info}")
+            print(f"    EntryName:              {entry_name}")
+            print("-" * 80)
+        return added, notice_ids
+
+    def process_command(self, command: FavoriteSearchCommand) -> Tuple[int, List[str]]:
+        print("Получены параметры команды для favorite search:")
+        print(f"  query:             {command.query}")
+        print(f"  userId:            {command.user_id}")
+        print(f"  top:               {command.top}")
+        print(f"  limit:             {command.limit}")
+        print(f"  collectingEndLimit:{command.collecting_end_limit.isoformat()}")
+        print(f"  expiredOnly:       {command.expired_only}")
+
+        query_vec = self.model.encode(
+            [command.query], convert_to_numpy=True, normalize_embeddings=False
+        )[0]
+
         with self._connect() as conn:
             cursor = conn.cursor()
-            for notice_id in notice_ids:
-                cursor.execute(
-                    "SELECT 1 FROM FavoriteNotices WHERE UserId = ? AND NoticeId = ?",
-                    command.user_id,
-                    notice_id,
+            try:
+                rows = self._fetch_notice_embeddings(
+                    cursor,
+                    command.limit,
+                    command.collecting_end_limit,
+                    command.expired_only,
                 )
-                if cursor.fetchone():
-                    continue
-                cursor.execute(
-                    """
-                    INSERT INTO FavoriteNotices (Id, NoticeId, UserId, CreatedAt)
-                    VALUES (?, ?, ?, GETUTCDATE())
-                    """,
-                    str(uuid.uuid4()),
-                    notice_id,
-                    command.user_id,
+                if not rows:
+                    print(
+                        "В базе нет эмбеддингов для указанной модели. Сначала запусти индексатор."
+                    )
+                    return 0, []
+
+                print(
+                    f"Загружено {len(rows)} векторов из БД, считаю косинусное сходство..."
                 )
-                added += 1
-            conn.commit()
-        return added
+
+                matrix = self._parse_vectors(rows)
+                sims = self._cosine_similarity(query_vec, matrix)
+
+                top_k = min(command.top, len(rows))
+                top_indices = np.argsort(-sims)[:top_k]
+
+                self._print_top_results(rows, sims, top_indices)
+
+                added, notice_ids = self._upsert_favorites(
+                    cursor, rows, sims, top_indices, command.user_id
+                )
+                conn.commit()
+                print()
+                print("Избранное успешно сохранено (транзакция закоммичена).")
+                return added, notice_ids
+            except Exception:
+                conn.rollback()
+                print("ОШИБКА, транзакция откатена")
+                raise
 
 
 class RabbitFavoriteWorker:
@@ -361,9 +462,7 @@ class RabbitFavoriteWorker:
     def _process_message(self, body: bytes) -> Tuple[int, List[str]]:
         payload = json.loads(body.decode("utf-8"))
         command = FavoriteSearchCommand.from_payload(payload)
-        notice_ids = self._engine.search(command)
-        added = self._engine.add_to_favorites(command, notice_ids)
-        return added, notice_ids
+        return self._engine.process_command(command)
 
     def run(self) -> None:
         attempts = 0
