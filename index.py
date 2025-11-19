@@ -114,7 +114,17 @@ def build_notice_text(row: pyodbc.Row) -> str:
 
     add("Название", row.EntryName)
     add("Предмет закупки", row.PurchaseObjectInfo)
-    add("ОКПД2", f"{row.Okpd2Code} {row.Okpd2Name}" if row.Okpd2Code or row.Okpd2Name else None)
+    okpd2_code = (row.Okpd2Code or "").strip()
+    okpd2_name = (row.Okpd2Name or "").strip()
+    if okpd2_code or okpd2_name:
+        if okpd2_name:
+            if okpd2_code:
+                okpd2_value = f"{okpd2_code} ({okpd2_name})"
+            else:
+                okpd2_value = f"({okpd2_name})"
+        else:
+            okpd2_value = okpd2_code
+        add("ОКПД2", okpd2_value)
     add("КВР", f"{row.KvrCode} {row.KvrName}" if row.KvrCode or row.KvrName else None)
     add("Источник", row.Source)
     add("Тип документа", row.DocumentType)
@@ -142,14 +152,17 @@ def fetch_notices_for_indexing(cursor: pyodbc.Cursor, model_name: str, limit: in
         n.Source,
         n.DocumentType,
         n.UpdatedAt,
-        e.UpdatedAt AS EmbeddingUpdatedAt
+        e.LatestUpdatedAt AS EmbeddingUpdatedAt
     FROM [Notices] AS n
-    LEFT JOIN [NoticeEmbeddings] AS e
-        ON e.NoticeId = n.Id
-       AND e.Model = ?
+    LEFT JOIN (
+        SELECT NoticeId, MAX(UpdatedAt) AS LatestUpdatedAt
+        FROM [NoticeEmbeddings]
+        WHERE Model = ?
+        GROUP BY NoticeId
+    ) AS e ON e.NoticeId = n.Id
     WHERE
-        e.Id IS NULL
-        OR n.UpdatedAt > e.UpdatedAt
+        e.NoticeId IS NULL
+        OR n.UpdatedAt > e.LatestUpdatedAt
     ORDER BY n.UpdatedAt DESC
     """
     cursor.execute(sql, model_name)
