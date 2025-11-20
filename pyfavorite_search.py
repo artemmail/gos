@@ -99,16 +99,6 @@ def _parse_bool(value: Optional[Any]) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
-def _vector_field_to_bytes(value) -> bytes:
-    if isinstance(value, bytes):
-        return value
-    if isinstance(value, memoryview):
-        return value.tobytes()
-    if isinstance(value, bytearray):
-        return bytes(value)
-    return bytes(value)
-
-
 @dataclass
 class FavoriteSearchCommand:
     user_id: str
@@ -173,16 +163,17 @@ class FavoriteSearchEngine:
         conn.autocommit = False
         return conn
 
-    # =======================
-    #    SQL WITH DATE FILTER
-    #    NO TOP / NO LIMIT
-    # =======================
-    def _fetch_notice_embeddings(
+    def _serialize_vector(self, vector: np.ndarray) -> bytes:
+        return np.asarray(vector, dtype=np.float64).tobytes()
+
+    def _fetch_top_similar_notices(
         self,
         cursor: pyodbc.Cursor,
+        query_vector: np.ndarray,
+        top: int,
         collecting_end_limit: datetime,
         expired_only: bool,
-    ):
+    ) -> List[Tuple[str, str, str, str, float]]:
         filters = ["e.Model = ?"]
         params = [MODEL_NAME]
 
@@ -196,18 +187,20 @@ class FavoriteSearchEngine:
         where_clause = " AND ".join(filters)
 
         sql = f"""
-        SELECT
+        SELECT TOP (?)
             n.Id,
             n.PurchaseNumber,
             n.EntryName,
             n.PurchaseObjectInfo,
-            e.Dimensions,
-            e.Vector
+            CAST(1.0 - COSINE_DISTANCE(e.Vector, ?) AS FLOAT) AS Similarity
         FROM NoticeEmbeddings e
         INNER JOIN Notices n ON n.Id = e.NoticeId
         WHERE {where_clause}
-        ORDER BY n.UpdatedAt DESC
+        ORDER BY Similarity DESC, n.UpdatedAt DESC
         """
+
+        vector_bytes = self._serialize_vector(query_vector)
+        params = [top, vector_bytes] + params
 
         print("\nSQL:")
         print(sql)
@@ -221,31 +214,10 @@ class FavoriteSearchEngine:
                 r.PurchaseNumber,
                 r.EntryName,
                 r.PurchaseObjectInfo,
-                int(r.Dimensions),
-                _vector_field_to_bytes(r.Vector),
+                float(r.Similarity),
             )
             for r in cursor.fetchall()
         ]
-
-    @staticmethod
-    def _parse_vectors(rows):
-        vectors = []
-        for *_, dims, vector_bytes in rows:
-            buffer = memoryview(vector_bytes)
-            expected_length = dims * 8
-            if buffer.nbytes != expected_length:
-                raise ValueError(
-                    f"Некорректный размер вектора: ожидалось {expected_length} байт, получено {buffer.nbytes}"
-                )
-            vectors.append(np.frombuffer(buffer, dtype=np.float64, count=dims).astype(np.float32))
-
-        return np.array(vectors, dtype=np.float32)
-
-    @staticmethod
-    def _cosine_similarity(query_vec, matrix):
-        q = query_vec / (np.linalg.norm(query_vec) + 1e-12)
-        m = matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12)
-        return m @ q
 
     def process_command(self, cmd: FavoriteSearchCommand):
         print("\n=== FAVORITE SEARCH REQUEST ===")
@@ -261,8 +233,10 @@ class FavoriteSearchEngine:
         with self._connect() as conn:
             cursor = conn.cursor()
 
-            rows = self._fetch_notice_embeddings(
+            rows = self._fetch_top_similar_notices(
                 cursor,
+                query_vec,
+                cmd.top,
                 cmd.collecting_end_limit,
                 cmd.expired_only,
             )
@@ -270,16 +244,9 @@ class FavoriteSearchEngine:
                 print("NO embeddings found after date filter.")
                 return 0, []
 
-            matrix = self._parse_vectors(rows)
-            sims = self._cosine_similarity(query_vec, matrix)
-
-            top_k = min(cmd.top, len(rows))
-            top_idx = np.argsort(-sims)[:top_k]
-
-            print(f"\nTOP-{top_k} RESULTS:\n" + "=" * 80)
-            for rank, i in enumerate(top_idx, 1):
-                rid, purchase, entry, obj, _, _ = rows[i]
-                print(f"{rank}. score={sims[i]:.4f}")
+            print(f"\nTOP-{len(rows)} RESULTS:\n" + "=" * 80)
+            for rank, (rid, purchase, entry, obj, score) in enumerate(rows, 1):
+                print(f"{rank}. score={score:.4f}")
                 print(f"   PurchaseNumber: {purchase}")
                 print(f"   NoticeId:       {rid}")
                 if obj:
@@ -302,8 +269,7 @@ class FavoriteSearchEngine:
 
             print("\nSaving favorites:\n" + "=" * 80)
 
-            for rank, i in enumerate(top_idx, 1):
-                rid, purchase, entry, obj, _, _ = rows[i]
+            for rank, (rid, _, _, _, score) in enumerate(rows, 1):
                 notice_ids.append(rid)
 
                 fid = str(uuid.uuid4())
@@ -321,7 +287,7 @@ class FavoriteSearchEngine:
                 if status == "ADDED":
                     added += 1
 
-                print(f"{rank}. [{status}]  score={sims[i]:.4f}")
+                print(f"{rank}. [{status}]  score={score:.4f}")
                 print(f"   NoticeId: {rid}")
                 print("-" * 80)
 
