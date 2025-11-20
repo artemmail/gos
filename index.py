@@ -7,7 +7,7 @@
     pip install pyodbc sentence-transformers torch
 
 Убедись, что установлен ODBC драйвер:
-    "ODBC Driver 17 for SQL Server" (или 18) и поправь имя драйвера ниже при необходимости.
+    "ODBC Driver 25 for SQL Server" (или подходящий для версии 2025+) и поправь имя драйвера ниже при необходимости.
 
 Скрипт:
 - читает строку подключения из appsettings.json (ConnectionStrings.Default),
@@ -33,7 +33,7 @@ APPSETTINGS_PATH = "appsettings.json"  # поменяй, если файл на�
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 VECTOR_DIMENSIONS = 768
 BATCH_SIZE = 64
-ODBC_DRIVER = "{ODBC Driver 17 for SQL Server}"  # или "{ODBC Driver 18 for SQL Server}"
+ODBC_DRIVER = "{ODBC Driver 25 for SQL Server}"  # новый драйвер для SQL Server 2025+
 
 # сколько записей за один проход из базы
 DB_BATCH_SIZE = 500
@@ -133,10 +133,12 @@ def build_notice_text(row: pyodbc.Row) -> str:
     return "\n".join(parts)
 
 
-def vector_to_bytes(vector: np.ndarray) -> bytes:
-    """Преобразует numpy-вектор в бинарный блок float64 для SQL VECTOR."""
+def vector_to_sql_vector(vector: np.ndarray) -> List[float]:
+    """
+    Приводит numpy-вектор к списку float32 для типа SqlVector<float> в SQL Server 2025+.
+    """
 
-    return np.asarray(vector, dtype=np.float64).tobytes()
+    return np.asarray(vector, dtype=np.float32).tolist()
 
 
 def fetch_notices_for_indexing(cursor: pyodbc.Cursor, model_name: str, limit: int) -> List[pyodbc.Row]:
@@ -188,7 +190,7 @@ def upsert_embeddings(
     Для каждого Notice:
       - удаляем старую запись по (NoticeId, Model),
       - вставляем новую с вектором.
-    Вектор сохраняем как SQL Server VECTOR(FLOAT64, N).
+    Вектор сохраняем как SqlVector<float> (родной тип SQL Server 2025+).
     """
     now = dt.datetime.utcnow()
     dims = embeddings.shape[1]
@@ -218,7 +220,7 @@ def upsert_embeddings(
 
     for row, emb in zip(rows, embeddings):
         notice_id = row.Id
-        vector_bytes = pyodbc.Binary(vector_to_bytes(emb))
+        vector_for_sql = vector_to_sql_vector(emb)
 
         embedding_id = uuid.uuid4()
 
@@ -232,7 +234,7 @@ def upsert_embeddings(
             str(notice_id),
             model_name,
             dims,
-            vector_bytes,
+            vector_for_sql,
             now,
             now,
             source
