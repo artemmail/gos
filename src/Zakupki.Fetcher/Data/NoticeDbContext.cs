@@ -190,9 +190,15 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(q => q.UserId).HasMaxLength(450);
         entity.Property(q => q.Query).HasMaxLength(4000);
-        entity.Property(q => q.Vector)
-            .HasMaxLength(QueryVectorDimensions)
-            .HasColumnType($"vector({QueryVectorDimensions}, float32)");
+
+        modelBuilder.Entity<UserQueryVector>(entity =>
+        {
+            entity.Property(e => e.Vector)
+                .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
+            // Альтернатива (можно вместо HasColumnType):
+            // .HasMaxLength(NoticeEmbeddingVectorDimensions);
+        });
+
         entity.Property(q => q.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
 
         entity.HasIndex(q => new { q.UserId, q.CreatedAt })
@@ -310,9 +316,13 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(e => e.Model).HasMaxLength(200);
 
-        // �������� VECTOR-������� SQL Server 2025, ��� �����������
-        entity.Property(e => e.Vector)
-            .HasColumnType($"vector({NoticeEmbeddingVectorDimensions}, float32)");
+        modelBuilder.Entity<NoticeEmbedding>(entity =>
+        {
+            entity.Property(e => e.Vector)
+                .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
+            // Альтернатива (можно вместо HasColumnType):
+            // .HasMaxLength(NoticeEmbeddingVectorDimensions);
+        });
 
         entity.Property(e => e.Source).HasMaxLength(100);
 

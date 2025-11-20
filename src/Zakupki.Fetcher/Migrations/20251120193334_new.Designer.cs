@@ -4,6 +4,7 @@ using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Zakupki.Fetcher.Data;
 
@@ -12,9 +13,11 @@ using Zakupki.Fetcher.Data;
 namespace Zakupki.Fetcher.Migrations
 {
     [DbContext(typeof(NoticeDbContext))]
-    partial class NoticeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251120193334_new")]
+    partial class @new
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

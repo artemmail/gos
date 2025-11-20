@@ -55,6 +55,7 @@
 
 	<ItemGroup>
 	  <Folder Include="Infra\" />
+	  <Folder Include="Migrations\" />
 	</ItemGroup>
 
 	<!-- Сборка Angular-клиента -->
