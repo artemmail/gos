@@ -87,7 +87,10 @@ public sealed class QueryVectorResultListener : BackgroundService
         try
         {
             var payload = Encoding.UTF8.GetString(args.Body.Span);
-            var result = JsonSerializer.Deserialize<QueryVectorResult>(payload);
+            var result = JsonSerializer.Deserialize<QueryVectorResult>(payload, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
 
             if (result?.Vector == null)
             {

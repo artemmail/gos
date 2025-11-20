@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -90,18 +89,7 @@ public class QueryVectorsController : ControllerBase
 
     private static UserQueryVectorDto ToDto(UserQueryVector entity)
     {
-        IReadOnlyList<float>? vector = null;
-        if (!string.IsNullOrWhiteSpace(entity.VectorJson))
-        {
-            try
-            {
-                vector = JsonSerializer.Deserialize<List<float>>(entity.VectorJson);
-            }
-            catch
-            {
-                vector = null;
-            }
-        }
+        IReadOnlyList<float>? vector = entity.Vector?.ToArray();
 
         return new UserQueryVectorDto
         {

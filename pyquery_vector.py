@@ -100,7 +100,9 @@ class QueryVectorWorker:
             vector = np.asarray(vector)
         vector = np.asarray(vector, dtype=np.float32).tolist()
 
-        response = {"id": request_id, "vector": vector}
+        # Отвечаем в том же стиле, что и NoticeEmbeddings/SQL-клиент:
+        # поля с заглавной буквы, чтобы десериализация в C# прошла без настроек
+        response = {"Id": request_id, "Vector": vector}
         body = json.dumps(response, ensure_ascii=False).encode("utf-8")
 
         ch = self._channel
