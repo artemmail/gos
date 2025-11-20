@@ -930,6 +930,44 @@ namespace Zakupki.Fetcher.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.UserQueryVector", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("Query")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<SqlVector<float>>("Vector")
+                        .HasColumnType("vector(768)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("IX_UserQueryVectors_User_CreatedAt");
+
+                    b.ToTable("UserQueryVectors", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1114,11 +1152,24 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.UserQueryVector", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.ApplicationUser", "User")
+                        .WithMany("QueryVectors")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("FavoriteNotices");
 
                     b.Navigation("NoticeAnalyses");
+
+                    b.Navigation("QueryVectors");
 
                     b.Navigation("RefreshTokens");
 
