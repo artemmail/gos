@@ -1,0 +1,49 @@
+import { Component } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { MatDialogRef } from '@angular/material/dialog';
+
+import { UserQueryVectorDto } from '../models/query-vector.models';
+import { QueryVectorService } from '../services/query-vector.service';
+
+@Component({
+  selector: 'app-query-vector-dialog',
+  templateUrl: './query-vector-dialog.component.html',
+  styleUrls: ['./query-vector-dialog.component.css']
+})
+export class QueryVectorDialogComponent {
+  form: FormGroup;
+  isSubmitting = false;
+  errorMessage = '';
+
+  constructor(
+    private readonly dialogRef: MatDialogRef<QueryVectorDialogComponent>,
+    private readonly fb: FormBuilder,
+    private readonly queryVectorService: QueryVectorService
+  ) {
+    this.form = this.fb.group({
+      query: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(4000)]]
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid || this.isSubmitting) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting = true;
+    this.errorMessage = '';
+
+    this.queryVectorService.create({ query: this.form.value.query }).subscribe({
+      next: (result: UserQueryVectorDto) => this.dialogRef.close(result),
+      error: () => {
+        this.errorMessage = 'Не удалось отправить запрос в очередь.';
+        this.isSubmitting = false;
+      }
+    });
+  }
+
+  close(): void {
+    this.dialogRef.close();
+  }
+}

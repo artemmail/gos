@@ -1,0 +1,12 @@
+.query-form {
+  margin-top: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.error {
+  color: #c62828;
+  margin-top: 8px;
+}

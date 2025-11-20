@@ -12,6 +12,10 @@ public sealed class EventBusOptions
 
     public string CommandQueueName { get; set; } = string.Empty;
 
+    public string QueryVectorRequestQueueName { get; set; } = string.Empty;
+
+    public string QueryVectorResponseQueueName { get; set; } = string.Empty;
+
     public string ExchangeType { get; set; } = "direct";
 
     public int InFlightDeduplicationMinutes { get; set; } = 30;

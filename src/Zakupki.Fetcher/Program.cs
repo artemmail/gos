@@ -83,6 +83,8 @@ builder.Services.AddScoped<UserCompanyService>();
 builder.Services.AddScoped<NoticeAnalysisReportService>();
 builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();
 builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueService>();
+builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
+builder.Services.AddHostedService<QueryVectorResultListener>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {

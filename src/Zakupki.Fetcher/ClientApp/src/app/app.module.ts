@@ -15,6 +15,8 @@ import { appRoutes } from './app.routes';
 import { authInterceptor } from './services/AuthInterceptor';
 import { CompanyProfileDialogComponent } from './company-profile-dialog/company-profile-dialog.component';
 import { NoticeAnalysisDialogComponent } from './notice-analysis-dialog/notice-analysis-dialog.component';
+import { QueryVectorsComponent } from './query-vectors/query-vectors.component';
+import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.component';
 
 @NgModule({
   declarations: [
@@ -24,7 +26,9 @@ import { NoticeAnalysisDialogComponent } from './notice-analysis-dialog/notice-a
     NoticesComponent,
     AuthCallbackComponent,
     CompanyProfileDialogComponent,
-    NoticeAnalysisDialogComponent
+    NoticeAnalysisDialogComponent,
+    QueryVectorsComponent,
+    QueryVectorDialogComponent
   ],
   imports: [
     BrowserModule,
