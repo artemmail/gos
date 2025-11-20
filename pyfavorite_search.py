@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""RabbitMQ worker that executes semantic favorite searches.
-
-The worker expects JSON commands produced by the .NET backend:
-
-{
-    "userId": "...",
-    "query": "text",
-    "collectingEndLimit": "2025-01-01T00:00:00Z",
-    "expiredOnly": false,
-    "top": 20,
-    "limit": 500
-}
-
-NOTE: limit is ignored in SQL (no TOP) to avoid cutting result quality.
-"""
+"""RabbitMQ worker that executes semantic favorite searches."""
 
 from __future__ import annotations
 
@@ -26,7 +12,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pika
@@ -38,6 +24,9 @@ MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 DEFAULT_CONFIG_PATH = os.environ.get(
     "APPSETTINGS_PATH", "src/Zakupki.Fetcher/appsettings.json"
 )
+
+
+# ---------- CONNECTION STRING HELPERS ----------
 
 
 def _get_connection_string(config: Dict[str, Any]) -> str:
@@ -55,32 +44,67 @@ def _get_connection_string(config: Dict[str, Any]) -> str:
 
 
 def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
-    connection = _get_connection_string(appsettings)
-    server = database = username = password = None
+    """
+    Берём строку подключения из appsettings и аккуратно превращаем в ODBC:
+    - убираем старые TrustServerCertificate / MARS_Connection / MultipleActiveResultSets
+    - при необходимости добавляем DRIVER
+    - добавляем MARS_Connection=Yes и TrustServerCertificate=Yes
+    """
+    base = _get_connection_string(appsettings)
+    base = base.strip().rstrip(";")
 
-    for part in connection.split(";"):
-        if not part.strip():
-            continue
+    parts_in = [p for p in base.split(";") if p.strip()]
+
+    cleaned_parts: List[str] = []
+    has_driver = False
+
+    for part in parts_in:
         key, _, value = part.partition("=")
-        key, value = key.strip().lower(), value.strip()
+        key_lower = key.strip().lower()
 
-        if key in {"data source", "server", "address"}:
-            server = value
-        elif key in {"database", "initial catalog"}:
-            database = value
-        elif key in {"user id", "uid"}:
-            username = value
-        elif key in {"password", "pwd"}:
-            password = value
+        if not key_lower:
+            continue
 
-    if not all([server, database, username, password]):
-        raise RuntimeError("Неверная строка подключения: невозможно разобрать")
+        # выкидываем старые варианты, которые мешают ODBC
+        if key_lower in {
+            "trustservercertificate",
+            "mars_connection",
+            "multipleactiveresultsets",
+        }:
+            continue
 
-    return (
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        f"SERVER={server};DATABASE={database};UID={username};PWD={password};"
-        "TrustServerCertificate=Yes;MARS_Connection=Yes"
-    )
+        if key_lower == "driver":
+            has_driver = True
+
+        cleaned_parts.append(part.strip())
+
+    conn = ";".join(cleaned_parts)
+
+    if has_driver:
+        # DRIVER уже есть — не добавляем
+        odbc_conn = conn
+    else:
+        # DRIVER ещё нет — добавляем
+        if conn:
+            odbc_conn = f"DRIVER={{ODBC Driver 17 for SQL Server}};{conn}"
+        else:
+            odbc_conn = "DRIVER={ODBC Driver 17 for SQL Server}"
+
+    # Добавим корректные ODBC-ключи
+    lower = odbc_conn.lower()
+    if "mars_connection" not in lower:
+        odbc_conn += ";MARS_Connection=Yes"
+    if "trustservercertificate" not in lower:
+        odbc_conn += ";TrustServerCertificate=Yes"
+
+    print("\n[DEBUG] ODBC connection string used:")
+    print(odbc_conn)
+    sys.stdout.flush()
+
+    return odbc_conn
+
+
+# ---------- UTILS ----------
 
 
 def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
@@ -91,14 +115,6 @@ def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
         if s:
             return s
     return None
-
-
-def _parse_bool(value: Optional[Any]) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return False
-    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
 @dataclass
@@ -145,6 +161,9 @@ class FavoriteSearchCommand:
             top=top,
             limit=limit,
         )
+
+
+# ---------- ENGINE ----------
 
 
 class FavoriteSearchEngine:
@@ -258,7 +277,6 @@ class FavoriteSearchEngine:
                     print(f"   EntryName:      {entry}")
                     print("-" * 80)
 
-                # Insert into favorites
                 insert_sql = """
                 INSERT INTO FavoriteNotices (Id, NoticeId, UserId, CreatedAt)
                 SELECT ?, ?, ?, ?
@@ -301,7 +319,7 @@ class FavoriteSearchEngine:
 
         except pyodbc.Error as e:
             msg = str(e)
-            # если FK по AspNetUsers — логируем и СЧИТАЕМ, ЧТО СООБЩЕНИЕ ОБРАБОТАНО (просто без фаворитов)
+            # Если FK по пользователю — пропускаем сообщение, просто без фаворитов
             if "FK_FavoriteNotices_AspNetUsers_UserId" in msg:
                 print(
                     f"\n[WARN] FK_FavoriteNotices_AspNetUsers_UserId: "
@@ -310,8 +328,10 @@ class FavoriteSearchEngine:
                 )
                 sys.stdout.flush()
                 return 0, []
-            # любая другая SQL-ошибка пробрасывается выше, там решит воркер
             raise
+
+
+# ---------- RABBIT WORKER ----------
 
 
 class RabbitFavoriteWorker:
@@ -338,6 +358,11 @@ class RabbitFavoriteWorker:
             os.environ.get("EVENTBUS_PASSWORD"), bus_access.get("Password")
         )
 
+        if not host or not user or not pwd:
+            raise RuntimeError(
+                "Некорректные настройки EventBus.BusAccess (Host/UserName/Password)"
+            )
+
         self._connection_params = pika.ConnectionParameters(
             host=host,
             credentials=pika.PlainCredentials(user, pwd),
@@ -353,6 +378,12 @@ class RabbitFavoriteWorker:
         self._exchange_type = event_bus.get("ExchangeType", "direct")
 
         self._logger = logging.getLogger("favorite_worker")
+
+        print(
+            f"\n[DEBUG] RabbitMQ: host={host}, user={user}, "
+            f"exchange={self._exchange}, queue={self._queue}\n"
+        )
+        sys.stdout.flush()
 
     def _declare(self, ch):
         ch.exchange_declare(
@@ -395,8 +426,7 @@ class RabbitFavoriteWorker:
                     try:
                         self._process_message(body)
                     except Exception:
-                        # ВАЖНО: НИКАКИХ NACK / REQUEUE
-                        # Любая ошибка — логируем и ACK, сообщение выкидываем.
+                        # Любая ошибка -> лог и ACK (сообщение пропускаем)
                         self._logger.exception(
                             "processing error, message will be skipped"
                         )
@@ -425,6 +455,9 @@ class RabbitFavoriteWorker:
                         connection.close()
                     except Exception:
                         pass
+
+
+# ---------- ENTRY POINT ----------
 
 
 def load_config(path: str):
