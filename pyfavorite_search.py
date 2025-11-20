@@ -46,82 +46,126 @@ def _get_connection_string(config: Dict[str, Any]) -> str:
 def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
     """
     Берём строку подключения из appsettings и аккуратно превращаем в ODBC:
-    - убираем старые TrustServerCertificate / MARS_Connection / MultipleActiveResultSets
-    - при необходимости добавляем DRIVER
-    - добавляем MARS_Connection=Yes и TrustServerCertificate=Yes
+    - мапим Data Source/Server -> SERVER
+    - Initial Catalog/Database -> DATABASE
+    - User Id/Password -> UID/PWD
+    - Integrated Security/Trusted_Connection -> Trusted_Connection=yes
+    - нормализуем TrustServerCertificate и Encrypt
+    - добавляем DRIVER, MARS_Connection
     """
-    base = _get_connection_string(appsettings)
-    base = base.strip().rstrip(";")
+    raw = _get_connection_string(appsettings)
+    raw = raw.strip().rstrip(";")
 
-    parts_in = [p for p in base.split(";") if p.strip()]
-
-    cleaned_parts: List[str] = []
-    has_driver = False
-
-    server_keys = {
-        "server",
-        "data source",
-        "data_source",
-        "address",
-        "addr",
-        "network address",
-    }
-    server_value: Optional[str] = None
-
-    for part in parts_in:
-        key, _, value = part.partition("=")
-        key_lower = key.strip().lower()
-
-        if not key_lower:
-            continue
-
-        # выкидываем старые варианты, которые мешают ODBC
-        if key_lower in {
-            "trustservercertificate",
-            "mars_connection",
-            "multipleactiveresultsets",
-        }:
-            continue
-
-        if key_lower == "driver":
-            has_driver = True
-            cleaned_parts.append(part.strip())
-            continue
-
-        if key_lower in server_keys:
-            server_value = value.strip()
-            continue
-
-        cleaned_parts.append(part.strip())
-
-    env_server = os.environ.get("ODBC_SERVER")
-    if env_server:
-        server_value = env_server.strip()
-
-    if not server_value:
-        raise RuntimeError(
-            "В строке подключения отсутствует сервер (Server/Data Source). "
-            "Укажите ODBC_SERVER или исправьте ConnectionStrings.Default"
-        )
-
-    conn_parts: List[str] = [f"SERVER={server_value}"] + cleaned_parts
-    conn = ";".join(conn_parts)
-
-    if has_driver:
-        # DRIVER уже есть — не добавляем
-        odbc_conn = conn
+    # Если уже полная ODBC-строка с DRIVER — почти не трогаем
+    lowered_raw = raw.lower()
+    if "driver=" in lowered_raw:
+        odbc_conn = raw
     else:
-        # DRIVER ещё нет — добавляем
-        if conn:
-            odbc_conn = f"DRIVER={{ODBC Driver 17 for SQL Server}};{conn}"
-        else:
-            odbc_conn = "DRIVER={ODBC Driver 17 for SQL Server}"
+        parts = [p for p in raw.split(";") if p.strip()]
 
-    # Добавим корректные ODBC-ключи
-    lower = odbc_conn.lower()
-    if "mars_connection" not in lower:
+        server: Optional[str] = None
+        database: Optional[str] = None
+        uid: Optional[str] = None
+        pwd: Optional[str] = None
+        encrypt: Optional[str] = None
+        trust_server_cert: Optional[str] = None
+        timeout: Optional[str] = None
+        use_trusted_conn: bool = False
+
+        for part in parts:
+            if "=" not in part:
+                continue
+            key, value = part.split("=", 1)
+            k = key.strip().lower()
+            v = value.strip()
+
+            if not k:
+                continue
+
+            # сервер
+            if k in ("data source", "server", "addr", "address", "network address"):
+                server = v
+            # база
+            elif k in ("initial catalog", "database"):
+                database = v
+            # SQL логин
+            elif k in ("user id", "user", "uid"):
+                uid = v
+            elif k in ("password", "pwd"):
+                pwd = v
+            # интегрированная аутентификация
+            elif k in ("integrated security", "trusted_connection"):
+                if v.lower() in ("true", "yes", "sspi", "1"):
+                    use_trusted_conn = True
+            # шифрование
+            elif k == "encrypt":
+                encrypt = v
+            # доверять сертификату
+            elif k in ("trustservercertificate", "trust server certificate"):
+                trust_server_cert = v
+            # таймаут
+            elif k in ("connection timeout", "connect timeout", "timeout"):
+                timeout = v
+            else:
+                # остальные параметры игнорим, чтобы не было "Invalid connection string attribute"
+                continue
+
+        # ENV-оверрайд сервера
+        env_server = os.environ.get("ODBC_SERVER")
+        if env_server:
+            server = env_server.strip()
+
+        if not server:
+            raise RuntimeError(
+                "В строке подключения отсутствует сервер (Server/Data Source). "
+                "Укажите ODBC_SERVER или исправьте ConnectionStrings.Default"
+            )
+
+        conn_parts: List[str] = [f"SERVER={server}"]
+
+        if database:
+            conn_parts.append(f"DATABASE={database}")
+
+        if uid:
+            conn_parts.append(f"UID={uid}")
+        if pwd:
+            conn_parts.append(f"PWD={pwd}")
+
+        # Если SQL-логина нет, но есть Integrated Security — включаем Trusted_Connection
+        if not uid and not pwd and use_trusted_conn:
+            conn_parts.append("Trusted_Connection=yes")
+
+        # Encrypt: по умолчанию включаем, как в index.py
+        if encrypt:
+            conn_parts.append(f"Encrypt={encrypt}")
+        else:
+            conn_parts.append("Encrypt=yes")
+
+        if trust_server_cert:
+            vl = trust_server_cert.strip().lower()
+            if vl in ("true", "yes", "1"):
+                tsc = "yes"
+            elif vl in ("false", "no", "0"):
+                tsc = "no"
+            else:
+                tsc = trust_server_cert
+            conn_parts.append(f"TrustServerCertificate={tsc}")
+
+        if timeout:
+            conn_parts.append(f"Connection Timeout={timeout}")
+
+        odbc_conn = ";".join(conn_parts)
+
+    # Добавим DRIVER, если его нет
+    lowered = odbc_conn.lower()
+    if "driver=" not in lowered:
+        odbc_conn = f"DRIVER={{ODBC Driver 17 for SQL Server}};{odbc_conn}"
+
+    # Корректный MARS и TrustServerCertificate, если вдруг отсутствуют
+    lowered = odbc_conn.lower()
+    if "mars_connection" not in lowered:
         odbc_conn += ";MARS_Connection=Yes"
-    if "trustservercertificate" not in lower:
+    if "trustservercertificate" not in lowered:
         odbc_conn += ";TrustServerCertificate=Yes"
 
     print("\n[DEBUG] ODBC connection string used:")
@@ -130,8 +174,6 @@ def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
 
     return odbc_conn
 
-
-# ---------- UTILS ----------
 
 
 def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
@@ -215,6 +257,7 @@ class FavoriteSearchEngine:
     def _serialize_vector(self, vector: np.ndarray) -> bytes:
         return np.asarray(vector, dtype=np.float64).tobytes()
 
+
     def _fetch_top_similar_notices(
         self,
         cursor: pyodbc.Cursor,
@@ -223,6 +266,10 @@ class FavoriteSearchEngine:
         collecting_end_limit: datetime,
         expired_only: bool,
     ) -> List[Tuple[str, str, str, str, float]]:
+        """
+        Забираем из БД все (отфильтрованные) вектора и считаем COSINE similarity в Python.
+        Это аналогично тому, как делалось в CLI-скрипте, только оформлено под worker.
+        """
         filters = ["e.Model = ?"]
         params: List[Any] = [MODEL_NAME]
 
@@ -236,20 +283,17 @@ class FavoriteSearchEngine:
         where_clause = " AND ".join(filters)
 
         sql = f"""
-        SELECT TOP (?)
+        SELECT
             n.Id,
             n.PurchaseNumber,
             n.EntryName,
             n.PurchaseObjectInfo,
-            CAST(1.0 - COSINE_DISTANCE(e.Vector, ?) AS FLOAT) AS Similarity
+            e.Vector,
+            n.UpdatedAt
         FROM NoticeEmbeddings e
         INNER JOIN Notices n ON n.Id = e.NoticeId
         WHERE {where_clause}
-        ORDER BY Similarity DESC, n.UpdatedAt DESC
         """
-
-        vector_bytes = self._serialize_vector(query_vector)
-        params = [top, vector_bytes] + params
 
         print("\nSQL:")
         print(sql)
@@ -257,16 +301,40 @@ class FavoriteSearchEngine:
         sys.stdout.flush()
 
         cursor.execute(sql, params)
-        return [
-            (
-                str(r.Id),
-                r.PurchaseNumber,
-                r.EntryName,
-                r.PurchaseObjectInfo,
-                float(r.Similarity),
+        rows = cursor.fetchall()
+
+        # Косинусное сходство в Python
+        q = np.asarray(query_vector, dtype=np.float64)
+        q_norm = float(np.linalg.norm(q)) or 1.0
+
+        scored: List[Tuple[str, str, str, str, float, datetime]] = []
+
+        for r in rows:
+            vec_bytes = bytes(r.Vector)
+            v = np.frombuffer(vec_bytes, dtype=np.float64)
+            if v.size == 0:
+                sim = 0.0
+            else:
+                v_norm = float(np.linalg.norm(v)) or 1.0
+                sim = float(np.dot(q, v) / (q_norm * v_norm))
+
+            scored.append(
+                (
+                    str(r.Id),
+                    r.PurchaseNumber,
+                    r.EntryName,
+                    r.PurchaseObjectInfo,
+                    sim,
+                    r.UpdatedAt,
+                )
             )
-            for r in cursor.fetchall()
-        ]
+
+        # сортируем по similarity (desc), затем по UpdatedAt (desc) как было в SQL
+        scored.sort(key=lambda x: (x[4], x[5] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+
+        # возвращаем только нужное количество и без UpdatedAt
+        return [(i, pn, name, obj, sim) for (i, pn, name, obj, sim, _) in scored[:top]]
+
 
     def process_command(self, cmd: FavoriteSearchCommand):
         print("\n=== FAVORITE SEARCH REQUEST ===")
