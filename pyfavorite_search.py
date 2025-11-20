@@ -29,17 +29,38 @@ DB_CONNECTION_STRING = os.getenv(
 )
 
 # путь к appsettings.json
-APPSETTINGS_PATH = os.getenv("APPSETTINGS_PATH", "appsettings.json")
+# по умолчанию берём конфигурацию .NET-сервиса (src/Zakupki.Fetcher/appsettings.json),
+# но можно переопределить переменной окружения APPSETTINGS_PATH
+DEFAULT_APPSETTINGS_PATHS = [
+    "appsettings.json",
+    os.path.join("src", "Zakupki.Fetcher", "appsettings.json"),
+]
+
+
+def resolve_appsettings_path() -> str:
+    env_path = os.getenv("APPSETTINGS_PATH")
+    if env_path:
+        if os.path.exists(env_path):
+            logger.info("Используем appsettings из переменной окружения: %s", env_path)
+            return env_path
+        logger.warning("APPSETTINGS_PATH задан, но файл не найден: %s", env_path)
+
+    for candidate in DEFAULT_APPSETTINGS_PATHS:
+        if os.path.exists(candidate):
+            logger.info("Используем appsettings: %s", candidate)
+            return candidate
+
+    # последний кандидат — первый из списка, чтобы load_appsettings отработал с предсказуемым путём
+    logger.warning(
+        "Файл appsettings не найден ни по одному пути %s, пробуем первый: %s",
+        DEFAULT_APPSETTINGS_PATHS,
+        DEFAULT_APPSETTINGS_PATHS[0],
+    )
+    return DEFAULT_APPSETTINGS_PATHS[0]
 
 EMBEDDING_MODEL_NAME = os.getenv(
     "EMBEDDING_MODEL_NAME",
     "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-)
-
-# Очередь для избранного – своя, НЕ из EventBus.QueueName
-FAVORITE_QUEUE_NAME = os.getenv(
-    "FAVORITE_QUEUE_NAME",
-    "favorite_search"
 )
 
 # Сколько максимум фаворитов сохранять за один запрос
@@ -104,6 +125,27 @@ def build_rabbitmq_url_from_appsettings(config: Dict[str, Any]) -> str:
         host,
     )
     return url
+
+
+def resolve_favorite_queue_name(config: Dict[str, Any]) -> str:
+    """Возвращает очередь команд так же, как это делает .NET сервис.
+
+    Сервер публикует избранное через EventBusOptions.ResolveCommandQueueName(),
+    которая выбирает CommandQueueName, а если он пустой — QueueName. Любые
+    пользовательские переменные окружения для имени очереди здесь НЕ применяем,
+    чтобы слушать ровно ту очередь, куда отправляет сервер.
+    """
+
+    event_bus = config.get("EventBus", {}) or {}
+    queue_name = event_bus.get("CommandQueueName") or event_bus.get("QueueName")
+    if not queue_name or not str(queue_name).strip():
+        raise RuntimeError(
+            "CommandQueueName/QueueName не сконфигурированы в EventBus (см. appsettings)"
+        )
+
+    queue_name = str(queue_name).strip()
+    logger.info("Имя очереди (ResolveCommandQueueName): %s", queue_name)
+    return queue_name
 
 
 # ========================
@@ -384,7 +426,8 @@ class FavoriteSearchWorker:
 
 def main():
     # грузим appsettings
-    config = load_appsettings(APPSETTINGS_PATH)
+    appsettings_path = resolve_appsettings_path()
+    config = load_appsettings(appsettings_path)
 
     # URL RabbitMQ:
     # 1) если есть переменная окружения RABBITMQ_URL – используем её
@@ -396,6 +439,8 @@ def main():
     else:
         rabbitmq_url = build_rabbitmq_url_from_appsettings(config)
 
+    queue_name = resolve_favorite_queue_name(config)
+
     engine = FavoriteSearchEngine(
         conn_str=DB_CONNECTION_STRING,
         embedding_model_name=EMBEDDING_MODEL_NAME,
@@ -404,7 +449,7 @@ def main():
     # петля переподключения к RabbitMQ
     while True:
         try:
-            worker = FavoriteSearchWorker(engine, rabbitmq_url, FAVORITE_QUEUE_NAME)
+            worker = FavoriteSearchWorker(engine, rabbitmq_url, queue_name)
             worker.start()
         except pika.exceptions.AMQPConnectionError:
             logger.exception(
