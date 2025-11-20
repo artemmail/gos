@@ -1,8 +1,5 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
@@ -89,7 +86,10 @@ public class QueryVectorsController : ControllerBase
 
     private static UserQueryVectorDto ToDto(UserQueryVector entity)
     {
-        IReadOnlyList<float>? vector = entity.Vector?.ToArray();
+        float[]? vector = null;
+        
+        if (entity.Vector != null)
+            vector = entity.Vector.Value.Memory.ToArray();
 
         return new UserQueryVectorDto
         {
