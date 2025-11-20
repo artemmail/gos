@@ -1,53 +1,14 @@
 using System;
-using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Zakupki.Fetcher.Data.Entities;
 
 namespace Zakupki.Fetcher.Data;
 
 public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
+    // Размерность эмбеддинга под VECTOR
     private const int NoticeEmbeddingVectorDimensions = 768;
-
-    private static readonly ValueConverter<double[], byte[]> NoticeEmbeddingVectorConverter =
-        new(
-            v => ConvertVectorToBytes(v ?? Array.Empty<double>()),
-            v => ConvertBytesToVector(v ?? Array.Empty<byte>()));
-
-    private static readonly ValueComparer<double[]> NoticeEmbeddingVectorComparer = new(
-        (left, right) =>
-        {
-            if (ReferenceEquals(left, right))
-            {
-                return true;
-            }
-
-            if (left is null || right is null)
-            {
-                return false;
-            }
-
-            return left.SequenceEqual(right);
-        },
-        vector =>
-        {
-            if (vector is null)
-            {
-                return 0;
-            }
-
-            var hash = new HashCode();
-            foreach (var value in vector)
-            {
-                hash.Add(value);
-            }
-
-            return hash.ToHashCode();
-        },
-        vector => vector is null ? Array.Empty<double>() : vector.ToArray());
 
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
@@ -55,29 +16,17 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     }
 
     public DbSet<Notice> Notices => Set<Notice>();
-
     public DbSet<NoticeVersion> NoticeVersions => Set<NoticeVersion>();
-
     public DbSet<Contract> Contracts => Set<Contract>();
-
     public DbSet<ProcedureWindow> ProcedureWindows => Set<ProcedureWindow>();
-
     public DbSet<NoticeAttachment> NoticeAttachments => Set<NoticeAttachment>();
-
     public DbSet<AttachmentSignature> AttachmentSignatures => Set<AttachmentSignature>();
-
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
-
     public DbSet<NoticeSearchVector> NoticeSearchVectors => Set<NoticeSearchVector>();
-
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
     public DbSet<ApplicationUserRegion> ApplicationUserRegions => Set<ApplicationUserRegion>();
-
     public DbSet<NoticeAnalysis> NoticeAnalyses => Set<NoticeAnalysis>();
-
     public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
-
     public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -334,11 +283,10 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(e => e.Model).HasMaxLength(200);
 
-        var vectorProperty = entity.Property(e => e.Vector)
-            .HasColumnType($"vector(float64, {NoticeEmbeddingVectorDimensions})")
-            .HasConversion(NoticeEmbeddingVectorConverter);
+        // Нативный VECTOR-столбец SQL Server 2025, без конвертеров
+        entity.Property(e => e.Vector)
+            .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
 
-        vectorProperty.Metadata.SetValueComparer(NoticeEmbeddingVectorComparer);
         entity.Property(e => e.Source).HasMaxLength(100);
 
         entity.HasOne(e => e.Notice)
@@ -388,23 +336,5 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Cascade);
 
         entity.HasIndex(r => r.Token).IsUnique();
-    }
-
-    private static byte[] ConvertVectorToBytes(double[] vector)
-    {
-        ArgumentNullException.ThrowIfNull(vector);
-
-        var buffer = new byte[vector.Length * sizeof(double)];
-        Buffer.BlockCopy(vector, 0, buffer, 0, buffer.Length);
-        return buffer;
-    }
-
-    private static double[] ConvertBytesToVector(byte[] bytes)
-    {
-        ArgumentNullException.ThrowIfNull(bytes);
-
-        var vector = new double[bytes.Length / sizeof(double)];
-        Buffer.BlockCopy(bytes, 0, vector, 0, bytes.Length);
-        return vector;
     }
 }

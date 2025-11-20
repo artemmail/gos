@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlTypes;
 using System;
 
 namespace Zakupki.Fetcher.Data.Entities;
@@ -12,7 +13,7 @@ public class NoticeEmbedding
 
     public int Dimensions { get; set; }
 
-    public double[] Vector { get; set; } = Array.Empty<double>();
+    public SqlVector<float> Vector { get; set; }
 
     public string? Source { get; set; }
 
