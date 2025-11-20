@@ -258,6 +258,34 @@ class FavoriteSearchEngine:
         return np.asarray(vector, dtype=np.float64).tobytes()
 
 
+    def _to_numpy_vector(self, value: Any) -> np.ndarray:
+        """Converts various DB-returned vector formats to a numpy array.
+
+        SQL Server may return VECTOR columns either as raw bytes/memoryview or
+        as a JSON string representation. Handle both cases and fall back to
+        list/tuple.
+        """
+
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            buffer = memoryview(value)
+            return np.frombuffer(buffer, dtype=np.float64)
+
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Не удалось распарсить вектор из строки: {exc}") from exc
+            return np.asarray(parsed, dtype=np.float64)
+
+        if isinstance(value, (list, tuple)):
+            return np.asarray(value, dtype=np.float64)
+
+        try:
+            return np.frombuffer(bytes(value), dtype=np.float64)
+        except Exception as exc:  # pragma: no cover - safety net for unexpected types
+            raise TypeError(f"Неизвестный тип вектора: {type(value)!r}") from exc
+
+
     def _fetch_top_similar_notices(
         self,
         cursor: pyodbc.Cursor,
@@ -310,8 +338,7 @@ class FavoriteSearchEngine:
         scored: List[Tuple[str, str, str, str, float, datetime]] = []
 
         for r in rows:
-            vec_bytes = bytes(r.Vector)
-            v = np.frombuffer(vec_bytes, dtype=np.float64)
+            v = self._to_numpy_vector(r.Vector)
             if v.size == 0:
                 sim = 0.0
             else:
