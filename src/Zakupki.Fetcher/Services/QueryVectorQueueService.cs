@@ -71,7 +71,7 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await context.UserQueryVectors
             .AsNoTracking()
-            .Where(q => q.UserId == userId)
+            .Where(q => q.UserId == userId && q.CompletedAt != null)
             .OrderByDescending(q => q.CreatedAt)
             .ToListAsync(cancellationToken);
     }

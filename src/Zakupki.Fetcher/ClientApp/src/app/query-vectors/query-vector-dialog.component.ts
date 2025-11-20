@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 
-import { UserQueryVectorDto } from '../models/query-vector.models';
 import { QueryVectorService } from '../services/query-vector.service';
 
 @Component({
@@ -16,7 +15,7 @@ export class QueryVectorDialogComponent {
   errorMessage = '';
 
   constructor(
-    private readonly dialogRef: MatDialogRef<QueryVectorDialogComponent>,
+    private readonly dialogRef: MatDialogRef<QueryVectorDialogComponent, boolean>,
     private readonly fb: FormBuilder,
     private readonly queryVectorService: QueryVectorService
   ) {
@@ -39,7 +38,7 @@ export class QueryVectorDialogComponent {
     this.errorMessage = '';
 
     this.queryVectorService.create({ query: this.form.value.query }).subscribe({
-      next: (result: UserQueryVectorDto) => this.dialogRef.close(result),
+      next: () => this.dialogRef.close(true),
       error: () => {
         this.errorMessage = 'Не удалось отправить запрос в очередь.';
         this.isSubmitting = false;
