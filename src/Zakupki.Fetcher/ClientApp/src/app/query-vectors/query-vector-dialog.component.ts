@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 
 import { UserQueryVectorDto } from '../models/query-vector.models';
@@ -23,6 +23,10 @@ export class QueryVectorDialogComponent {
     this.form = this.fb.group({
       query: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(4000)]]
     });
+  }
+
+  get queryControl(): AbstractControl | null {
+    return this.form.get('query');
   }
 
   submit(): void {
