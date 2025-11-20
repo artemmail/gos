@@ -30,9 +30,9 @@ export class QueryVectorsComponent implements OnInit {
       width: '600px'
     });
 
-    dialogRef.afterClosed().subscribe((result?: UserQueryVectorDto) => {
-      if (result) {
-        this.vectors = [result, ...this.vectors];
+    dialogRef.afterClosed().subscribe((created?: boolean) => {
+      if (created) {
+        this.loadData();
       }
     });
   }
