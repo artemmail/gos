@@ -58,6 +58,16 @@ def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
     cleaned_parts: List[str] = []
     has_driver = False
 
+    server_keys = {
+        "server",
+        "data source",
+        "data_source",
+        "address",
+        "addr",
+        "network address",
+    }
+    server_value: Optional[str] = None
+
     for part in parts_in:
         key, _, value = part.partition("=")
         key_lower = key.strip().lower()
@@ -75,10 +85,27 @@ def build_odbc_connection_string(appsettings: Dict[str, Any]) -> str:
 
         if key_lower == "driver":
             has_driver = True
+            cleaned_parts.append(part.strip())
+            continue
+
+        if key_lower in server_keys:
+            server_value = value.strip()
+            continue
 
         cleaned_parts.append(part.strip())
 
-    conn = ";".join(cleaned_parts)
+    env_server = os.environ.get("ODBC_SERVER")
+    if env_server:
+        server_value = env_server.strip()
+
+    if not server_value:
+        raise RuntimeError(
+            "В строке подключения отсутствует сервер (Server/Data Source). "
+            "Укажите ODBC_SERVER или исправьте ConnectionStrings.Default"
+        )
+
+    conn_parts: List[str] = [f"SERVER={server_value}"] + cleaned_parts
+    conn = ";".join(conn_parts)
 
     if has_driver:
         # DRIVER уже есть — не добавляем
