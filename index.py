@@ -4,39 +4,136 @@
 Индексация закупок (Notice) в таблицу NoticeEmbeddings.
 
 Зависимости:
-    pip install pyodbc sentence-transformers torch
-
-Убедись, что установлен ODBC драйвер:
-    "ODBC Driver 25 for SQL Server" (или подходящий для версии 2025+) и поправь имя драйвера ниже при необходимости.
+    pip install mssql-python sentence-transformers torch numpy
 
 Скрипт:
 - читает строку подключения из appsettings.json (ConnectionStrings.Default),
+- конвертирует её в формат, понятный mssql_python,
 - выбирает записи Notice без эмбеддингов (или с устаревшими),
 - считает эмбеддинги на GPU (если доступно),
 - пишет/обновляет строки в NoticeEmbeddings.
+
+Ожидается, что:
+  * есть таблица [Notices] с полями (минимум):
+      Id,
+      EntryName,
+      PurchaseObjectInfo,
+      Okpd2Code,
+      Okpd2Name,
+      KvrCode,
+      KvrName,
+      Source,
+      DocumentType,
+      UpdatedAt
+  * есть таблица [NoticeEmbeddings] c полями:
+      Id           (uniqueidentifier),
+      NoticeId     (ссылка на Notices.Id),
+      Model        (nvarchar),
+      Dimensions   (int),
+      Vector       (VECTOR(768) или совместимое поле),
+      CreatedAt    (datetime2),
+      UpdatedAt    (datetime2),
+      Source       (nvarchar)
 """
 
 import json
 import uuid
 import datetime as dt
-import pyodbc
 import os
-from typing import List, Tuple
+from typing import Any, List, Dict
 
+import mssql_python
 import torch
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
 # ======= НАСТРОЙКИ =======
 
-APPSETTINGS_PATH = "appsettings.json"  # поменяй, если файл называется иначе
+APPSETTINGS_PATH = os.environ.get("APPSETTINGS_PATH", "appsettings.json")
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 VECTOR_DIMENSIONS = 768
-BATCH_SIZE = 64
-ODBC_DRIVER = "{ODBC Driver 25 for SQL Server}"  # новый драйвер для SQL Server 2025+
+BATCH_SIZE = 64              # размер батча для модели
+DB_BATCH_SIZE = 500          # сколько Notice за раз вытаскиваем из БД
 
-# сколько записей за один проход из базы
-DB_BATCH_SIZE = 500
+
+# ======= КОНВЕРТЕР СТРОКИ ПОДКЛЮЧЕНИЯ =======
+
+def convert_to_mssql_python_conn_str(raw_conn_str: str) -> str:
+    """
+    Конвертирует классическую ADO/ODBC-строку подключения в формат,
+    который ожидает mssql_python:
+
+        SERVER=...;DATABASE=...;UID=...;PWD=...;
+        Authentication=...;Encrypt=...;TrustServerCertificate=...
+
+    Поддерживаем базовые синонимы:
+      - Data Source / Server -> SERVER
+      - Initial Catalog / Database -> DATABASE
+      - User Id / User ID / UID -> UID
+      - Password / Pwd -> PWD
+      - Integrated Security / Trusted_Connection -> Authentication=ActiveDirectoryIntegrated
+      - Encrypt -> Encrypt
+      - TrustServerCertificate / Trust Server Certificate -> TrustServerCertificate
+
+    Лишние параметры (MultipleActiveResultSets, Connection Timeout, ...) выбрасываем.
+    """
+
+    # если строка уже выглядит как SERVER=...;DATABASE=..., оставим её как есть
+    lowered = raw_conn_str.lower()
+    if "server=" in lowered or "database=" in lowered:
+        normalized = ";".join(part.strip() for part in raw_conn_str.split(";") if part.strip())
+        return normalized
+
+    pairs = [p for p in raw_conn_str.split(";") if p.strip()]
+    result: Dict[str, str] = {}
+
+    for pair in pairs:
+        if "=" not in pair:
+            continue
+        key, value = pair.split("=", 1)
+        k = key.strip().lower()
+        v = value.strip()
+
+        if not k:
+            continue
+
+        if k in ("data source", "server", "addr", "address"):
+            result["SERVER"] = v
+        elif k in ("initial catalog", "database"):
+            result["DATABASE"] = v
+        elif k in ("user id", "user", "uid"):
+            result["UID"] = v
+        elif k in ("password", "pwd"):
+            result["PWD"] = v
+        elif k in ("authentication",):
+            result["Authentication"] = v
+        elif k in ("integrated security", "trusted_connection"):
+            if v.lower() in ("true", "yes", "sspi"):
+                # для Windows-аутентификации
+                result.setdefault("Authentication", "ActiveDirectoryIntegrated")
+        elif k == "encrypt":
+            result["Encrypt"] = v
+        elif k in ("trustservercertificate", "trust server certificate"):
+            # приводим к yes/no, иначе ODBC Driver 18 ругается на True/False
+            vl = v.lower()
+            if vl in ("true", "yes", "1"):
+                result["TrustServerCertificate"] = "yes"
+            elif vl in ("false", "no", "0"):
+                result["TrustServerCertificate"] = "no"
+            else:
+                # странное значение — не ставим параметр
+                pass
+        else:
+            # игнорируем остальные
+            continue
+
+    # если Encrypt не задан, включим его (типичный сценарий с TrustServerCertificate)
+    if "Encrypt" not in result:
+        result["Encrypt"] = "yes"
+
+    conn_parts = [f"{k}={v}" for k, v in result.items()]
+    normalized_conn_str = ";".join(conn_parts)
+    return normalized_conn_str
 
 
 # ======= УТИЛИТЫ =======
@@ -44,110 +141,92 @@ DB_BATCH_SIZE = 500
 def load_connection_string(path: str) -> str:
     """
     Читает ConnectionStrings.Default из appsettings.json
-    и собирает корректную ODBC-строку для pyodbc + SQL Server.
+    и конвертирует в формат, понятный mssql_python.
     """
-    import json
-
     with open(path, "r", encoding="utf-8") as f:
         config = json.load(f)
 
-    ado_conn = config["ConnectionStrings"]["Default"]
+    raw_conn = config["ConnectionStrings"]["Default"]
 
-    server = None
-    database = None
-    user = None
-    password = None
+    print("Исходная строка подключения из appsettings.json:")
+    print(raw_conn)
 
-    parts = [p.strip() for p in ado_conn.split(";") if p.strip()]
-    for part in parts:
-        key, _, value = part.partition("=")
-        key = key.strip().lower()
-        value = value.strip()
+    norm_conn = convert_to_mssql_python_conn_str(raw_conn)
 
-        if key in ("data source", "server"):
-            server = value
-        elif key in ("database", "initial catalog"):
-            database = value
-        elif key in ("user id", "uid"):
-            user = value
-        elif key in ("password", "pwd"):
-            password = value
+    print("Нормализованная строка подключения (mssql_python):")
+    print(norm_conn)
 
-    if not all([server, database, user, password]):
-        raise RuntimeError(
-            f"Не удалось разобрать строку подключения из appsettings.json. "
-            f"server={server}, database={database}, user={user}, password={'***' if password else None}"
-        )
+    return norm_conn
 
-    # Собираем ODBC-строку в самом простом и понятном драйверу виде
-    conn_str = (
-        f"DRIVER={ODBC_DRIVER};"
-        f"SERVER={server};"
-        f"DATABASE={database};"
-        f"UID={user};"
-        f"PWD={password};"
-        f"TrustServerCertificate=Yes;"
-        f"MARS_Connection=Yes"
-    )
 
-    print("ODBC строка подключения:")
-    print(conn_str)
-
-    return conn_str
-
-def get_db_connection() -> pyodbc.Connection:
+def get_db_connection():
+    """
+    Открывает соединение через mssql-python.
+    """
     conn_str = load_connection_string(APPSETTINGS_PATH)
-    conn = pyodbc.connect(conn_str)
+    conn = mssql_python.connect(conn_str)
     conn.autocommit = False
     return conn
 
 
-def build_notice_text(row: pyodbc.Row) -> str:
+def build_notice_text(row: Any) -> str:
     """
     Собираем "паспорт" текста для эмбеддинга.
     Подгоняй по вкусу: какие поля важнее, какие можно выкинуть.
     """
-    parts = []
+    parts: List[str] = []
 
-    def add(label: str, value):
-        if value is not None and str(value).strip():
-            parts.append(f"{label}: {value}")
+    def add(label: str, value: Any):
+        if value is None:
+            return
+        s = str(value).strip()
+        if s:
+            parts.append(f"{label}: {s}")
 
-    add("Название", row.EntryName)
-    add("Предмет закупки", row.PurchaseObjectInfo)
-    okpd2_code = (row.Okpd2Code or "").strip()
-    okpd2_name = (row.Okpd2Name or "").strip()
+    # Основные поля
+    add("Название", getattr(row, "EntryName", None))
+    add("Предмет закупки", getattr(row, "PurchaseObjectInfo", None))
+
+    # ОКПД2
+    okpd2_code = (getattr(row, "Okpd2Code", "") or "").strip()
+    okpd2_name = (getattr(row, "Okpd2Name", "") or "").strip()
     if okpd2_code or okpd2_name:
-        if okpd2_name:
-            if okpd2_code:
-                okpd2_value = f"{okpd2_code} ({okpd2_name})"
-            else:
-                okpd2_value = f"({okpd2_name})"
+        if okpd2_code and okpd2_name:
+            okpd2_value = f"{okpd2_code} ({okpd2_name})"
+        elif okpd2_name:
+            okpd2_value = okpd2_name
         else:
             okpd2_value = okpd2_code
         add("ОКПД2", okpd2_value)
-    add("КВР", f"{row.KvrCode} {row.KvrName}" if row.KvrCode or row.KvrName else None)
-    add("Источник", row.Source)
-    add("Тип документа", row.DocumentType)
+
+    # КВР
+    kvr_code = getattr(row, "KvrCode", None)
+    kvr_name = getattr(row, "KvrName", None)
+    if kvr_code or kvr_name:
+        kvr_text = f"{kvr_code or ''} {kvr_name or ''}".strip()
+        add("КВР", kvr_text)
+
+    # Прочее
+    add("Источник", getattr(row, "Source", None))
+    add("Тип документа", getattr(row, "DocumentType", None))
 
     return "\n".join(parts)
 
 
-def vector_to_sql_vector(vector: np.ndarray) -> List[float]:
+def vector_to_sql_vector(vector: np.ndarray) -> str:
     """
-    Приводит numpy-вектор к списку float32 для типа SqlVector<float> в SQL Server 2025+.
+    Приводит numpy-вектор к строке JSON вида "[0.1, 2.0, ...]".
+    SQL Server 2025 VECTOR(...) умеет неявно конвертировать
+    nvarchar/json-строку в VECTOR.
     """
+    arr = np.asarray(vector, dtype=np.float32).tolist()
+    return json.dumps(arr, ensure_ascii=False)
 
-    return np.asarray(vector, dtype=np.float32).tolist()
 
-
-def fetch_notices_for_indexing(cursor: pyodbc.Cursor, model_name: str, limit: int) -> List[pyodbc.Row]:
+def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List[Any]:
     """
     Выбираем Notice, для которых нет эмбеддинга указанной модели
     или он старше UpdatedAt у Notice.
-    Предполагается, что:
-      - таблицы называются [Notices] и [NoticeEmbeddings],
-      - в NoticeEmbeddings есть поля NoticeId, Model, UpdatedAt.
     """
     sql = f"""
     SELECT TOP ({limit})
@@ -174,23 +253,23 @@ def fetch_notices_for_indexing(cursor: pyodbc.Cursor, model_name: str, limit: in
         OR n.UpdatedAt > e.LatestUpdatedAt
     ORDER BY n.UpdatedAt DESC
     """
-    cursor.execute(sql, model_name)
+    cursor.execute(sql, (model_name,))
     rows = cursor.fetchall()
     return rows
 
 
 def upsert_embeddings(
-    cursor: pyodbc.Cursor,
+    cursor: Any,
     model_name: str,
-    rows: List[pyodbc.Row],
+    rows: List[Any],
     embeddings: np.ndarray,
-    source: str = "python-indexer"
+    source: str = "python-indexer",
 ):
     """
     Для каждого Notice:
       - удаляем старую запись по (NoticeId, Model),
       - вставляем новую с вектором.
-    Вектор сохраняем как SqlVector<float> (родной тип SQL Server 2025+).
+    Вектор сохраняем в VECTOR(...) через JSON-строку.
     """
     now = dt.datetime.utcnow()
     dims = embeddings.shape[1]
@@ -221,23 +300,22 @@ def upsert_embeddings(
     for row, emb in zip(rows, embeddings):
         notice_id = row.Id
         vector_for_sql = vector_to_sql_vector(emb)
-
         embedding_id = uuid.uuid4()
 
-        # удаляем старую запись (если была)
-        cursor.execute(delete_sql, notice_id, model_name)
+        cursor.execute(delete_sql, (notice_id, model_name))
 
-        # вставляем новую
         cursor.execute(
             insert_sql,
-            str(embedding_id),
-            str(notice_id),
-            model_name,
-            dims,
-            vector_for_sql,
-            now,
-            now,
-            source
+            (
+                str(embedding_id),
+                str(notice_id),
+                model_name,
+                dims,
+                vector_for_sql,
+                now,
+                now,
+                source,
+            ),
         )
 
 
@@ -265,13 +343,12 @@ def main():
 
             texts = [build_notice_text(row) for row in notices]
 
-            # рассчитываем эмбеддинги батчами, используя GPU если доступно
             embeddings = model.encode(
                 texts,
                 batch_size=BATCH_SIZE,
                 show_progress_bar=True,
                 convert_to_numpy=True,
-                normalize_embeddings=False  # можно True, если хочешь сразу нормализованные
+                normalize_embeddings=False,
             )
 
             print("Записываю эмбеддинги в базу...")
