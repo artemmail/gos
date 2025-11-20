@@ -257,6 +257,50 @@ class FavoriteSearchEngine:
     def _serialize_vector(self, vector: np.ndarray) -> bytes:
         return np.asarray(vector, dtype=np.float64).tobytes()
 
+    def _vector_from_db(self, raw_vector: Any) -> np.ndarray:
+        """
+        Приводит значение колонки Vector к numpy-массиву.
+
+        Возможные варианты того, что вернёт pyodbc:
+        - nvarchar/json-строка с числами (как пишет indexer через vector_to_sql_vector)
+        - bytes/bytearray/memoryview, если столбец VARBINARY
+        - None/пустая строка
+        """
+
+        if raw_vector is None:
+            return np.array([], dtype=np.float64)
+
+        # memoryview -> bytes
+        if isinstance(raw_vector, memoryview):
+            raw_vector = raw_vector.tobytes()
+
+        # JSON-строка или bytes с JSON
+        if isinstance(raw_vector, (str, bytes, bytearray)):
+            # если это bytes, попробуем сначала декодировать в UTF-8
+            if isinstance(raw_vector, (bytes, bytearray)):
+                try:
+                    raw_text = raw_vector.decode("utf-8")
+                except UnicodeDecodeError:
+                    raw_text = None
+            else:
+                raw_text = raw_vector
+
+            if raw_text:
+                try:
+                    return np.asarray(json.loads(raw_text), dtype=np.float64)
+                except (json.JSONDecodeError, TypeError):
+                    # не JSON — пробуем как сырой буфер ниже
+                    pass
+
+            # Не получилось распарсить JSON — трактуем как бинарный буфер
+            try:
+                return np.frombuffer(bytes(raw_vector), dtype=np.float64)
+            except (TypeError, ValueError):
+                return np.array([], dtype=np.float64)
+
+        # Неизвестный тип — безопасно вернём пустой вектор
+        return np.array([], dtype=np.float64)
+
 
     def _fetch_top_similar_notices(
         self,
@@ -310,8 +354,7 @@ class FavoriteSearchEngine:
         scored: List[Tuple[str, str, str, str, float, datetime]] = []
 
         for r in rows:
-            vec_bytes = bytes(r.Vector)
-            v = np.frombuffer(vec_bytes, dtype=np.float64)
+            v = self._vector_from_db(r.Vector)
             if v.size == 0:
                 sim = 0.0
             else:
