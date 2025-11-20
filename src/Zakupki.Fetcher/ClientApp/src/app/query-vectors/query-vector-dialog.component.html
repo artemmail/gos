@@ -4,9 +4,9 @@
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Текст запроса</mat-label>
       <textarea matInput rows="4" formControlName="query" placeholder="Введите запрос"></textarea>
-      <mat-error *ngIf="form.controls.query.hasError('required')">Запрос обязателен</mat-error>
-      <mat-error *ngIf="form.controls.query.hasError('minlength')">Минимум 3 символа</mat-error>
-      <mat-error *ngIf="form.controls.query.hasError('maxlength')">Не больше 4000 символов</mat-error>
+      <mat-error *ngIf="queryControl?.hasError('required')">Запрос обязателен</mat-error>
+      <mat-error *ngIf="queryControl?.hasError('minlength')">Минимум 3 символа</mat-error>
+      <mat-error *ngIf="queryControl?.hasError('maxlength')">Не больше 4000 символов</mat-error>
     </mat-form-field>
   </form>
 
