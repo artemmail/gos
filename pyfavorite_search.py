@@ -3,28 +3,41 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
 import pika
-from pika.adapters.blocking_connection import BlockingConnection, BlockingChannel
-
-import mssql_python
+import torch
+from mssql_python import connect
 from mssql_python.exceptions import IntegrityError
 
 from sentence_transformers import SentenceTransformer
 from tqdm.auto import tqdm
 
-# ========================
-#  НАСТРОЙКИ
-# ========================
+# ==============
+# НАСТРОЙКИ ЛОГИРОВАНИЯ
+# ==============
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+)
+logger = logging.getLogger("favorite_worker")
+
+# ============
+# КОНСТАНТЫ
+# ============
+
+EMBEDDING_MODEL_NAME = os.getenv(
+    "EMBEDDING_MODEL_NAME",
+    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+)
 
 DB_CONNECTION_STRING = os.getenv(
     "DB_CONNECTION_STRING",
-    # сюда подставь свою строку подключения, если не используешь env
-    "Driver={ODBC Driver 18 for SQL Server};"
+    # запасной вариант, если ничего не найдём в appsettings.json
     "Server=localhost;"
-    "Database=tender1;"
-    "UID=sa;PWD=your_password;"
+    "Database=Tender1;"
+    "Trusted_Connection=Yes;"
     "TrustServerCertificate=Yes;"
 )
 
@@ -39,201 +52,231 @@ DEFAULT_APPSETTINGS_PATHS = [
 
 def resolve_appsettings_path() -> str:
     env_path = os.getenv("APPSETTINGS_PATH")
-    if env_path:
-        if os.path.exists(env_path):
-            logger.info("Используем appsettings из переменной окружения: %s", env_path)
-            return env_path
-        logger.warning("APPSETTINGS_PATH задан, но файл не найден: %s", env_path)
+    if env_path and os.path.exists(env_path):
+        logger.info("Используем appsettings из переменной окружения: %s", env_path)
+        return env_path
 
-    for candidate in DEFAULT_APPSETTINGS_PATHS:
-        if os.path.exists(candidate):
-            logger.info("Используем appsettings: %s", candidate)
-            return candidate
+    for p in DEFAULT_APPSETTINGS_PATHS:
+        if os.path.exists(p):
+            logger.info("Используем appsettings: %s", p)
+            return p
 
-    # последний кандидат — первый из списка, чтобы load_appsettings отработал с предсказуемым путём
+    # если ничего не нашли — все равно вернем первый вариант по умолчанию
     logger.warning(
-        "Файл appsettings не найден ни по одному пути %s, пробуем первый: %s",
-        DEFAULT_APPSETTINGS_PATHS,
+        "appsettings.json не найден ни по одному из путей, "
+        "будет использован путь по умолчанию: %s",
         DEFAULT_APPSETTINGS_PATHS[0],
     )
     return DEFAULT_APPSETTINGS_PATHS[0]
 
-EMBEDDING_MODEL_NAME = os.getenv(
-    "EMBEDDING_MODEL_NAME",
-    "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-)
-
-# Сколько максимум фаворитов сохранять за один запрос
-MAX_FAVORITES_TO_SAVE = 500
-
-# ========================
-#  ЛОГГИРОВАНИЕ
-# ========================
-
-logger = logging.getLogger("favorite_worker")
-logger.setLevel(logging.INFO)
-
-_handler = logging.StreamHandler()
-_handler.setFormatter(
-    logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-)
-logger.addHandler(_handler)
-
-
-# ========================
-#  ЧТЕНИЕ appsettings.json
-# ========================
 
 def load_appsettings(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
-        logger.warning("Файл appsettings не найден: %s", path)
+        logger.warning("Файл appsettings.json не найден по пути: %s", path)
         return {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data
-    except Exception:
-        logger.exception("Не удалось прочитать/распарсить appsettings.json: %s", path)
-        return {}
+
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def build_rabbitmq_url_from_appsettings(config: Dict[str, Any]) -> str:
-    """
-    Берём настройки подключения RabbitMQ из:
+    event_bus = config.get("EventBus", {}).get("BusAccess", {})
+    host = event_bus.get("Host", "localhost")
+    username = event_bus.get("UserName", "guest")
+    password = event_bus.get("Password", "guest")
+    port = event_bus.get("Port", 5672)
 
-    "EventBus": {
-      ...
-      "BusAccess": {
-        "Host": "192.168.1.8",
-        "UserName": "admin",
-        "Password": "121212",
-        ...
-      }
-    }
-    """
-    event_bus = config.get("EventBus", {}) or {}
-    bus_access = event_bus.get("BusAccess", {}) or {}
-
-    host = bus_access.get("Host", "localhost")
-    user = bus_access.get("UserName", "guest")
-    password = bus_access.get("Password", "guest")
-
-    url = f"amqp://{user}:{password}@{host}:5672/"
-    logger.info(
-        "RabbitMQ URL собран из appsettings: amqp://%s:***@%s:5672/",
-        user,
-        host,
-    )
+    # пример: amqp://user:pass@host:5672/
+    url = f"amqp://{username}:{password}@{host}:{port}/"
+    logger.info("RabbitMQ URL собран из appsettings: %s", url)
     return url
 
 
 def resolve_favorite_queue_name(config: Dict[str, Any]) -> str:
-    """Возвращает очередь команд так же, как это делает .NET сервис.
-
-    Сервер публикует избранное через EventBusOptions.ResolveCommandQueueName(),
-    которая выбирает CommandQueueName, а если он пустой — QueueName. Любые
-    пользовательские переменные окружения для имени очереди здесь НЕ применяем,
-    чтобы слушать ровно ту очередь, куда отправляет сервер.
-    """
-
-    event_bus = config.get("EventBus", {}) or {}
-    queue_name = event_bus.get("CommandQueueName") or event_bus.get("QueueName")
-    if not queue_name or not str(queue_name).strip():
-        raise RuntimeError(
-            "CommandQueueName/QueueName не сконфигурированы в EventBus (см. appsettings)"
-        )
-
-    queue_name = str(queue_name).strip()
+    # имя очереди берём из ZakupkiOptions: FavoriteSearchCommandQueueName,
+    # если не указано — дефолт
+    zakupki_options = config.get("ZakupkiOptions", {})
+    queue_name = zakupki_options.get(
+        "FavoriteSearchCommandQueueName",
+        "w.ds_development_cmd_zak_local",
+    )
     logger.info("Имя очереди (ResolveCommandQueueName): %s", queue_name)
     return queue_name
 
 
-# ========================
-#  ДВИЖОК ПОИСКА
-# ========================
+# ============
+# МОДЕЛЬ EMBEDDINGS
+# ============
+
+
+class EmbeddingModel:
+    def __init__(self, model_name: str) -> None:
+        self.model_name = model_name
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info("loading embedding model: %s", model_name)
+        self._model = SentenceTransformer(model_name, device=self._device)
+
+    def encode(self, texts: Sequence[str]) -> np.ndarray:
+        # Возвращаем float32, как привычно в большинстве моделей
+        return self._model.encode(
+            list(texts),
+            convert_to_numpy=True,
+            show_progress_bar=False,
+            batch_size=16,
+        ).astype(np.float32)
+
+
+# ============
+# SQL-УТИЛИТЫ
+# ============
+
+
+def to_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def vector_to_mssql_bytes(vec: np.ndarray) -> bytes:
+    """
+    Преобразует numpy-вектор float32 в байты для вставки в VECTOR(768).
+    По сути — просто raw bytes массива.
+    """
+    return vec.tobytes()
+
+
+# ============
+# СТРУКТУРА КОМАНДЫ
+# ============
+
+
+class FavoriteSearchCommand:
+    def __init__(
+        self,
+        user_id: str,
+        query: str,
+        collecting_end_limit: Optional[datetime],
+        expired_only: bool,
+        top: int,
+        limit: Optional[int],
+    ) -> None:
+        self.user_id = user_id
+        self.query = query
+        self.collecting_end_limit = collecting_end_limit
+        self.expired_only = expired_only
+        self.top = top
+        self.limit = limit
+
+    @staticmethod
+    def from_json(data: Dict[str, Any]) -> "FavoriteSearchCommand":
+        user_id = data["userId"]
+        query = data["query"]
+        top = int(data.get("top", 20))
+        limit = data.get("limit")
+        if limit is not None:
+            limit = int(limit)
+
+        collecting_end_limit_raw = data.get("collectingEndLimit")
+        if collecting_end_limit_raw:
+            collecting_end_limit = datetime.fromisoformat(
+                collecting_end_limit_raw.replace("Z", "+00:00")
+            )
+        else:
+            collecting_end_limit = None
+
+        expired_only = bool(data.get("expiredOnly", False))
+
+        return FavoriteSearchCommand(
+            user_id=user_id,
+            query=query,
+            collecting_end_limit=collecting_end_limit,
+            expired_only=expired_only,
+            top=top,
+            limit=limit,
+        )
+
+
+# ============
+# ЯДРО ПОИСКА
+# ============
+
 
 class FavoriteSearchEngine:
-    def __init__(self, conn_str: str, embedding_model_name: str):
+    def __init__(self, conn_str: str, embedding_model_name: str) -> None:
         self._conn_str = conn_str
-
-        logger.info("loading embedding model: %s", embedding_model_name)
-        self._model = SentenceTransformer(embedding_model_name)
+        self._embedding = EmbeddingModel(embedding_model_name)
 
     def _get_connection(self):
-        # каждый раз новый коннект – проще и безопаснее для воркера
-        conn = mssql_python.connect(self._conn_str)
+        logger.debug("Открываем подключение к MS SQL")
+        conn = connect(self._conn_str)
         return conn
 
-    def _encode(self, text: str) -> List[float]:
-        emb = self._model.encode([text])[0]
-        return emb.tolist()
-
-    def _parse_collecting_end_limit(
-        self, collecting_end_limit_str: Optional[str]
-    ) -> datetime:
-        if not collecting_end_limit_str:
-            return datetime.now(timezone.utc)
-
-        # формат "2025-11-20T09:40:24.821Z"
-        s = collecting_end_limit_str
-        if s.endswith("Z"):
-            s = s.replace("Z", "+00:00")
-        return datetime.fromisoformat(s)
-
-    def process_command(self, command: Dict[str, Any]) -> None:
-        # структура команды (как в очереди):
-        # {
-        #   "UserId": "...",
-        #   "Query": "...",
-        #   "CollectingEndLimit": "2025-11-20T09:40:24.821Z",
-        #   "Top": 20,
-        #   "Limit": 500,
-        #   "ExpiredOnly": false
-        # }
-
-        user_id = command.get("UserId")
-        query = command.get("Query") or ""
-        collecting_end_limit_str = command.get("CollectingEndLimit")
-        top = int(command.get("Top") or 20)
-        limit = int(command.get("Limit") or 500)
-        expired_only = bool(command.get("ExpiredOnly") or False)
-
-        collecting_end_limit = self._parse_collecting_end_limit(
-            collecting_end_limit_str
-        )
-
-        logger.info("=== FAVORITE SEARCH REQUEST ===")
-        logger.info("query=%s", query)
-        logger.info("userId=%s", user_id)
-        logger.info("top=%s", top)
-        logger.info("collectingEndLimit=%s", collecting_end_limit)
-        logger.info("expiredOnly=%s", expired_only)
-
-        # 1. считаем эмбеддинг запроса
-        embedding = self._encode(query)
-        embedding_json = json.dumps(embedding)
-
-        # 2. выполняем поиск в БД
-        rows = self._search_notices(
-            embedding_json=embedding_json,
-            collecting_end_limit=collecting_end_limit,
-            top=top,
-        )
-
-        # 3. печатаем топ-20 как у тебя в логах
-        self._print_top(rows, top=top)
-
-        # 4. сохраняем избранное (если есть user_id)
-        if user_id:
-            self._save_favorites(user_id, query, rows)
+    def _encode_query(self, query: str) -> np.ndarray:
+        vec = self._embedding.encode([query])[0]
+        return vec
 
     def _search_notices(
         self,
-        embedding_json: str,
-        collecting_end_limit: datetime,
+        query: str,
+        collecting_end_limit: Optional[datetime],
+        expired_only: bool,
         top: int,
+        limit: Optional[int],
     ) -> List[Dict[str, Any]]:
-        sql = """
+        """
+        Основной SQL-запрос.
+
+        CLI-логика:
+        - берем TOP (@top) по Similarity
+        - фильтруем по n.CollectingEnd (если есть collectingEndLimit)
+        - если expired_only = True, то CollectingEnd < now
+        - если False — CollectingEnd >= now ИЛИ NULL
+        """
+        q_vec = self._encode_query(query)
+        q_bytes = vector_to_mssql_bytes(q_vec)
+
+        collecting_end_limit_utc: Optional[datetime] = None
+        if collecting_end_limit is not None:
+            collecting_end_limit_utc = to_utc(collecting_end_limit)
+
+        logger.info("=== FAVORITE SEARCH REQUEST ===")
+        logger.info("query=%s", query)
+        # userId в запросе не участвует, но логируем для отладки
+        logger.info("top=%s", top)
+        logger.info("collectingEndLimit=%s", collecting_end_limit_utc)
+        logger.info("expiredOnly=%s", expired_only)
+
+        now_utc = datetime.now(timezone.utc)
+
+        where_clauses = ["e.Model = ?"]
+        params: List[Any] = [EMBEDDING_MODEL_NAME]
+
+        # фильтр по collectingEnd
+        if collecting_end_limit_utc is not None:
+            if expired_only:
+                # Только просроченные (CollectingEnd < collectingEndLimit)
+                where_clauses.append("n.CollectingEnd IS NOT NULL AND n.CollectingEnd < ?")
+                params.append(collecting_end_limit_utc)
+            else:
+                # Не истекшие (CollectingEnd >= collectingEndLimit или NULL)
+                where_clauses.append(
+                    "(n.CollectingEnd IS NULL OR n.CollectingEnd >= ?)"
+                )
+                params.append(collecting_end_limit_utc)
+        else:
+            # collectingEndLimit не указан — фильтруем по "сейчас"
+            if expired_only:
+                where_clauses.append("n.CollectingEnd IS NOT NULL AND n.CollectingEnd < ?")
+                params.append(now_utc)
+            else:
+                where_clauses.append(
+                    "(n.CollectingEnd IS NULL OR n.CollectingEnd >= ?)"
+                )
+                params.append(now_utc)
+
+        where_sql = " AND ".join(where_clauses)
+
+        sql = f"""
         SELECT TOP (?)
             n.Id,
             n.PurchaseNumber,
@@ -248,186 +291,144 @@ class FavoriteSearchEngine:
             ) AS Similarity
         FROM NoticeEmbeddings e
         INNER JOIN Notices n ON n.Id = e.NoticeId
-        WHERE e.Model = ? AND (n.CollectingEnd IS NULL OR n.CollectingEnd >= ?)
+        WHERE {where_sql}
         ORDER BY Similarity DESC, n.UpdatedAt DESC
         """
 
-        model_name = EMBEDDING_MODEL_NAME
+        # Параметры: TOP, вектор, далее – параметры фильтра
+        full_params: List[Any] = [top, q_bytes] + params
 
         logger.info("SQL:\n%s", sql)
-        logger.info(
-            "PARAMS: [%s, '<EMBEDDING_JSON>', '%s', %s]",
-            top,
-            model_name,
-            collecting_end_limit,
+        # В лог – без огромного бинарника, поэтому показываем <EMBEDDING_JSON>
+        log_params = [full_params[0], "<EMBEDDING_JSON>"] + full_params[2:]
+        logger.info("PARAMS: %s", log_params)
+
+        rows: List[Dict[str, Any]] = []
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, tuple(full_params))
+                cols = [c[0] for c in cur.description]
+                for r in cur.fetchall():
+                    row_dict = {col: val for col, val in zip(cols, r)}
+                    rows.append(row_dict)
+
+        return rows
+
+    def process_command(self, cmd: FavoriteSearchCommand) -> None:
+        """
+        Обрабатывает одну команду.
+        """
+        rows = self._search_notices(
+            query=cmd.query,
+            collecting_end_limit=cmd.collecting_end_limit,
+            expired_only=cmd.expired_only,
+            top=cmd.top,
+            limit=cmd.limit,
         )
 
-        conn = self._get_connection()
-        try:
-            cursor = conn.cursor()
-            cursor.execute(
-                sql,
-                (top, embedding_json, model_name, collecting_end_limit)
-            )
-            results = []
-            for row in cursor.fetchall():
-                results.append(
-                    {
-                        "NoticeId": row[0],
-                        "PurchaseNumber": row[1],
-                        "EntryName": row[2],
-                        "PurchaseObjectInfo": row[3],
-                        "Similarity": float(row[4]),
-                    }
-                )
-            return results
-        finally:
-            conn.close()
-
-    def _print_top(self, rows: List[Dict[str, Any]], top: int = 20) -> None:
-        logger.info("")
-        logger.info("TOP-%d RESULTS:", top)
-        logger.info("=" * 80)
-
-        for idx, row in enumerate(rows[:top], start=1):
-            logger.info(
-                "%d. score=%.4f\n   PurchaseNumber: %s\n   NoticeId:       %s\n   Object:         %s\n   EntryName:      %s\n%s",
-                idx,
-                row["Similarity"],
-                row["PurchaseNumber"],
-                row["NoticeId"],
-                row["PurchaseObjectInfo"],
-                row["EntryName"],
-                "-" * 80,
-            )
-
-    def _save_favorites(
-        self,
-        user_id: str,
-        query: str,
-        rows: List[Dict[str, Any]],
-    ) -> None:
-        logger.info("")
-        logger.info("Saving favorites:")
-        logger.info("=" * 80)
-
         if not rows:
-            logger.info("Нет результатов для сохранения.")
+            logger.info("Нет результатов для запроса: %s", cmd.query)
             return
 
-        rows_to_save = rows[:MAX_FAVORITES_TO_SAVE]
-
-        conn = self._get_connection()
-        try:
-            cursor = conn.cursor()
-
-            # сначала создаём запись в таблице FavoriteSearches (если есть такая)
-            # если у тебя другая схема, адаптируй под неё
-            insert_search_sql = """
-            INSERT INTO FavoriteSearches (UserId, Query, CreatedAt)
-            OUTPUT inserted.Id
-            VALUES (?, ?, SYSUTCDATETIME())
-            """
-            cursor.execute(insert_search_sql, (user_id, query))
-            favorite_search_id = cursor.fetchone()[0]
-
-            # затем — в FavoriteNotices
-            insert_notice_sql = """
-            INSERT INTO FavoriteNotices (FavoriteSearchId, UserId, NoticeId, Score)
-            VALUES (?, ?, ?, ?)
-            """
-
-            # tqdm просто чтобы у тебя в логах оставалось "Batches: 100% |"
-            for row in tqdm([rows_to_save], desc="Batches"):
-                for item in row:
-                    cursor.execute(
-                        insert_notice_sql,
-                        (
-                            favorite_search_id,
-                            user_id,
-                            item["NoticeId"],
-                            item["Similarity"],
-                        ),
-                    )
-
-            conn.commit()
-        finally:
-            conn.close()
+        logger.info("Найдено записей: %d", len(rows))
+        for i, r in enumerate(rows[:5], start=1):
+            logger.info(
+                "[%d] #%s (%s) — %.4f",
+                i,
+                r.get("PurchaseNumber"),
+                (r.get("EntryName") or "")[:80],
+                r.get("Similarity"),
+            )
 
 
-# ========================
-#  ВОРКЕР ДЛЯ ОЧЕРЕДИ
-# ========================
+# ============
+# ОБРАБОТЧИК СООБЩЕНИЙ ИЗ ОЧЕРЕДИ
+# ============
+
 
 class FavoriteSearchWorker:
-    def __init__(self, engine: FavoriteSearchEngine, rabbitmq_url: str, queue_name: str):
+    def __init__(self, engine: FavoriteSearchEngine, queue_name: str) -> None:
         self._engine = engine
-        self._rabbitmq_url = rabbitmq_url
         self._queue_name = queue_name
 
-        params = pika.URLParameters(self._rabbitmq_url)
-        self._connection: BlockingConnection = pika.BlockingConnection(params)
-        self._channel: BlockingChannel = self._connection.channel()
-
-        # гарантируем, что очередь есть
-        self._channel.queue_declare(queue=self._queue_name, durable=True)
-
-    def _process_message(self, body: bytes) -> None:
+    def _on_message(self, ch, method, properties, body: bytes) -> None:
         logger.info("message received")
+        try:
+            data = json.loads(body.decode("utf-8"))
+        except Exception as e:
+            logger.error("Не удалось распарсить JSON команды: %s", e, exc_info=True)
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
 
         try:
-            command = json.loads(body.decode("utf-8"))
-        except Exception:
-            logger.exception("Не удалось распарсить JSON, пропускаю сообщение")
+            command = FavoriteSearchCommand.from_json(data)
+        except Exception as e:
+            logger.error("Ошибка при разборе FavoriteSearchCommand: %s", e, exc_info=True)
+            ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
         try:
             self._engine.process_command(command)
-        except IntegrityError as e:
-            # FK по AspNetUsers — просто логируем и пропускаем
-            msg = str(e)
-            if "FK_FavoriteNotices_AspNetUsers_UserId" in msg:
-                user_id = command.get("UserId")
-                logger.warning(
-                    "Пользователь %s не найден в AspNetUsers (FK ошибка). "
-                    "Фавориты не сохранены, сообщение пропущено.",
-                    user_id,
-                )
-            else:
-                logger.exception("SQL IntegrityError при обработке, сообщение пропущено")
-        except Exception:
-            logger.exception("Общая ошибка при обработке сообщения, сообщение пропущено")
+        except Exception as e:
+            logger.error(
+                "Общая ошибка при обработке сообщения, сообщение пропущено",
+                exc_info=True,
+            )
+        finally:
+            ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    def start(self) -> None:
-        def callback(ch, method, properties, body):
+    def run(self, rabbitmq_url: str) -> None:
+        """
+        Основной цикл: подключение к RabbitMQ, подписка на очередь, обработка сообщений.
+        """
+        logger.info("FavoriteSearchWorker запущен. Ожидание сообщений из очереди '%s'...", self._queue_name)
+
+        while True:
             try:
-                self._process_message(body)
-            finally:
-                # ВАЖНО: ACK ВСЕГДА, даже если внутри была ошибка
-                # чтобы сообщение не зацикливалось
-                ch.basic_ack(delivery_tag=method.delivery_tag)
+                params = pika.URLParameters(rabbitmq_url)
+                connection = pika.BlockingConnection(params)
+                channel = connection.channel()
 
-        self._channel.basic_qos(prefetch_count=1)
-        self._channel.basic_consume(
-            queue=self._queue_name,
-            on_message_callback=callback,
-        )
+                channel.queue_declare(queue=self._queue_name, durable=True)
+                channel.basic_qos(prefetch_count=1)
+                channel.basic_consume(
+                    queue=self._queue_name,
+                    on_message_callback=self._on_message,
+                )
 
-        logger.info(
-            "FavoriteSearchWorker запущен. Ожидание сообщений из очереди '%s'...",
-            self._queue_name,
-        )
-        self._channel.start_consuming()
+                channel.start_consuming()
+            except KeyboardInterrupt:
+                logger.info("Остановка по Ctrl+C")
+                break
+            except Exception as e:
+                logger.error("Ошибка подключения/обработки из RabbitMQ: %s", e, exc_info=True)
+                time.sleep(5.0)
 
 
-# ========================
-#  MAIN
-# ========================
+# ============
+# Точка входа
+# ============
+
 
 def main():
     # грузим appsettings
     appsettings_path = resolve_appsettings_path()
     config = load_appsettings(appsettings_path)
+
+    # Строка подключения к БД:
+    # 1) если есть переменная окружения DB_CONNECTION_STRING – используем её
+    # 2) иначе берём ConnectionStrings.Default из appsettings.json
+    # 3) если и там пусто – используем DB_CONNECTION_STRING (запасной вариант сверху)
+    conn_str_env = os.getenv("DB_CONNECTION_STRING")
+    if conn_str_env:
+        conn_str = conn_str_env
+        logger.info("Строка подключения к БД взята из DB_CONNECTION_STRING")
+    else:
+        conn_str = (
+            (config.get("ConnectionStrings") or {}).get("Default")
+            or DB_CONNECTION_STRING
+        )
+        logger.info("Строка подключения к БД взята из appsettings ConnectionStrings:Default")
 
     # URL RabbitMQ:
     # 1) если есть переменная окружения RABBITMQ_URL – используем её
@@ -442,30 +443,20 @@ def main():
     queue_name = resolve_favorite_queue_name(config)
 
     engine = FavoriteSearchEngine(
-        conn_str=DB_CONNECTION_STRING,
+        conn_str=conn_str,
         embedding_model_name=EMBEDDING_MODEL_NAME,
     )
 
     # петля переподключения к RabbitMQ
     while True:
         try:
-            worker = FavoriteSearchWorker(engine, rabbitmq_url, queue_name)
-            worker.start()
-        except pika.exceptions.AMQPConnectionError:
-            logger.exception(
-                "Ошибка подключения к RabbitMQ (%s). "
-                "Пробую переподключиться через 5 секунд...",
-                rabbitmq_url,
-            )
-            time.sleep(5)
+            worker = FavoriteSearchWorker(engine, queue_name=queue_name)
+            worker.run(rabbitmq_url=rabbitmq_url)
         except KeyboardInterrupt:
-            logger.info("Остановка по Ctrl+C")
             break
-        except Exception:
-            logger.exception(
-                "Необработанная ошибка в воркере, перезапуск через 5 секунд..."
-            )
-            time.sleep(5)
+        except Exception as e:
+            logger.error("Ошибка верхнего уровня в FavoriteSearchWorker: %s", e, exc_info=True)
+            time.sleep(5.0)
 
 
 if __name__ == "__main__":
