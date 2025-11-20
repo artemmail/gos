@@ -9,6 +9,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
     // ����������� ���������� ��� VECTOR
     private const int NoticeEmbeddingVectorDimensions = 768;
+    private const int QueryVectorDimensions = 768;
 
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
@@ -189,7 +190,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(q => q.UserId).HasMaxLength(450);
         entity.Property(q => q.Query).HasMaxLength(4000);
-        entity.Property(q => q.VectorJson).HasColumnType("nvarchar(max)");
+        entity.Property(q => q.Vector)
+            .HasColumnType($"vector({QueryVectorDimensions})");
         entity.Property(q => q.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
 
         entity.HasIndex(q => new { q.UserId, q.CreatedAt })

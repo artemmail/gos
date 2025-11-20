@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlTypes;
 using System;
 
 namespace Zakupki.Fetcher.Data.Entities;
@@ -10,7 +11,7 @@ public class UserQueryVector
 
     public string Query { get; set; } = null!;
 
-    public string? VectorJson { get; set; }
+    public SqlVector<float>? Vector { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

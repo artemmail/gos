@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
+using Microsoft.Data.SqlTypes;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -110,7 +110,8 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
             return;
         }
 
-        entity.VectorJson = JsonSerializer.Serialize(result.Vector);
+        var vector = result.Vector?.Select(v => (float)v).ToArray();
+        entity.Vector = vector != null ? new SqlVector<float>(vector) : null;
         entity.UpdatedAt = DateTime.UtcNow;
         entity.CompletedAt = DateTime.UtcNow;
 
