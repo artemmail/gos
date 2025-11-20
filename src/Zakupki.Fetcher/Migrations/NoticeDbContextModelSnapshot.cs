@@ -751,7 +751,7 @@ namespace Zakupki.Fetcher.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<SqlVector<float>>("Vector")
-                        .HasColumnType("vector(768)");
+                        .HasColumnType("vector(768, float32)");
 
                     b.HasKey("Id");
 
@@ -958,7 +958,7 @@ namespace Zakupki.Fetcher.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<SqlVector<float>>("Vector")
-                        .HasColumnType("vector(768)");
+                        .HasColumnType("vector(768, float32)");
 
                     b.HasKey("Id");
 
