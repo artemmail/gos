@@ -191,6 +191,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(q => q.UserId).HasMaxLength(450);
         entity.Property(q => q.Query).HasMaxLength(4000);
         entity.Property(q => q.Vector)
+            .HasMaxLength(QueryVectorDimensions)
             .HasColumnType($"vector({QueryVectorDimensions}, float32)");
         entity.Property(q => q.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
 
