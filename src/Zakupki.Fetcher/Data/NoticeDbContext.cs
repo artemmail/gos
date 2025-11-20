@@ -312,7 +312,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         // �������� VECTOR-������� SQL Server 2025, ��� �����������
         entity.Property(e => e.Vector)
-            .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
+            .HasColumnType($"vector({NoticeEmbeddingVectorDimensions}, float32)");
 
         entity.Property(e => e.Source).HasMaxLength(100);
 
