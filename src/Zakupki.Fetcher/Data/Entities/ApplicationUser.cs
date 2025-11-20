@@ -23,4 +23,6 @@ public class ApplicationUser : IdentityUser
     public ICollection<NoticeAnalysis> NoticeAnalyses { get; set; } = new List<NoticeAnalysis>();
 
     public ICollection<FavoriteNotice> FavoriteNotices { get; set; } = new List<FavoriteNotice>();
+
+    public ICollection<UserQueryVector> QueryVectors { get; set; } = new List<UserQueryVector>();
 }

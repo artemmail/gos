@@ -1,0 +1,24 @@
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.error {
+  color: #c62828;
+  margin-bottom: 12px;
+}
+
+.table-wrapper {
+  overflow: auto;
+}
+
+.table-wrapper table {
+  width: 100%;
+}
+
+.empty {
+  padding: 24px;
+  color: #757575;
+  text-align: center;
+}

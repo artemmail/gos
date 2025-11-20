@@ -59,6 +59,38 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         return Task.CompletedTask;
     }
 
+    public Task PublishQueryVectorRequestAsync(QueryVectorCommand command, CancellationToken cancellationToken)
+    {
+        if (!_options.Enabled)
+        {
+            throw new InvalidOperationException("Event bus disabled");
+        }
+
+        var requestQueue = GetQueryVectorRequestQueueName();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var channel = EnsureChannel();
+        var payload = JsonSerializer.Serialize(command);
+        var body = Encoding.UTF8.GetBytes(payload);
+
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+
+        channel.BasicPublish(
+            exchange: string.Empty,
+            routingKey: requestQueue,
+            mandatory: false,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogDebug(
+            "Query vector task published for request {RequestId}",
+            command.Id);
+
+        return Task.CompletedTask;
+    }
+
     private IModel EnsureChannel()
     {
         if (_channel is { IsOpen: true })
@@ -123,6 +155,26 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
             exclusive: false,
             autoDelete: false,
             arguments: null);
+
+        if (!string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName))
+        {
+            channel.QueueDeclare(
+                queue: _options.QueryVectorRequestQueueName,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.QueryVectorResponseQueueName))
+        {
+            channel.QueueDeclare(
+                queue: _options.QueryVectorResponseQueueName,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+        }
     }
 
     private string GetCommandQueueName()
@@ -134,6 +186,16 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         }
 
         return commandQueueName;
+    }
+
+    private string GetQueryVectorRequestQueueName()
+    {
+        if (string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName))
+        {
+            throw new InvalidOperationException("Query vector request queue is not configured in EventBus options.");
+        }
+
+        return _options.QueryVectorRequestQueueName;
     }
 
     private void DisposeChannel()

@@ -7,7 +7,7 @@ namespace Zakupki.Fetcher.Data;
 
 public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
-    // Размерность эмбеддинга под VECTOR
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ VECTOR
     private const int NoticeEmbeddingVectorDimensions = 768;
 
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
@@ -28,6 +28,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<NoticeAnalysis> NoticeAnalyses => Set<NoticeAnalysis>();
     public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
     public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
+    public DbSet<UserQueryVector> UserQueryVectors => Set<UserQueryVector>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureNoticeAnalysis(modelBuilder);
         ConfigureNoticeEmbedding(modelBuilder);
         ConfigureFavoriteNotice(modelBuilder);
+        ConfigureUserQueryVector(modelBuilder);
     }
 
     private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
@@ -68,6 +70,12 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .HasMany(u => u.FavoriteNotices)
             .WithOne(f => f.User)
             .HasForeignKey(f => f.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        userEntity
+            .HasMany(u => u.QueryVectors)
+            .WithOne(q => q.User)
+            .HasForeignKey(q => q.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var regionEntity = modelBuilder.Entity<ApplicationUserRegion>();
@@ -170,6 +178,22 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.HasOne(v => v.SearchVector)
             .WithOne(s => s.NoticeVersion)
             .HasForeignKey<NoticeSearchVector>(s => s.NoticeVersionId);
+    }
+
+
+    private static void ConfigureUserQueryVector(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<UserQueryVector>();
+        entity.ToTable("UserQueryVectors");
+        entity.HasKey(q => q.Id);
+
+        entity.Property(q => q.UserId).HasMaxLength(450);
+        entity.Property(q => q.Query).HasMaxLength(4000);
+        entity.Property(q => q.VectorJson).HasColumnType("nvarchar(max)");
+        entity.Property(q => q.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+        entity.HasIndex(q => new { q.UserId, q.CreatedAt })
+            .HasDatabaseName("IX_UserQueryVectors_User_CreatedAt");
     }
 
     private static void ConfigureContract(ModelBuilder modelBuilder)
@@ -283,7 +307,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(e => e.Model).HasMaxLength(200);
 
-        // Нативный VECTOR-столбец SQL Server 2025, без конвертеров
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ VECTOR-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ SQL Server 2025, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         entity.Property(e => e.Vector)
             .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
 

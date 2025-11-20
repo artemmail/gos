@@ -1,0 +1,45 @@
+<div class="toolbar">
+  <button mat-raised-button color="primary" (click)="openAddDialog()">Добавить запрос</button>
+</div>
+
+<div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+<div class="table-wrapper" *ngIf="vectors.length > 0; else emptyState">
+  <table mat-table [dataSource]="vectors" class="mat-elevation-z1">
+    <ng-container matColumnDef="id">
+      <th mat-header-cell *matHeaderCellDef>GUID</th>
+      <td mat-cell *matCellDef="let element">{{ element.id }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="userId">
+      <th mat-header-cell *matHeaderCellDef>ID пользователя</th>
+      <td mat-cell *matCellDef="let element">{{ element.userId }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="query">
+      <th mat-header-cell *matHeaderCellDef>Запрос</th>
+      <td mat-cell *matCellDef="let element">{{ element.query }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="vector">
+      <th mat-header-cell *matHeaderCellDef>Вектор</th>
+      <td mat-cell *matCellDef="let element">{{ vectorPreview(element.vector) }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let element">
+        <button mat-stroked-button color="warn" (click)="delete(element)" [disabled]="isLoading">
+          Удалить
+        </button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+  </table>
+</div>
+
+<ng-template #emptyState>
+  <div class="empty">Запросов пока нет.</div>
+</ng-template>
