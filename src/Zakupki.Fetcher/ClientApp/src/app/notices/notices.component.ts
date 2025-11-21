@@ -30,6 +30,7 @@ import { RegionsService } from '../services/regions.service';
   styleUrls: ['./notices.component.css']
 })
 export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
+  private readonly defaultSearchMode: SearchMode = 'direct';
   displayedColumns: string[] = [
     'favorite',
     'purchaseNumber',
@@ -63,9 +64,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   favoriteProgress: Record<string, boolean> = {};
   isFavoritesPage = false;
   similarityOptions = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90];
-  readonly directSearchTabIndex = 0;
-  readonly semanticSearchTabIndex = 1;
-  activeSearchTabIndex = this.directSearchTabIndex;
+  searchModeControl = new FormControl<SearchMode>(this.defaultSearchMode, { nonNullable: true });
+  expiredOnlyControl = new FormControl<boolean>(false, { nonNullable: true });
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
@@ -79,8 +79,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       nonNullable: true,
       validators: [Validators.required]
     }),
-    similarityThreshold: new FormControl<number>(60, { nonNullable: true }),
-    expiredOnly: new FormControl<boolean>(false, { nonNullable: true })
+    similarityThreshold: new FormControl<number>(60, { nonNullable: true })
   });
 
   vectorSearchInProgress = false;
@@ -475,21 +474,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       : 'Поиск, сортировка и навигация по таблице данных о закупках';
   }
 
-  onSearchTabChange(index: number): void {
-    this.activeSearchTabIndex = index;
-
-    if (index === this.directSearchTabIndex && this.vectorSearchCriteria) {
-      this.resetVectorCriteria();
-
-      if (this.paginator && this.paginator.pageIndex !== 0) {
-        this.paginator.firstPage();
-        return;
-      }
-
-      this.loadNotices();
-    }
-  }
-
   runVectorSearch(): void {
     if (this.vectorSearchInProgress) {
       return;
@@ -508,7 +492,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const expiredOnly = this.favoriteSearchForm.controls.expiredOnly.value;
+    const expiredOnly = this.expiredOnlyControl.value;
     const similarityThresholdPercent = this.favoriteSearchForm.controls.similarityThreshold.value;
 
     this.vectorSearchCriteria = {
@@ -529,10 +513,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   clearVectorSearch(): void {
-    if (!this.vectorSearchCriteria) {
-      return;
-    }
-
     this.resetVectorCriteria();
 
     if (this.paginator && this.paginator.pageIndex !== 0) {
@@ -547,4 +527,57 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.vectorSearchCriteria = null;
     this.vectorSearchInProgress = false;
   }
+
+  get isDirectSearch(): boolean {
+    return this.searchModeControl.value === 'direct';
+  }
+
+  get isSemanticSearch(): boolean {
+    return this.searchModeControl.value === 'semantic';
+  }
+
+  onSearchModeChange(mode: SearchMode): void {
+    const previousMode = this.searchModeControl.value;
+    this.searchModeControl.setValue(mode);
+
+    if (previousMode === 'semantic' && mode === 'direct' && this.vectorSearchCriteria) {
+      this.clearVectorSearch();
+    }
+  }
+
+  onSubmitSearch(): void {
+    if (this.isDirectSearch) {
+      this.applyFilters();
+      return;
+    }
+
+    this.runVectorSearch();
+  }
+
+  onResetSearch(): void {
+    this.expiredOnlyControl.setValue(false);
+
+    if (this.isDirectSearch) {
+      this.resetFilters();
+      return;
+    }
+
+    this.resetFavoriteSearchForm();
+  }
+
+  private resetFavoriteSearchForm(): void {
+    const defaultQuery = this.queryVectors[0]?.id ?? '';
+
+    this.favoriteSearchForm.reset({
+      queryVectorId: defaultQuery,
+      similarityThreshold: 60
+    });
+
+    this.favoriteSearchForm.markAsPristine();
+    this.favoriteSearchForm.markAsUntouched();
+
+    this.clearVectorSearch();
+  }
 }
+
+type SearchMode = 'direct' | 'semantic';

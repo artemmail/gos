@@ -31,12 +31,16 @@ mat-card {
   color: rgba(0, 0, 0, 0.54);
 }
 
-.search-tabs {
+.search-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 
-.search-tabs .mat-mdc-tab-body-content {
-  padding-top: 12px;
+.search-mode-field {
+  min-width: 240px;
 }
 
 .user-card {
