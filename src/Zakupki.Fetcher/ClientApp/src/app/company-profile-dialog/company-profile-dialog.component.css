@@ -25,3 +25,35 @@
 .message.success {
   color: #2e7d32;
 }
+
+.vector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-header h3 {
+  margin: 0;
+}
+
+.hint {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+}
+
+.table-wrapper {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.empty-state {
+  color: rgba(0, 0, 0, 0.6);
+}
