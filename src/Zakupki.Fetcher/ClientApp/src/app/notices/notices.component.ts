@@ -47,9 +47,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     'collectingEnd',
     'submissionProcedureDateRaw',
     'etpName',
-    'documentType',
-    'source',
-    'updatedAt',
     'analysisStatus',
     'analysis',
     'rawJson',
@@ -263,7 +260,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     const data: AttachmentDialogData = {
       noticeId: notice.id,
       purchaseNumber: notice.purchaseNumber,
-      entryName: notice.entryName
+      title: this.getNoticeTitle(notice)
     };
 
     this.dialog.open(AttachmentsDialogComponent, {
@@ -281,7 +278,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const data: RawJsonDialogData = {
       purchaseNumber: notice.purchaseNumber,
-      entryName: notice.entryName,
+      title: this.getNoticeTitle(notice),
       rawJson
     };
 
@@ -388,6 +385,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     return !Number.isNaN(collectingEndDate.getTime()) && collectingEndDate.getTime() < Date.now();
   }
 
+  private getNoticeTitle(notice: NoticeListItem): string {
+    return notice.purchaseObjectInfo || `Закупка ${notice.purchaseNumber}`;
+  }
+
   private updateNoticeAnalysis(notice: NoticeListItem, response: NoticeAnalysisResponse): void {
     notice.analysisStatus = response.status ?? null;
     notice.hasAnalysisAnswer = response.hasAnswer;
@@ -397,7 +398,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       const data: NoticeAnalysisDialogData = {
         noticeId: notice.id,
         purchaseNumber: notice.purchaseNumber,
-        entryName: notice.entryName,
+        title: this.getNoticeTitle(notice),
         result: response.result ?? null,
         completedAt: response.completedAt ?? null,
         prompt: response.prompt ?? null,

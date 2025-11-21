@@ -1,6 +1,6 @@
 export interface RawJsonDialogData {
   purchaseNumber: string;
-  entryName: string;
+  title: string;
   rawJson: string;
 }
 

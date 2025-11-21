@@ -3,7 +3,7 @@
 </h2>
 
 <mat-dialog-content class="analysis-content">
-  <p class="entry-name">{{ data.entryName }}</p>
+  <p class="entry-name">{{ data.title }}</p>
   <p class="timestamp" *ngIf="data.completedAt">
     Получено: {{ data.completedAt | date: 'short' }}
   </p>

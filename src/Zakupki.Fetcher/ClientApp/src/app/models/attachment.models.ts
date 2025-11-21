@@ -32,5 +32,5 @@ export interface AttachmentMarkdownConversionResult {
 export interface AttachmentDialogData {
   noticeId: string;
   purchaseNumber: string;
-  entryName: string;
+  title: string;
 }

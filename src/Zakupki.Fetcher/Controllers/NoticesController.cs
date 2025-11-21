@@ -254,19 +254,11 @@ public class NoticesController : ControllerBase
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
-                x.Notice.EntryName,
                 x.Notice.PublishDate,
                 x.Notice.EtpName,
-                x.Notice.DocumentType,
-                x.Notice.Source,
-                x.Notice.UpdatedAt,
                 x.Notice.Region,
-                x.Notice.Period,
-                x.Notice.PlacingWayName,
                 x.Notice.PurchaseObjectInfo,
                 x.Notice.MaxPrice,
-                x.Notice.MaxPriceCurrencyCode,
-                x.Notice.MaxPriceCurrencyName,
                 x.Notice.Okpd2Code,
                 x.Notice.Okpd2Name,
                 x.Notice.KvrCode,
@@ -422,19 +414,11 @@ public class NoticesController : ControllerBase
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
-                x.Notice.EntryName,
                 x.Notice.PublishDate,
                 x.Notice.EtpName,
-                x.Notice.DocumentType,
-                x.Notice.Source,
-                x.Notice.UpdatedAt,
                 x.Notice.Region,
-                x.Notice.Period,
-                x.Notice.PlacingWayName,
                 x.Notice.PurchaseObjectInfo,
                 x.Notice.MaxPrice,
-                x.Notice.MaxPriceCurrencyCode,
-                x.Notice.MaxPriceCurrencyName,
                 x.Notice.Okpd2Code,
                 x.Notice.Okpd2Name,
                 x.Notice.KvrCode,
@@ -584,19 +568,11 @@ public class NoticesController : ControllerBase
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
-                x.Notice.EntryName,
                 x.Notice.PublishDate,
                 x.Notice.EtpName,
-                x.Notice.DocumentType,
-                x.Notice.Source,
-                x.Notice.UpdatedAt,
                 x.Notice.Region,
-                x.Notice.Period,
-                x.Notice.PlacingWayName,
                 x.Notice.PurchaseObjectInfo,
                 x.Notice.MaxPrice,
-                x.Notice.MaxPriceCurrencyCode,
-                x.Notice.MaxPriceCurrencyName,
                 x.Notice.Okpd2Code,
                 x.Notice.Okpd2Name,
                 x.Notice.KvrCode,
@@ -1145,30 +1121,12 @@ public class NoticesController : ControllerBase
             "purchasenumber" => descending
                 ? query.OrderByDescending(n => n.PurchaseNumber)
                 : query.OrderBy(n => n.PurchaseNumber),
-            "entryname" => descending
-                ? query.OrderByDescending(n => n.EntryName)
-                : query.OrderBy(n => n.EntryName),
             "etpname" => descending
                 ? query.OrderByDescending(n => n.EtpName)
                 : query.OrderBy(n => n.EtpName),
-            "documenttype" => descending
-                ? query.OrderByDescending(n => n.DocumentType)
-                : query.OrderBy(n => n.DocumentType),
-            "source" => descending
-                ? query.OrderByDescending(n => n.Source)
-                : query.OrderBy(n => n.Source),
-            "updatedat" => descending
-                ? query.OrderByDescending(n => n.UpdatedAt)
-                : query.OrderBy(n => n.UpdatedAt),
             "region" => descending
                 ? query.OrderByDescending(n => n.Region)
                 : query.OrderBy(n => n.Region),
-            "period" => descending
-                ? query.OrderByDescending(n => n.Period)
-                : query.OrderBy(n => n.Period),
-            "placingwayname" => descending
-                ? query.OrderByDescending(n => n.PlacingWayName)
-                : query.OrderBy(n => n.PlacingWayName),
             "purchaseobjectinfo" => descending
                 ? query.OrderByDescending(n => n.PurchaseObjectInfo)
                 : query.OrderBy(n => n.PurchaseObjectInfo),
@@ -1212,19 +1170,11 @@ public class NoticesController : ControllerBase
 public record NoticeListItemDto(
     Guid Id,
     string PurchaseNumber,
-    string EntryName,
     DateTime? PublishDate,
     string? EtpName,
-    string DocumentType,
-    string Source,
-    DateTime UpdatedAt,
     string? Region,
-    string? Period,
-    string? PlacingWayName,
     string? PurchaseObjectInfo,
     decimal? MaxPrice,
-    string? MaxPriceCurrencyCode,
-    string? MaxPriceCurrencyName,
     string? Okpd2Code,
     string? Okpd2Name,
     string? KvrCode,
