@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -10,6 +10,9 @@ import {
   UserCompanyProfile,
   UserCompanyService
 } from '../services/user-company.service';
+import { QueryVectorService } from '../services/query-vector.service';
+import { UserQueryVectorDto } from '../models/query-vector.models';
+import { QueryVectorDialogComponent } from '../query-vectors/query-vector-dialog.component';
 
 @Component({
   selector: 'app-company-profile-dialog',
@@ -19,17 +22,24 @@ import {
 export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   form: FormGroup;
   availableRegions: RegionOption[] = [];
+  queryVectors: UserQueryVectorDto[] = [];
+  vectorColumns = ['query', 'vector', 'actions'];
   isLoading = false;
   isSaving = false;
+  isVectorsLoading = false;
+  isVectorActionInProgress = false;
   errorMessage = '';
   successMessage = '';
+  vectorsErrorMessage = '';
 
   private readonly destroy$ = new Subject<void>();
 
   constructor(
     private readonly dialogRef: MatDialogRef<CompanyProfileDialogComponent>,
     private readonly fb: FormBuilder,
-    private readonly userCompanyService: UserCompanyService
+    private readonly userCompanyService: UserCompanyService,
+    private readonly queryVectorService: QueryVectorService,
+    private readonly dialog: MatDialog
   ) {
     this.form = this.fb.group({
       companyInfo: ['', [Validators.maxLength(8000)]],
@@ -39,6 +49,7 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadProfile();
+    this.loadVectors();
   }
 
   ngOnDestroy(): void {
@@ -77,6 +88,69 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
       });
   }
 
+  openAddVectorDialog(): void {
+    if (this.isVectorActionInProgress) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open(QueryVectorDialogComponent, { width: '600px' });
+
+    dialogRef
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(created => {
+        if (created) {
+          this.loadVectors();
+        }
+      });
+  }
+
+  deleteVector(item: UserQueryVectorDto): void {
+    if (this.isVectorActionInProgress || this.isVectorsLoading) {
+      return;
+    }
+
+    if (!confirm('Удалить запрос?')) {
+      return;
+    }
+
+    this.isVectorActionInProgress = true;
+    this.vectorsErrorMessage = '';
+
+    this.queryVectorService
+      .delete(item.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.queryVectors = this.queryVectors.filter(vector => vector.id !== item.id);
+          this.isVectorActionInProgress = false;
+        },
+        error: () => {
+          this.vectorsErrorMessage = 'Не удалось удалить векторный запрос.';
+          this.isVectorActionInProgress = false;
+        }
+      });
+  }
+
+  vectorPreview(vector?: number[] | null): string {
+    if (!vector || vector.length === 0) {
+      return '—';
+    }
+
+    const preview = vector.slice(0, 5).map(v => v.toFixed(4)).join(', ');
+    return vector.length > 5 ? `${preview} …` : preview;
+  }
+
+  get canSave(): boolean {
+    return (
+      !this.isSaving &&
+      !this.isLoading &&
+      !this.isVectorsLoading &&
+      this.queryVectors.length > 0 &&
+      this.form.valid
+    );
+  }
+
   private loadProfile(): void {
     this.isLoading = true;
     this.errorMessage = '';
@@ -90,6 +164,25 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные компании.';
           this.isLoading = false;
+        }
+      });
+  }
+
+  private loadVectors(): void {
+    this.isVectorsLoading = true;
+    this.vectorsErrorMessage = '';
+
+    this.queryVectorService
+      .getAll()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: vectors => {
+          this.queryVectors = vectors;
+          this.isVectorsLoading = false;
+        },
+        error: () => {
+          this.vectorsErrorMessage = 'Не удалось загрузить векторные запросы.';
+          this.isVectorsLoading = false;
         }
       });
   }
