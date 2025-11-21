@@ -183,11 +183,17 @@ public class NoticesController : ControllerBase
 
         // Считаем similarity в памяти: similarity = 1 - distance
         var orderLookup = pageMatches
-            .Select((m, index) => new
+            .Select((m, index) =>
             {
-                m.NoticeId,
-                Index = index,
-                Similarity = (double?)(1.0 - m.Distance)
+                var cosineSimilarity = 1.0 - m.Distance;
+                var similarity = ToAngularSimilarity(cosineSimilarity);
+
+                return new
+                {
+                    m.NoticeId,
+                    Index = index,
+                    Similarity = similarity
+                };
             })
             .ToDictionary(
                 x => x.NoticeId,
@@ -1100,6 +1106,13 @@ public class NoticesController : ControllerBase
                 : query.OrderBy(n => n.PublishDate)
                     .ThenBy(n => n.Id)
         };
+    }
+
+    private static double ToAngularSimilarity(double cosineSimilarity)
+    {
+        var clampedCosine = Math.Clamp(cosineSimilarity, -1.0, 1.0);
+        var similarity = 1.0 - Math.Acos(clampedCosine) / Math.PI;
+        return similarity;
     }
 
     private static string GetContentType(string fileName)
