@@ -17,11 +17,12 @@ import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
 import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
-import { determineRegionFromRawJson, getRegionDisplayName } from '../constants/regions';
+import { determineRegionFromRawJson } from '../constants/regions';
 import { FavoritesService } from '../services/favorites.service';
 import { QueryVectorService } from '../services/query-vector.service';
 import { UserQueryVectorDto } from '../models/query-vector.models';
 import { NoticeVectorQuery } from '../models/notice.models';
+import { RegionsService } from '../services/regions.service';
 
 @Component({
   selector: 'app-notices',
@@ -96,12 +97,14 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly snackBar: MatSnackBar,
     private readonly favoritesService: FavoritesService,
     private readonly queryVectorService: QueryVectorService,
-    private readonly route: ActivatedRoute
+    private readonly route: ActivatedRoute,
+    private readonly regionsService: RegionsService
   ) {
     this.isFavoritesPage = this.route.snapshot.data?.['favorites'] === true;
   }
 
   ngOnInit(): void {
+    this.preloadRegions();
     this.loadQueryVectors();
   }
 
@@ -118,6 +121,19 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(() => this.loadNotices());
 
     Promise.resolve().then(() => this.loadNotices());
+  }
+
+  private preloadRegions(): void {
+    this.regionsService
+      .getRegions()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: () => {
+          this.snackBar.open('Не удалось загрузить список регионов. Будут показаны коды.', 'Закрыть', {
+            duration: 4000
+          });
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -400,7 +416,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getRegionLabel(notice: NoticeListItem): string {
     const regionCode = notice.computedRegion ?? notice.region;
-    const label = getRegionDisplayName(regionCode);
+    const label = this.regionsService.getRegionLabel(regionCode);
 
     if (label) {
       return label;
