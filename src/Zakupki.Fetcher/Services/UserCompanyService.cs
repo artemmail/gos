@@ -277,6 +277,16 @@ public sealed class UserCompanyService
         return region.Trim();
     }
 
+    public static string ResolveRegionName(byte regionCode)
+    {
+        if (_regionsByCode.TryGetValue(regionCode, out var regionOption))
+        {
+            return regionOption.Name;
+        }
+
+        return regionCode.ToString(CultureInfo.InvariantCulture);
+    }
+
     private readonly NoticeDbContext _dbContext;
 
     public UserCompanyService(NoticeDbContext dbContext)
