@@ -1039,37 +1039,40 @@ public class NoticesController : ControllerBase
             .ToArray();
     }
 
-    private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<byte> regions)
+    private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<string> regions)
     {
-        /*
         var regionCodes = NormalizeRegions(regions);
 
         if (regionCodes.Length == 0)
         {
             return query.Where(_ => false);
         }
-        */
-        return query.Where(n =>  regions.Contains(n.Region));
+
+        return query.Where(n => regionCodes.Contains(n.Region));
     }
 
     private static IQueryable<NoticeEmbedding> ApplyRegionFilter(
         IQueryable<NoticeEmbedding> query,
-        IReadOnlyCollection<byte> regions)
+        IReadOnlyCollection<string> regions)
     {
-      //  var regionCodes = NormalizeRegions(regions);
+        var regionCodes = NormalizeRegions(regions);
 
-        if (!regions.Any())
+        if (regionCodes.Length == 0)
         {
             return query.Where(_ => false);
         }
 
-        return query.Where(e => e.Notice.Region != null && regions.Contains(e.Notice.Region));
+        return query.Where(e => e.Notice.Region != null && regionCodes.Contains(e.Notice.Region));
     }
 
-    private static string[] NormalizeRegions(IReadOnlyCollection<string> regions) =>
+    private static byte[] NormalizeRegions(IReadOnlyCollection<string> regions) =>
         regions
             .Where(r => !string.IsNullOrWhiteSpace(r))
             .Select(r => r.Trim())
+            .Select(r => byte.TryParse(r, out var code) ? (byte?)code : null)
+            .Where(code => code.HasValue)
+            .Select(code => code!.Value)
+            .Distinct()
             .ToArray();
 
     private NoticeAttachment PrepareAttachmentForConversion(NoticeAttachment attachment)
