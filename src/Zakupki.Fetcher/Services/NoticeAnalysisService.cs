@@ -745,14 +745,11 @@ public sealed class NoticeAnalysisService
 
         builder.AppendLine("ОПИСАНИЕ ЗАКУПКИ:");
         builder.AppendLine($"Номер закупки: {notice.PurchaseNumber}");
-        builder.AppendLine($"Наименование извещения: {notice.EntryName}");
         builder.AppendLine($"Предмет закупки: {notice.PurchaseObjectInfo ?? "не указан"}");
 
         var noticeRegion = UserCompanyService.ResolveRegionName(notice.Region) ?? notice.Region ?? "не указан";
         builder.AppendLine($"Регион: {noticeRegion}");
-        builder.AppendLine($"Период публикации: {notice.Period ?? "не указан"}");
         builder.AppendLine($"Площадка: {notice.EtpName ?? "не указана"}");
-        builder.AppendLine($"Способ размещения: {notice.PlacingWayName ?? "не указан"}");
 
         if (notice.PublishDate is not null)
         {
@@ -761,12 +758,8 @@ public sealed class NoticeAnalysisService
 
         if (notice.MaxPrice is not null)
         {
-            var currency = string.IsNullOrWhiteSpace(notice.MaxPriceCurrencyCode)
-                ? notice.MaxPriceCurrencyName
-                : notice.MaxPriceCurrencyCode;
-
             var priceString = notice.MaxPrice.Value.ToString("N2", CultureInfo.InvariantCulture);
-            builder.AppendLine($"Начальная цена: {priceString} {currency}".Trim());
+            builder.AppendLine($"Начальная цена: {priceString}".Trim());
         }
 
         if (!string.IsNullOrWhiteSpace(notice.Okpd2Code) ||

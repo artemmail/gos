@@ -131,7 +131,6 @@ public sealed class NoticeAnalysisReportService
     private static void AppendTitle(Body body, Notice notice)
     {
         var purchaseNumber = notice.PurchaseNumber?.Trim();
-        var entryName = NormalizeText(notice.EntryName);
 
         body.AppendChild(CreateParagraph(
             purchaseNumber is null
@@ -139,11 +138,6 @@ public sealed class NoticeAnalysisReportService
                 : $"Анализ закупки № {purchaseNumber}",
             bold: true,
             fontSize: 28));
-
-        if (!string.IsNullOrWhiteSpace(entryName))
-        {
-            body.AppendChild(CreateParagraph(entryName!, fontSize: 22));
-        }
 
         var purchaseObject = NormalizeText(notice.PurchaseObjectInfo);
         if (!string.IsNullOrWhiteSpace(purchaseObject))
@@ -159,7 +153,6 @@ public sealed class NoticeAnalysisReportService
             ("Дата формирования", FormatDateTime(analysis.CompletedAt ?? DateTime.UtcNow)),
             ("Регион", NormalizeText(UserCompanyService.ResolveRegionName(notice.Region) ?? notice.Region)),
             ("Площадка", NormalizeText(notice.EtpName)),
-            ("Способ размещения", NormalizeText(notice.PlacingWayName)),
             ("Окончание подачи заявок", FormatDateTime(notice.CollectingEnd)),
             ("НМЦК", FormatMaxPrice(notice))
         };
@@ -401,8 +394,7 @@ public sealed class NoticeAnalysisReportService
             return string.Empty;
         }
 
-        var currency = notice.MaxPriceCurrencyName ?? notice.MaxPriceCurrencyCode ?? "руб.";
-        return $"{notice.MaxPrice.Value.ToString("N2", RussianCulture)} {currency}";
+        return $"{notice.MaxPrice.Value.ToString("N2", RussianCulture)} руб.";
     }
 
     private static string FormatScore(double score)

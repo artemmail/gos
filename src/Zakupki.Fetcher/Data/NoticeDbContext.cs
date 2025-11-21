@@ -113,28 +113,16 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.ToTable("Notices");
         entity.HasKey(n => n.Id);
 
-        entity.Property(n => n.Source).HasMaxLength(100);
-        entity.Property(n => n.DocumentType).HasMaxLength(100);
         entity.Property(n => n.Region)
             .HasConversion(RegionConverter)
             .HasColumnType("tinyint");
-        entity.Property(n => n.Period).HasMaxLength(64);
-        entity.Property(n => n.EntryName).HasMaxLength(256);
-        entity.Property(n => n.ExternalId).HasMaxLength(128);
-        entity.Property(n => n.SchemeVersion).HasMaxLength(64);
         entity.Property(n => n.PurchaseNumber).HasMaxLength(64);
-        entity.Property(n => n.DocumentNumber).HasMaxLength(64);
         entity.Property(n => n.Href).HasMaxLength(512);
         entity.Property(n => n.PlacingWayCode).HasMaxLength(32);
-        entity.Property(n => n.PlacingWayName).HasMaxLength(256);
-        entity.Property(n => n.EtpCode).HasMaxLength(32);
         entity.Property(n => n.EtpName).HasMaxLength(256);
         entity.Property(n => n.EtpUrl).HasMaxLength(512);
         entity.Property(n => n.PurchaseObjectInfo).HasColumnType("nvarchar(max)");
-        entity.Property(n => n.Article15FeaturesInfo).HasColumnType("nvarchar(max)");
         entity.Property(n => n.MaxPrice).HasColumnType("decimal(18,2)");
-        entity.Property(n => n.MaxPriceCurrencyCode).HasMaxLength(32);
-        entity.Property(n => n.MaxPriceCurrencyName).HasMaxLength(128);
         entity.Property(n => n.Okpd2Code).HasMaxLength(64);
         entity.Property(n => n.Okpd2Name).HasMaxLength(512);
         entity.Property(n => n.KvrCode).HasMaxLength(64);
@@ -142,7 +130,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
 
         entity.HasIndex(n => n.PurchaseNumber).HasDatabaseName("IX_Notices_PurchaseNumber");
-        entity.HasIndex(n => n.Period).HasDatabaseName("IX_Notices_Period");
         entity.HasIndex(n => n.CollectingEnd).HasDatabaseName("IX_Notices_CollectingEnd");
 
         entity.HasMany(n => n.Versions)
