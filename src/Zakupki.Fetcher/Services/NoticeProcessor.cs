@@ -334,18 +334,18 @@ public sealed class NoticeProcessor
         entity.UpdatedAt = now;
     }
 
-    private static string? DetermineRegionCode(EpNotificationEf2020 notification, NoticeDocument document)
+    private static byte DetermineRegionCode(EpNotificationEf2020 notification, NoticeDocument document)
     {
         foreach (var inn in EnumerateInnCandidates(notification))
         {
             var region = ExtractRegionFromInn(inn);
-            if (region is not null)
+            if (region > 0)
             {
                 return region;
             }
         }
 
-        return FormatDocumentRegion(document.Region);
+        return (document.Region);
     }
 
     private static IEnumerable<string?> EnumerateInnCandidates(EpNotificationEf2020 notification)
@@ -375,26 +375,26 @@ public sealed class NoticeProcessor
         }
     }
 
-    private static string? ExtractRegionFromInn(string? inn)
+    private static byte ExtractRegionFromInn(string? inn)
     {
         if (string.IsNullOrWhiteSpace(inn))
         {
-            return null;
+            return 0;
         }
 
         var trimmed = inn.Trim();
         if (trimmed.Length < 2)
         {
-            return null;
+            return 0;
         }
 
         var digits = trimmed.Where(char.IsDigit).ToArray();
         if (digits.Length < 2)
         {
-            return null;
+            return 0;
         }
 
-        return new string(digits, 0, 2);
+        return   byte.Parse( new string(digits, 0, 2));
     }
 
     private static string? FormatDocumentRegion(int region)

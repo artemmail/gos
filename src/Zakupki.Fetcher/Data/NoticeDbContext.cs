@@ -113,8 +113,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.ToTable("Notices");
         entity.HasKey(n => n.Id);
 
-        entity.Property(n => n.Region)
-            .HasConversion(RegionConverter)
+        entity.Property(n => n.Region)            
             .HasColumnType("tinyint");
         entity.Property(n => n.PurchaseNumber).HasMaxLength(64);
         entity.Property(n => n.Href).HasMaxLength(512);
