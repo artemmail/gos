@@ -103,7 +103,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         var regionEntity = modelBuilder.Entity<ApplicationUserRegion>();
         regionEntity.ToTable("ApplicationUserRegions");
         regionEntity.HasKey(r => r.Id);
-        regionEntity.Property(r => r.Region).HasMaxLength(128);
+        regionEntity.Property(r => r.Region).HasColumnType("tinyint");
         regionEntity.HasIndex(r => new { r.UserId, r.Region }).IsUnique();
     }
 

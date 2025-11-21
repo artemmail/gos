@@ -4,7 +4,7 @@ import { Observable, of } from 'rxjs';
 import { finalize, shareReplay, tap } from 'rxjs/operators';
 
 export interface RegionOption {
-  code: string;
+  code: number;
   name: string;
 }
 
@@ -16,7 +16,7 @@ interface CachedRegions {
 @Injectable({ providedIn: 'root' })
 export class RegionsService {
   private readonly apiUrl = '/api/regions';
-  private readonly storageKey = 'regions-cache-v1';
+  private readonly storageKey = 'regions-cache-v2';
   private readonly cacheTtlMs = 24 * 60 * 60 * 1000; // 24 hours
 
   private inFlightRequest$?: Observable<RegionOption[]>;
@@ -47,12 +47,12 @@ export class RegionsService {
     return this.inFlightRequest$;
   }
 
-  getRegionLabel(code: string | null | undefined): string | null {
-    if (!code) {
+  getRegionLabel(code: string | number | null | undefined): string | null {
+    if (code === null || code === undefined) {
       return null;
     }
 
-    const normalized = code.trim().padStart(2, '0');
+    const normalized = this.formatCode(code);
     return this.regionLabelsByCode[normalized] ?? null;
   }
 
@@ -94,11 +94,15 @@ export class RegionsService {
   private setCache(regions: RegionOption[]): void {
     this.cachedRegions = regions;
     this.regionLabelsByCode = regions.reduce((acc, region) => {
-      const normalizedCode = region.code.trim().padStart(2, '0');
+      const normalizedCode = this.formatCode(region.code);
       acc[normalizedCode] = acc[normalizedCode]
         ? `${acc[normalizedCode]} / ${region.name}`
         : region.name;
       return acc;
     }, {} as Record<string, string>);
+  }
+
+  private formatCode(code: string | number): string {
+    return (typeof code === 'number' ? code.toString() : code.trim()).padStart(2, '0');
   }
 }

@@ -1063,7 +1063,9 @@ public class NoticesController : ControllerBase
     {
         var profile = await _userCompanyService.GetProfileAsync(userId, cancellationToken);
 
-        return NormalizeRegions(profile.Regions);
+        return profile.Regions
+            .Select(UserCompanyService.FormatRegionCode)
+            .ToArray();
     }
 
     private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<string> regions)

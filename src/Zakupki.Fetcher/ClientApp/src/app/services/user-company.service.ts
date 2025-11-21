@@ -3,19 +3,19 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface RegionOption {
-  code: string;
+  code: number;
   name: string;
 }
 
 export interface UserCompanyProfile {
   companyInfo: string;
-  regions: string[];
+  regions: number[];
   availableRegions: RegionOption[];
 }
 
 export interface UpdateUserCompanyProfileRequest {
   companyInfo: string;
-  regions: string[];
+  regions: number[];
 }
 
 @Injectable({ providedIn: 'root' })

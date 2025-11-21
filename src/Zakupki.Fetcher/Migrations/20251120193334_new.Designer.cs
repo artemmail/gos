@@ -246,10 +246,8 @@ namespace Zakupki.Fetcher.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Region")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                    b.Property<byte>("Region")
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("UserId")
                         .IsRequired()
