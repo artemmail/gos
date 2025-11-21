@@ -101,99 +101,98 @@ public class NoticesController : ControllerBase
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(currentUserId))
-        {
             return Unauthorized();
-        }
 
         if (queryVectorId == Guid.Empty)
-        {
             return BadRequest(new { message = "Укажите сохранённый запрос" });
-        }
 
         if (page < 1)
-        {
             page = 1;
-        }
 
         if (pageSize < 1)
-        {
             pageSize = 20;
-        }
 
         pageSize = Math.Min(pageSize, 100);
 
         var similarityThreshold = Math.Clamp(similarityThresholdPercent, 40, 90) / 100.0;
+        // VECTOR_DISTANCE('cosine', ...) = 1 - cosine_similarity
+        // similarity >= T  <=>  distance <= 1 - T
+        var distanceThreshold = 1.0 - similarityThreshold;
+
         var normalizedCollectingEnd = (collectingEndLimit ?? DateTimeOffset.UtcNow).UtcDateTime;
         var offset = (page - 1) * pageSize;
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var queryVector = await context.UserQueryVectors
+
+        // 1. Берём сохранённый вектор запроса
+        var queryVectorEntity = await context.UserQueryVectors
             .AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == queryVectorId && v.UserId == currentUserId, cancellationToken);
 
-        if (queryVector == null)
-        {
+        if (queryVectorEntity is null)
             return NotFound(new { message = "Запрос не найден" });
-        }
 
-        if (queryVector.Vector is null)
-        {
+        if (queryVectorEntity.Vector is null)
             return BadRequest(new { message = "Вектор запроса ещё не готов" });
-        }
 
-        var similarityExpression = "CAST(1.0 - VECTOR_DISTANCE('cosine', e.Vector, @QueryVector) AS float)";
-        var collectingEndCondition = expiredOnly
-            ? "n.CollectingEnd IS NOT NULL AND n.CollectingEnd <= @CollectingEndLimit"
-            : "(n.CollectingEnd IS NULL OR n.CollectingEnd <= @CollectingEndLimit)";
+        var queryVector = queryVectorEntity.Vector.Value; // SqlVector<float>
 
-        var parameters = new[]
-        {
-            new SqlParameter("@QueryVector", queryVector.Vector),
-            new SqlParameter("@CollectingEndLimit", normalizedCollectingEnd),
-            new SqlParameter("@SimilarityThreshold", similarityThreshold),
-            new SqlParameter("@Model", DefaultEmbeddingModel),
-            new SqlParameter("@Offset", offset),
-            new SqlParameter("@PageSize", pageSize)
-        };
+        // 2. Базовый запрос по NoticeEmbeddings c векторной дистанцией
+        //    Всё на LINQ + EF.Functions.VectorDistance
+        var matchesQuery =
+            from e in context.NoticeEmbeddings.AsNoTracking()
+            where e.Model == DefaultEmbeddingModel
+            let distance = EF.Functions.VectorDistance("cosine", e.Vector, queryVector)
+            where distance <= distanceThreshold
+            where expiredOnly
+                ? e.Notice.CollectingEnd != null && e.Notice.CollectingEnd <= normalizedCollectingEnd
+                : (e.Notice.CollectingEnd == null || e.Notice.CollectingEnd <= normalizedCollectingEnd)
+            orderby distance, e.Notice.UpdatedAt descending
+            select new
+            {
+                e.NoticeId,
+                Distance = distance,
+                UpdatedAt = e.Notice.UpdatedAt
+            };
 
-        var countSql = $@"
-SELECT COUNT_BIG(1)
-FROM NoticeEmbeddings e
-INNER JOIN Notices n ON n.Id = e.NoticeId
-WHERE e.Model = @Model
-  AND {collectingEndCondition}
-  AND {similarityExpression} >= @SimilarityThreshold;";
-
-        var totalCount = await context.Database
-            .SqlQueryRaw<long>(countSql, parameters)
-            .SingleAsync(cancellationToken);
+        // 3. Общее количество
+        var totalCount = await matchesQuery.LongCountAsync(cancellationToken);
 
         if (totalCount == 0)
         {
-            return Ok(new PagedResult<NoticeListItemDto>(Array.Empty<NoticeListItemDto>(), 0, page, pageSize));
+            return Ok(new PagedResult<NoticeListItemDto>(
+                Array.Empty<NoticeListItemDto>(),
+                0,
+                page,
+                pageSize));
         }
 
-        var matchesSql = $@"
-SELECT e.NoticeId, {similarityExpression} AS Similarity
-FROM NoticeEmbeddings e
-INNER JOIN Notices n ON n.Id = e.NoticeId
-WHERE e.Model = @Model
-  AND {collectingEndCondition}
-  AND {similarityExpression} >= @SimilarityThreshold
-ORDER BY Similarity DESC, n.UpdatedAt DESC
-OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
-
-        var matches = await context.VectorSearchMatches
-            .FromSqlRaw(matchesSql, parameters)
+        // 4. Пагинация + выборка нужных NoticeId и distance
+        var pageMatches = await matchesQuery
+            .Skip(offset)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        var noticeIds = matches.Select(m => m.NoticeId).ToList();
-        var orderLookup = matches
-            .Select((match, index) => new { match.NoticeId, match.Similarity, index })
-            .ToDictionary(x => x.NoticeId, x => (x.index, x.Similarity));
+        var noticeIds = pageMatches
+            .Select(m => m.NoticeId)
+            .ToList();
+
+        // Считаем similarity в памяти: similarity = 1 - distance
+        var orderLookup = pageMatches
+            .Select((m, index) => new
+            {
+                m.NoticeId,
+                Index = index,
+                Similarity = (double?)(1.0 - m.Distance)
+            })
+            .ToDictionary(
+                x => x.NoticeId,
+                x => (x.Index, x.Similarity)
+            );
 
         var includeFavorites = !string.IsNullOrEmpty(currentUserId);
 
+        // 5. Дотягиваем все остальные поля Notice и аналитику, как у тебя было
         var noticeRows = await context.Notices
             .AsNoTracking()
             .Where(n => noticeIds.Contains(n.Id))
@@ -221,6 +220,7 @@ OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
             })
             .ToListAsync(cancellationToken);
 
+        // 6. Собираем DTO и восстанавливаем порядок по индексу из orderLookup
         var items = noticeRows
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
@@ -245,18 +245,23 @@ OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
                 x.Notice.RawJson,
                 x.Notice.CollectingEnd,
                 x.ProcedureSubmissionDate,
-                x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
+                x.Analysis != null &&
+                x.Analysis.Status == NoticeAnalysisStatus.Completed &&
+                x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
                 x.IsFavorite,
-                orderLookup.TryGetValue(x.Notice.Id, out var ordering) ? ordering.Similarity : null))
+                orderLookup.TryGetValue(x.Notice.Id, out var ordering) ? ordering.Similarity : null
+            ))
             .OrderBy(item => orderLookup[item.Id].Item1)
             .ToList();
 
         var total = (int)Math.Min(int.MaxValue, totalCount);
         var result = new PagedResult<NoticeListItemDto>(items, total, page, pageSize);
+
         return Ok(result);
     }
+
 
     [HttpGet]
     public async Task<ActionResult<PagedResult<NoticeListItemDto>>> GetNotices(
