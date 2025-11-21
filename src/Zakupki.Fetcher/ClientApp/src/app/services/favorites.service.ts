@@ -32,6 +32,10 @@ export class FavoritesService {
       .set('pageSize', query.pageSize.toString())
       .set('expiredOnly', query.expiredOnly ? 'true' : 'false');
 
+    if (query.filterByUserRegions) {
+      params = params.set('filterByUserRegions', 'true');
+    }
+
     if (query.search) {
       params = params.set('search', query.search);
     }

@@ -40,6 +40,7 @@ export interface NoticeQuery {
   page: number;
   pageSize: number;
   expiredOnly: boolean;
+  filterByUserRegions?: boolean;
   search?: string;
   purchaseNumber?: string;
   okpd2Codes?: string;
@@ -55,4 +56,5 @@ export interface NoticeVectorQuery {
   similarityThresholdPercent: number;
   expiredOnly: boolean;
   collectingEndLimit: string;
+  filterByUserRegions?: boolean;
 }

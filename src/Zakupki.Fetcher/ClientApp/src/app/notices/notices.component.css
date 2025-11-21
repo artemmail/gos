@@ -77,8 +77,13 @@ mat-card {
   color: rgba(0, 0, 0, 0.65);
 }
 
-.expired-checkbox {
+.search-toggles {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .search-form {

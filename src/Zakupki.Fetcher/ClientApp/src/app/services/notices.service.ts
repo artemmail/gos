@@ -18,6 +18,10 @@ export class NoticesService {
       .set('pageSize', query.pageSize.toString())
       .set('expiredOnly', query.expiredOnly ? 'true' : 'false');
 
+    if (query.filterByUserRegions) {
+      params = params.set('filterByUserRegions', 'true');
+    }
+
     if (query.search) {
       params = params.set('search', query.search);
     }
@@ -53,6 +57,10 @@ export class NoticesService {
       .set('similarityThresholdPercent', query.similarityThresholdPercent.toString())
       .set('expiredOnly', query.expiredOnly ? 'true' : 'false')
       .set('collectingEndLimit', query.collectingEndLimit);
+
+    if (query.filterByUserRegions) {
+      params = params.set('filterByUserRegions', 'true');
+    }
 
     return this.http.get<NoticeListResponse>(`${this.baseUrl}/vector-search`, { params });
   }
