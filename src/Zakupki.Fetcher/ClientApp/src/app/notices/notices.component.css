@@ -31,6 +31,14 @@ mat-card {
   color: rgba(0, 0, 0, 0.54);
 }
 
+.search-tabs {
+  margin-bottom: 16px;
+}
+
+.search-tabs .mat-mdc-tab-body-content {
+  padding-top: 12px;
+}
+
 .user-card {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
