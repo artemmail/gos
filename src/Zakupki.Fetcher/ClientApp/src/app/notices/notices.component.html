@@ -6,152 +6,165 @@
         <p class="subtitle">{{ pageSubtitle }}</p>
       </div>
 
-      <div class="search-options">
-        <mat-form-field appearance="outline" class="search-mode-field">
-          <mat-label>Тип поиска</mat-label>
-          <mat-select [formControl]="searchModeControl" (selectionChange)="onSearchModeChange($event.value)">
-            <mat-option value="direct">Прямой поиск</mat-option>
-            <mat-option value="semantic">Семантический поиск (ИИ)</mat-option>
-          </mat-select>
-        </mat-form-field>
+      <section class="search-panel">
+        <div class="search-panel-row">
+          <div class="search-mode-group">
+            <div class="section-label">Режим поиска</div>
+            <mat-form-field appearance="outline" class="search-mode-field">
+              <mat-label>Тип поиска</mat-label>
+              <mat-select [formControl]="searchModeControl" (selectionChange)="onSearchModeChange($event.value)">
+                <mat-option value="direct">Прямой поиск</mat-option>
+                <mat-option value="semantic">Семантический поиск (ИИ)</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
 
-        <mat-checkbox [formControl]="expiredOnlyControl" class="expired-checkbox">
-          Искать истекшие
-        </mat-checkbox>
-      </div>
-
-      <form
-        *ngIf="isDirectSearch"
-        class="filters-form"
-        [formGroup]="filtersForm"
-        (ngSubmit)="onSubmitSearch()">
-        <div class="filters-grid">
-          <mat-form-field appearance="outline" class="filter-field full-width">
-            <mat-label>Поиск</mat-label>
-            <input
-              matInput
-              formControlName="search"
-              placeholder="Введите номер закупки, площадку, название или описание предмета"
-            >
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              *ngIf="filtersForm.controls.search.value"
-              (click)="filtersForm.controls.search.setValue('')"
-              aria-label="Очистить поиск"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field">
-            <mat-label>Номер заявки</mat-label>
-            <input
-              matInput
-              formControlName="purchaseNumber"
-              placeholder="Например, 0123456789"
-            >
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              *ngIf="filtersForm.controls.purchaseNumber.value"
-              (click)="filtersForm.controls.purchaseNumber.setValue('')"
-              aria-label="Очистить номер заявки"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field">
-            <mat-label>Коды ОКПД2</mat-label>
-            <textarea
-              matInput
-              rows="1"
-              formControlName="okpd2Codes"
-              placeholder="Введите через пробел, запятую или перенос строки"
-            ></textarea>
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              *ngIf="filtersForm.controls.okpd2Codes.value"
-              (click)="filtersForm.controls.okpd2Codes.setValue('')"
-              aria-label="Очистить коды ОКПД2"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-            <mat-hint>Будут найдены записи с любым из указанных кодов</mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="filter-field">
-            <mat-label>Коды КВР</mat-label>
-            <textarea
-              matInput
-              rows="1"
-              formControlName="kvrCodes"
-              placeholder="Введите через пробел, запятую или перенос строки"
-            ></textarea>
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              *ngIf="filtersForm.controls.kvrCodes.value"
-              (click)="filtersForm.controls.kvrCodes.setValue('')"
-              aria-label="Очистить коды КВР"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-            <mat-hint>Будут найдены записи с любы из указанных кодов</mat-hint>
-          </mat-form-field>
+          <mat-checkbox [formControl]="expiredOnlyControl" class="expired-checkbox">
+            Искать истекшие
+          </mat-checkbox>
         </div>
 
-        <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
-      </form>
-
-      <form
-        *ngIf="isSemanticSearch"
-        class="favorite-search-form"
-        [formGroup]="favoriteSearchForm"
-        (ngSubmit)="onSubmitSearch()">
-        <section class="user-card" aria-label="Карточка пользователя">
-          <div class="user-card-row">
-            <div class="user-card-label">Найти заказы</div>
-            <div class="user-card-controls">
-              <mat-form-field appearance="outline" class="query-field">
-                <mat-label>Сохранённый запрос</mat-label>
-                <mat-select formControlName="queryVectorId" [disabled]="queryVectorsLoading">
-                  <mat-option *ngIf="queryVectorsLoading" value="" disabled>Загрузка…</mat-option>
-                  <mat-option *ngIf="!queryVectorsLoading && queryVectors.length === 0" value="" disabled>
-                    Нет сохранённых запросов
-                  </mat-option>
-                  <mat-option *ngFor="let vector of queryVectors" [value]="vector.id">
-                    {{ vector.query }}
-                  </mat-option>
-                </mat-select>
-                <mat-error *ngIf="favoriteSearchForm.controls.queryVectorId.hasError('required')">
-                  Выберите запрос
-                </mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="query-field">
-                <mat-label>Минимальная схожесть</mat-label>
-                <mat-select formControlName="similarityThreshold">
-                  <mat-option *ngFor="let option of similarityOptions" [value]="option">
-                    {{ option }}%
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+        <form
+          *ngIf="isDirectSearch"
+          class="search-form"
+          [formGroup]="filtersForm"
+          (ngSubmit)="onSubmitSearch()">
+          <div class="form-title-row">
+            <div>
+              <div class="form-title">Прямой поиск</div>
+              <p class="form-subtitle">Фильтры подберут закупки по номеру, тексту и кодам.</p>
             </div>
           </div>
-          <p class="favorite-search-hint">
-            Запрос выполняется сразу, результаты выводятся в таблице ниже. Дата окончания подачи определяется по текущему времени.
-          </p>
-        </section>
 
-        <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
-      </form>
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="form-field full-row">
+              <mat-label>Поиск</mat-label>
+              <input
+                matInput
+                formControlName="search"
+                placeholder="Введите номер закупки, площадку, название или описание предмета"
+              >
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="filtersForm.controls.search.value"
+                (click)="filtersForm.controls.search.setValue('')"
+                aria-label="Очистить поиск"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Номер заявки</mat-label>
+              <input
+                matInput
+                formControlName="purchaseNumber"
+                placeholder="Например, 0123456789"
+              >
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="filtersForm.controls.purchaseNumber.value"
+                (click)="filtersForm.controls.purchaseNumber.setValue('')"
+                aria-label="Очистить номер заявки"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Коды ОКПД2</mat-label>
+              <textarea
+                matInput
+                rows="1"
+                formControlName="okpd2Codes"
+                placeholder="Введите через пробел, запятую или перенос строки"
+              ></textarea>
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="filtersForm.controls.okpd2Codes.value"
+                (click)="filtersForm.controls.okpd2Codes.setValue('')"
+                aria-label="Очистить коды ОКПД2"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+              <mat-hint>Будут найдены записи с любым из указанных кодов</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Коды КВР</mat-label>
+              <textarea
+                matInput
+                rows="1"
+                formControlName="kvrCodes"
+                placeholder="Введите через пробел, запятую или перенос строки"
+              ></textarea>
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="filtersForm.controls.kvrCodes.value"
+                (click)="filtersForm.controls.kvrCodes.setValue('')"
+                aria-label="Очистить коды КВР"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+              <mat-hint>Будут найдены записи с любы из указанных кодов</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
+        </form>
+
+        <form
+          *ngIf="isSemanticSearch"
+          class="search-form"
+          [formGroup]="favoriteSearchForm"
+          (ngSubmit)="onSubmitSearch()">
+          <div class="form-title-row">
+            <div>
+              <div class="form-title">Семантический поиск</div>
+              <p class="form-subtitle">Используйте сохранённые запросы, чтобы быстро получить похожие закупки.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Сохранённый запрос</mat-label>
+              <mat-select formControlName="queryVectorId" [disabled]="queryVectorsLoading">
+                <mat-option *ngIf="queryVectorsLoading" value="" disabled>Загрузка…</mat-option>
+                <mat-option *ngIf="!queryVectorsLoading && queryVectors.length === 0" value="" disabled>
+                  Нет сохранённых запросов
+                </mat-option>
+                <mat-option *ngFor="let vector of queryVectors" [value]="vector.id">
+                  {{ vector.query }}
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="favoriteSearchForm.controls.queryVectorId.hasError('required')">
+                Выберите запрос
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Минимальная схожесть</mat-label>
+              <mat-select formControlName="similarityThreshold">
+                <mat-option *ngFor="let option of similarityOptions" [value]="option">
+                  {{ option }}%
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <p class="form-hint">Запрос выполняется сразу, результаты выводятся в таблице ниже. Дата окончания подачи определяется по текущему времени.</p>
+
+          <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
+        </form>
+      </section>
 
       <ng-template #actionButtons>
         <div class="filter-actions">
