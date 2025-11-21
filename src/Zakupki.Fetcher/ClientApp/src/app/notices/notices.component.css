@@ -33,9 +33,21 @@ mat-card {
 
 .search-panel {
   display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.search-panel-card {
+  width: 100%;
+  max-width: 1280px;
+  display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 8px;
+  padding: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
 .search-panel-row {
@@ -44,10 +56,8 @@ mat-card {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 12px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  background-color: #fafafa;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .search-mode-group {
@@ -58,7 +68,8 @@ mat-card {
 }
 
 .search-mode-field {
-  min-width: 240px;
+  min-width: 320px;
+  flex: 1 1 320px;
 }
 
 .section-label {
@@ -74,10 +85,7 @@ mat-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  padding: 0;
 }
 
 .form-title-row {
