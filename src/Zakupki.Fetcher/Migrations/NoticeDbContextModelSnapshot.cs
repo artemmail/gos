@@ -464,35 +464,8 @@ namespace Zakupki.Fetcher.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Article15FeaturesInfo")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime?>("CollectingEnd")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool?>("ContractConclusionOnSt83Ch2")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DocumentNumber")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("DocumentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("EntryName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("EtpCode")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
 
                     b.Property<string>("EtpName")
                         .HasMaxLength(256)
@@ -501,11 +474,6 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<string>("EtpUrl")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
-
-                    b.Property<string>("ExternalId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("Href")
                         .HasMaxLength(512)
@@ -522,14 +490,6 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<decimal?>("MaxPrice")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("MaxPriceCurrencyCode")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("MaxPriceCurrencyName")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
                     b.Property<string>("Okpd2Code")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
@@ -538,17 +498,9 @@ namespace Zakupki.Fetcher.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
-                    b.Property<string>("Period")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
                     b.Property<string>("PlacingWayCode")
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("PlacingWayName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
 
                     b.Property<DateTime?>("PublishDate")
                         .HasColumnType("datetime2");
@@ -565,31 +517,15 @@ namespace Zakupki.Fetcher.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Region")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("SchemeVersion")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("VersionNumber")
-                        .HasColumnType("int");
+                        .HasColumnType("tinyint")
+                        .HasConversion(new ValueConverter<string, byte?>(
+                            region => ParseRegion(region),
+                            value => FormatRegion(value)));
 
                     b.HasKey("Id");
 
                     b.HasIndex("CollectingEnd")
                         .HasDatabaseName("IX_Notices_CollectingEnd");
-
-                    b.HasIndex("Period")
-                        .HasDatabaseName("IX_Notices_Period");
 
                     b.HasIndex("PurchaseNumber")
                         .HasDatabaseName("IX_Notices_PurchaseNumber");

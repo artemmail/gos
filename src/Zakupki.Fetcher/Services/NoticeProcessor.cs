@@ -93,14 +93,17 @@ public sealed class NoticeProcessor
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var now = DateTime.UtcNow;
 
-        var notice = await dbContext.Notices.FirstOrDefaultAsync(n => n.ExternalId == externalId, cancellationToken);
+        var existingVersion = await dbContext.NoticeVersions
+            .Include(v => v.Notice)
+            .FirstOrDefaultAsync(v => v.ExternalId == externalId, cancellationToken);
+
+        var notice = existingVersion?.Notice;
         var isNewNotice = notice is null;
         if (isNewNotice)
         {
             notice = new Notice
             {
-                Id = Guid.NewGuid(),
-                CreatedAt = now
+                Id = Guid.NewGuid()
             };
         }
 
@@ -113,8 +116,7 @@ public sealed class NoticeProcessor
             customerRequirements,
             notification.NotificationInfo?.ProcedureInfo,
             serializedNotification,
-            externalId,
-            now);
+            externalId);
 
         if (isNewNotice)
         {
@@ -164,18 +166,21 @@ public sealed class NoticeProcessor
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var now = DateTime.UtcNow;
 
-        var notice = await dbContext.Notices.FirstOrDefaultAsync(n => n.ExternalId == externalId, cancellationToken);
+        var existingVersion = await dbContext.NoticeVersions
+            .Include(v => v.Notice)
+            .FirstOrDefaultAsync(v => v.ExternalId == externalId, cancellationToken);
+
+        var notice = existingVersion?.Notice;
         var isNewNotice = notice is null;
         if (isNewNotice)
         {
             notice = new Notice
             {
-                Id = Guid.NewGuid(),
-                CreatedAt = now
+                Id = Guid.NewGuid()
             };
         }
 
-        MapContractNotice(notice!, document, contract, serializedContract, externalId, now);
+        MapContractNotice(notice!, document, contract, serializedContract, externalId);
 
         if (isNewNotice)
         {
@@ -250,32 +255,17 @@ public sealed class NoticeProcessor
         CustomerRequirementsInfo? customerRequirements,
         ProcedureInfo? procedureInfo,
         string serializedNotification,
-        string externalId,
-        DateTime now)
+        string externalId)
     {
-        notice.Source = document.Source;
-        notice.DocumentType = document.DocumentType;
-        notice.Region = notice.Region;
-        notice.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        notice.EntryName = document.EntryName;
-        notice.ExternalId = externalId;
-        notice.VersionNumber = notification.VersionNumber;
-        notice.SchemeVersion = notification.SchemeVersion;
+        notice.Region = FormatDocumentRegion(document.Region);
         notice.PurchaseNumber = commonInfo.PurchaseNumber ?? externalId;
-        notice.DocumentNumber = commonInfo.DocNumber;
         notice.PublishDate = commonInfo.PublishDtInEis;
         notice.Href = commonInfo.Href;
         notice.PlacingWayCode = commonInfo.PlacingWay?.Code;
-        notice.PlacingWayName = commonInfo.PlacingWay?.Name;
-        notice.EtpCode = commonInfo.Etp?.Code;
         notice.EtpName = commonInfo.Etp?.Name;
         notice.EtpUrl = commonInfo.Etp?.Url;
-        notice.ContractConclusionOnSt83Ch2 = commonInfo.ContractConclusionOnSt83Ch2;
         notice.PurchaseObjectInfo = commonInfo.PurchaseObjectInfo;
-        notice.Article15FeaturesInfo = commonInfo.Article15FeaturesInfo;
         notice.MaxPrice = contractConditions?.MaxPriceInfo?.MaxPrice;
-        notice.MaxPriceCurrencyCode = contractConditions?.MaxPriceInfo?.Currency?.Code;
-        notice.MaxPriceCurrencyName = contractConditions?.MaxPriceInfo?.Currency?.Name;
         var classifiers = ExtractClassificationInfo(customerRequirements);
         notice.Okpd2Code = classifiers.Okpd2Code;
         notice.Okpd2Name = classifiers.Okpd2Name;
@@ -283,7 +273,6 @@ public sealed class NoticeProcessor
         notice.KvrName = classifiers.KvrName;
         notice.RawJson = serializedNotification;
         notice.CollectingEnd = procedureInfo?.CollectingInfo?.EndDt;
-        notice.UpdatedAt = now;
     }
 
     private static void MapContractNotice(
@@ -291,32 +280,17 @@ public sealed class NoticeProcessor
         NoticeDocument document,
         ContractExport contract,
         string serializedContract,
-        string externalId,
-        DateTime now)
+        string externalId)
     {
-        notice.Source = document.Source;
-        notice.DocumentType = document.DocumentType;
         notice.Region = FormatDocumentRegion(document.Region);
-        notice.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        notice.EntryName = document.EntryName;
-        notice.ExternalId = externalId;
-        notice.VersionNumber = contract.VersionNumber;
-        notice.SchemeVersion = contract.SchemeVersion;
         notice.PurchaseNumber = contract.Foundation?.FcsOrder?.Order?.NotificationNumber ?? externalId;
-        notice.DocumentNumber = contract.Number;
         notice.PublishDate = contract.PublishDate;
         notice.Href = contract.Href;
         notice.PlacingWayCode = null;
-        notice.PlacingWayName = null;
-        notice.EtpCode = null;
         notice.EtpName = null;
         notice.EtpUrl = null;
-        notice.ContractConclusionOnSt83Ch2 = null;
         notice.PurchaseObjectInfo = contract.ContractSubject;
-        notice.Article15FeaturesInfo = null;
         notice.MaxPrice = contract.PriceInfo?.Price;
-        notice.MaxPriceCurrencyCode = contract.PriceInfo?.Currency?.Code;
-        notice.MaxPriceCurrencyName = contract.PriceInfo?.Currency?.Name;
         var okpd2 = ExtractContractOkpd2(contract.Products);
         notice.Okpd2Code = okpd2.Code;
         notice.Okpd2Name = okpd2.Name;
@@ -324,7 +298,6 @@ public sealed class NoticeProcessor
         notice.KvrName = null;
         notice.RawJson = serializedContract;
         notice.CollectingEnd = null;
-        notice.UpdatedAt = now;
     }
 
     private static void MapContractEntity(

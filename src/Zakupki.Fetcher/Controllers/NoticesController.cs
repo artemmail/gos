@@ -169,12 +169,11 @@ public class NoticesController : ControllerBase
             from e in embeddingsQuery
             let distance = EF.Functions.VectorDistance("cosine", e.Vector, queryVector)
             where distance <= distanceThreshold
-            orderby distance, e.Notice.UpdatedAt descending
+            orderby distance, e.UpdatedAt descending
             select new
             {
                 e.NoticeId,
                 Distance = distance,
-                UpdatedAt = e.Notice.UpdatedAt,
                 e.Notice.CollectingEnd
             };
 
@@ -321,9 +320,7 @@ public class NoticesController : ControllerBase
             var likeTerm = $"%{trimmedSearch}%";
             query = query.Where(n =>
                 EF.Functions.Like(n.PurchaseNumber, likeTerm) ||
-                EF.Functions.Like(n.EntryName, likeTerm) ||
                 (n.EtpName != null && EF.Functions.Like(n.EtpName, likeTerm)) ||
-                (n.DocumentNumber != null && EF.Functions.Like(n.DocumentNumber, likeTerm)) ||
                 (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)) ||
                 (n.Okpd2Code != null && EF.Functions.Like(n.Okpd2Code, likeTerm)) ||
                 (n.Okpd2Name != null && EF.Functions.Like(n.Okpd2Name, likeTerm)) ||
@@ -493,9 +490,7 @@ public class NoticesController : ControllerBase
             var likeTerm = $"%{trimmedSearch}%";
             query = query.Where(n =>
                 EF.Functions.Like(n.PurchaseNumber, likeTerm) ||
-                EF.Functions.Like(n.EntryName, likeTerm) ||
                 (n.EtpName != null && EF.Functions.Like(n.EtpName, likeTerm)) ||
-                (n.DocumentNumber != null && EF.Functions.Like(n.DocumentNumber, likeTerm)) ||
                 (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)) ||
                 (n.Okpd2Code != null && EF.Functions.Like(n.Okpd2Code, likeTerm)) ||
                 (n.Okpd2Name != null && EF.Functions.Like(n.Okpd2Name, likeTerm)) ||
