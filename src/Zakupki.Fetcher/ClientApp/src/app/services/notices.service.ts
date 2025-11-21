@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { NoticeListResponse, NoticeQuery } from '../models/notice.models';
+import { NoticeListResponse, NoticeQuery, NoticeVectorQuery } from '../models/notice.models';
 
 @Injectable({
   providedIn: 'root'
@@ -42,5 +42,17 @@ export class NoticesService {
     }
 
     return this.http.get<NoticeListResponse>(this.baseUrl, { params });
+  }
+
+  vectorSearch(query: NoticeVectorQuery): Observable<NoticeListResponse> {
+    let params = new HttpParams()
+      .set('page', query.page.toString())
+      .set('pageSize', query.pageSize.toString())
+      .set('queryVectorId', query.queryVectorId)
+      .set('similarityThresholdPercent', query.similarityThresholdPercent.toString())
+      .set('expiredOnly', query.expiredOnly ? 'true' : 'false')
+      .set('collectingEndLimit', query.collectingEndLimit);
+
+    return this.http.get<NoticeListResponse>(`${this.baseUrl}/vector-search`, { params });
   }
 }

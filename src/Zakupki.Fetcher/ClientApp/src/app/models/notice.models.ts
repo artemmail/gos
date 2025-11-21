@@ -26,6 +26,7 @@ export interface NoticeListItem {
   analysisStatus: string | null;
   analysisUpdatedAt: string | null;
   isFavorite: boolean;
+  similarity: number | null;
 }
 
 export interface NoticeListResponse {
@@ -44,4 +45,13 @@ export interface NoticeQuery {
   kvrCodes?: string;
   sortField?: string;
   sortDirection?: string;
+}
+
+export interface NoticeVectorQuery {
+  page: number;
+  pageSize: number;
+  queryVectorId: string;
+  similarityThresholdPercent: number;
+  expiredOnly: boolean;
+  collectingEndLimit: string;
 }
