@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
@@ -19,18 +19,20 @@ import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
 import { determineRegionFromRawJson, getRegionDisplayName } from '../constants/regions';
 import { FavoritesService } from '../services/favorites.service';
-import { FavoriteSearchService } from '../services/favorite-search.service';
-import { FavoriteSearchEnqueueRequest } from '../models/favorite-search.models';
+import { QueryVectorService } from '../services/query-vector.service';
+import { UserQueryVectorDto } from '../models/query-vector.models';
+import { NoticeVectorQuery } from '../models/notice.models';
 
 @Component({
   selector: 'app-notices',
   templateUrl: './notices.component.html',
   styleUrls: ['./notices.component.css']
 })
-export class NoticesComponent implements AfterViewInit, OnDestroy {
+export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   displayedColumns: string[] = [
     'favorite',
     'purchaseNumber',
+    'similarity',
     'region',
     'purchaseObjectInfo',
     'okpd2Code',
@@ -59,6 +61,7 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
   analysisProgress: Record<string, boolean> = {};
   favoriteProgress: Record<string, boolean> = {};
   isFavoritesPage = false;
+  similarityOptions = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90];
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
@@ -68,14 +71,18 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
   });
 
   favoriteSearchForm = new FormGroup({
-    query: new FormControl<string>('', {
+    queryVectorId: new FormControl<string>('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3)]
+      validators: [Validators.required]
     }),
+    similarityThreshold: new FormControl<number>(60, { nonNullable: true }),
     expiredOnly: new FormControl<boolean>(false, { nonNullable: true })
   });
 
-  favoriteSearchInProgress = false;
+  vectorSearchInProgress = false;
+  queryVectors: UserQueryVectorDto[] = [];
+  queryVectorsLoading = false;
+  vectorSearchCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null = null;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -88,10 +95,14 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     private readonly analysisService: NoticeAnalysisService,
     private readonly snackBar: MatSnackBar,
     private readonly favoritesService: FavoritesService,
-    private readonly favoriteSearchService: FavoriteSearchService,
+    private readonly queryVectorService: QueryVectorService,
     private readonly route: ActivatedRoute
   ) {
     this.isFavoritesPage = this.route.snapshot.data?.['favorites'] === true;
+  }
+
+  ngOnInit(): void {
+    this.loadQueryVectors();
   }
 
   ngAfterViewInit(): void {
@@ -114,6 +125,28 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  loadQueryVectors(): void {
+    this.queryVectorsLoading = true;
+    this.queryVectorService
+      .getAll()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.queryVectorsLoading = false))
+      )
+      .subscribe({
+        next: vectors => {
+          this.queryVectors = vectors;
+
+          if (vectors.length > 0 && !this.favoriteSearchForm.controls.queryVectorId.value) {
+            this.favoriteSearchForm.controls.queryVectorId.setValue(vectors[0].id);
+          }
+        },
+        error: () => {
+          this.snackBar.open('Не удалось загрузить сохранённые запросы.', 'Закрыть', { duration: 4000 });
+        }
+      });
+  }
+
   get hasNoData(): boolean {
     return !this.isLoading && this.notices.length === 0 && !this.errorMessage;
   }
@@ -127,36 +160,51 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
     const purchaseNumber = this.getTrimmedValue(this.filtersForm.controls.purchaseNumber);
     const okpd2Codes = this.getNormalizedCodes(this.filtersForm.controls.okpd2Codes);
     const kvrCodes = this.getNormalizedCodes(this.filtersForm.controls.kvrCodes);
+    const vectorCriteria = this.vectorSearchCriteria;
 
     this.isLoading = true;
     this.errorMessage = '';
 
-    const request$ = this.isFavoritesPage
-      ? this.favoritesService.getFavorites({
+    const request$ = vectorCriteria
+      ? this.noticesService.vectorSearch({
           page: pageIndex + 1,
           pageSize,
-          search: search || undefined,
-          purchaseNumber,
-          okpd2Codes,
-          kvrCodes,
-          sortField,
-          sortDirection
+          queryVectorId: vectorCriteria.queryVectorId,
+          similarityThresholdPercent: vectorCriteria.similarityThresholdPercent,
+          expiredOnly: vectorCriteria.expiredOnly,
+          collectingEndLimit: vectorCriteria.collectingEndLimit
         })
-      : this.noticesService.getNotices({
-          page: pageIndex + 1,
-          pageSize,
-          search: search || undefined,
-          purchaseNumber,
-          okpd2Codes,
-          kvrCodes,
-          sortField,
-          sortDirection
-        });
+      : this.isFavoritesPage
+        ? this.favoritesService.getFavorites({
+            page: pageIndex + 1,
+            pageSize,
+            search: search || undefined,
+            purchaseNumber,
+            okpd2Codes,
+            kvrCodes,
+            sortField,
+            sortDirection
+          })
+        : this.noticesService.getNotices({
+            page: pageIndex + 1,
+            pageSize,
+            search: search || undefined,
+            purchaseNumber,
+            okpd2Codes,
+            kvrCodes,
+            sortField,
+            sortDirection
+          });
 
     request$
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => (this.isLoading = false))
+        finalize(() => {
+          this.isLoading = false;
+          if (vectorCriteria) {
+            this.vectorSearchInProgress = false;
+          }
+        })
       )
       .subscribe({
         next: (response: NoticeListResponse) => {
@@ -406,8 +454,8 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
       : 'Поиск, сортировка и навигация по таблице данных о закупках';
   }
 
-  enqueueFavoriteSearch(): void {
-    if (this.favoriteSearchInProgress) {
+  runVectorSearch(): void {
+    if (this.vectorSearchInProgress) {
       return;
     }
 
@@ -416,33 +464,47 @@ export class NoticesComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const query = this.favoriteSearchForm.controls.query.value.trim();
-    const expiredOnly = this.favoriteSearchForm.controls.expiredOnly.value;
+    const queryVectorId = this.favoriteSearchForm.controls.queryVectorId.value;
+    const selectedVector = this.queryVectors.find(v => v.id === queryVectorId);
 
-    const payload: FavoriteSearchEnqueueRequest = {
-      query,
-      collectingEndLimit: new Date().toISOString(),
+    if (!selectedVector) {
+      this.snackBar.open('Выберите запрос из списка.', 'Закрыть', { duration: 4000 });
+      return;
+    }
+
+    const expiredOnly = this.favoriteSearchForm.controls.expiredOnly.value;
+    const similarityThresholdPercent = this.favoriteSearchForm.controls.similarityThreshold.value;
+
+    this.vectorSearchCriteria = {
+      queryVectorId,
+      similarityThresholdPercent,
       expiredOnly,
-      top: 20,
-      limit: 500
+      collectingEndLimit: new Date().toISOString()
     };
 
-    this.favoriteSearchInProgress = true;
+    this.vectorSearchInProgress = true;
 
-    this.favoriteSearchService
-      .enqueue(payload)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => (this.favoriteSearchInProgress = false))
-      )
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Задача поиска добавлена в очередь.', 'Закрыть', { duration: 4000 });
-        },
-        error: error => {
-          const message = error?.error?.message ?? 'Не удалось поставить задачу в очередь.';
-          this.snackBar.open(message, 'Закрыть', { duration: 6000 });
-        }
-      });
+    if (this.paginator && this.paginator.pageIndex !== 0) {
+      this.paginator.firstPage();
+      return;
+    }
+
+    this.loadNotices();
+  }
+
+  clearVectorSearch(): void {
+    if (!this.vectorSearchCriteria) {
+      return;
+    }
+
+    this.vectorSearchCriteria = null;
+    this.vectorSearchInProgress = false;
+
+    if (this.paginator && this.paginator.pageIndex !== 0) {
+      this.paginator.firstPage();
+      return;
+    }
+
+    this.loadNotices();
   }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 
 namespace Zakupki.Fetcher.Models;
@@ -8,6 +9,8 @@ public sealed class FavoriteSearchCommand
 
     public required string Query { get; init; }
 
+    public required Guid QueryVectorId { get; init; }
+
     public DateTime CollectingEndLimit { get; init; }
 
     public int Top { get; init; }
@@ -16,19 +19,21 @@ public sealed class FavoriteSearchCommand
 
     public bool ExpiredOnly { get; init; }
 
+    public int SimilarityThresholdPercent { get; init; }
+
     public static string CreateDeduplicationKey(
         string userId,
-        string query,
+        Guid queryVectorId,
+        int similarityThresholdPercent,
         DateTime collectingEndLimit,
         bool expiredOnly)
     {
-        var normalizedQuery = query.Trim().ToLowerInvariant();
         var normalizedDate = collectingEndLimit.ToUniversalTime().ToString("O");
         var expiredSuffix = expiredOnly ? "expired" : "active";
-        return $"{userId}:{normalizedQuery}:{normalizedDate}:{expiredSuffix}";
+        return $"{userId}:{queryVectorId}:{similarityThresholdPercent}:{normalizedDate}:{expiredSuffix}";
     }
 
-    public string GetDeduplicationKey() => CreateDeduplicationKey(UserId, Query, CollectingEndLimit, ExpiredOnly);
+    public string GetDeduplicationKey() => CreateDeduplicationKey(UserId, QueryVectorId, SimilarityThresholdPercent, CollectingEndLimit, ExpiredOnly);
 
     public byte[] GetDeduplicationKeyBytes() => Encoding.UTF8.GetBytes(GetDeduplicationKey());
 }

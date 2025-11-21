@@ -2,6 +2,7 @@ using System;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Zakupki.Fetcher.Data.Entities;
+using Zakupki.Fetcher.Models;
 
 namespace Zakupki.Fetcher.Data;
 
@@ -30,6 +31,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
     public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
     public DbSet<UserQueryVector> UserQueryVectors => Set<UserQueryVector>();
+    public DbSet<VectorSearchMatch> VectorSearchMatches => Set<VectorSearchMatch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +50,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureNoticeEmbedding(modelBuilder);
         ConfigureFavoriteNotice(modelBuilder);
         ConfigureUserQueryVector(modelBuilder);
+        ConfigureVectorSearchMatch(modelBuilder);
     }
 
     private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
@@ -373,5 +376,14 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Cascade);
 
         entity.HasIndex(r => r.Token).IsUnique();
+    }
+
+    private static void ConfigureVectorSearchMatch(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<VectorSearchMatch>();
+        entity.HasNoKey();
+        entity.ToView(null);
+
+        entity.Property(m => m.Similarity).HasColumnType("float");
     }
 }

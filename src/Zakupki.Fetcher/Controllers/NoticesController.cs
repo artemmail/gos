@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Data.SqlClient;
 using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -32,6 +33,7 @@ public class NoticesController : ControllerBase
     private readonly IFavoriteSearchQueueService _favoriteSearchQueueService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
+    private const string DefaultEmbeddingModel = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2";
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
@@ -84,6 +86,176 @@ public class NoticesController : ControllerBase
             FavoriteSearchEnqueueError.Invalid => BadRequest(new { message = result.Message ?? "Некорректные параметры" }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.Message ?? "Не удалось поставить задачу" })
         };
+    }
+
+    [HttpGet("vector-search")]
+    [Authorize]
+    public async Task<ActionResult<PagedResult<NoticeListItemDto>>> VectorSearch(
+        [FromQuery] Guid queryVectorId,
+        [FromQuery] int similarityThresholdPercent = 60,
+        [FromQuery] bool expiredOnly = false,
+        [FromQuery] DateTimeOffset? collectingEndLimit = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        if (queryVectorId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Укажите сохранённый запрос" });
+        }
+
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        if (pageSize < 1)
+        {
+            pageSize = 20;
+        }
+
+        pageSize = Math.Min(pageSize, 100);
+
+        var similarityThreshold = Math.Clamp(similarityThresholdPercent, 40, 90) / 100.0;
+        var normalizedCollectingEnd = (collectingEndLimit ?? DateTimeOffset.UtcNow).UtcDateTime;
+        var offset = (page - 1) * pageSize;
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var queryVector = await context.UserQueryVectors
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.Id == queryVectorId && v.UserId == currentUserId, cancellationToken);
+
+        if (queryVector == null)
+        {
+            return NotFound(new { message = "Запрос не найден" });
+        }
+
+        if (queryVector.Vector is null)
+        {
+            return BadRequest(new { message = "Вектор запроса ещё не готов" });
+        }
+
+        var similarityExpression = "CAST(1.0 - VECTOR_DISTANCE('cosine', e.Vector, @QueryVector) AS float)";
+        var collectingEndCondition = expiredOnly
+            ? "n.CollectingEnd IS NOT NULL AND n.CollectingEnd <= @CollectingEndLimit"
+            : "(n.CollectingEnd IS NULL OR n.CollectingEnd <= @CollectingEndLimit)";
+
+        var parameters = new[]
+        {
+            new SqlParameter("@QueryVector", queryVector.Vector),
+            new SqlParameter("@CollectingEndLimit", normalizedCollectingEnd),
+            new SqlParameter("@SimilarityThreshold", similarityThreshold),
+            new SqlParameter("@Model", DefaultEmbeddingModel),
+            new SqlParameter("@Offset", offset),
+            new SqlParameter("@PageSize", pageSize)
+        };
+
+        var countSql = $@"
+SELECT COUNT_BIG(1)
+FROM NoticeEmbeddings e
+INNER JOIN Notices n ON n.Id = e.NoticeId
+WHERE e.Model = @Model
+  AND {collectingEndCondition}
+  AND {similarityExpression} >= @SimilarityThreshold;";
+
+        var totalCount = await context.Database
+            .SqlQueryRaw<long>(countSql, parameters)
+            .SingleAsync(cancellationToken);
+
+        if (totalCount == 0)
+        {
+            return Ok(new PagedResult<NoticeListItemDto>(Array.Empty<NoticeListItemDto>(), 0, page, pageSize));
+        }
+
+        var matchesSql = $@"
+SELECT e.NoticeId, {similarityExpression} AS Similarity
+FROM NoticeEmbeddings e
+INNER JOIN Notices n ON n.Id = e.NoticeId
+WHERE e.Model = @Model
+  AND {collectingEndCondition}
+  AND {similarityExpression} >= @SimilarityThreshold
+ORDER BY Similarity DESC, n.UpdatedAt DESC
+OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        var matches = await context.VectorSearchMatches
+            .FromSqlRaw(matchesSql, parameters)
+            .ToListAsync(cancellationToken);
+
+        var noticeIds = matches.Select(m => m.NoticeId).ToList();
+        var orderLookup = matches
+            .Select((match, index) => new { match.NoticeId, match.Similarity, index })
+            .ToDictionary(x => x.NoticeId, x => (x.index, x.Similarity));
+
+        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
+
+        var noticeRows = await context.Notices
+            .AsNoTracking()
+            .Where(n => noticeIds.Contains(n.Id))
+            .Select(n => new
+            {
+                Notice = n,
+                ProcedureSubmissionDate = n.Versions
+                    .Where(v => v.IsActive)
+                    .Select(v => v.ProcedureWindow != null
+                        ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
+                        : null)
+                    .FirstOrDefault(),
+                Analysis = n.Analyses
+                    .Where(a => currentUserId != null && a.UserId == currentUserId)
+                    .OrderByDescending(a => a.UpdatedAt)
+                    .Select(a => new
+                    {
+                        a.Status,
+                        a.UpdatedAt,
+                        a.CompletedAt,
+                        HasResult = a.Result != null && a.Result != ""
+                    })
+                    .FirstOrDefault(),
+                IsFavorite = includeFavorites && n.Favorites.Any(f => f.UserId == currentUserId)
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = noticeRows
+            .Select(x => new NoticeListItemDto(
+                x.Notice.Id,
+                x.Notice.PurchaseNumber,
+                x.Notice.EntryName,
+                x.Notice.PublishDate,
+                x.Notice.EtpName,
+                x.Notice.DocumentType,
+                x.Notice.Source,
+                x.Notice.UpdatedAt,
+                x.Notice.Region,
+                x.Notice.Period,
+                x.Notice.PlacingWayName,
+                x.Notice.PurchaseObjectInfo,
+                x.Notice.MaxPrice,
+                x.Notice.MaxPriceCurrencyCode,
+                x.Notice.MaxPriceCurrencyName,
+                x.Notice.Okpd2Code,
+                x.Notice.Okpd2Name,
+                x.Notice.KvrCode,
+                x.Notice.KvrName,
+                x.Notice.RawJson,
+                x.Notice.CollectingEnd,
+                x.ProcedureSubmissionDate,
+                x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
+                x.Analysis != null ? x.Analysis.Status : null,
+                x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
+                x.IsFavorite,
+                orderLookup.TryGetValue(x.Notice.Id, out var ordering) ? ordering.Similarity : null))
+            .OrderBy(item => orderLookup[item.Id].Item1)
+            .ToList();
+
+        var total = (int)Math.Min(int.MaxValue, totalCount);
+        var result = new PagedResult<NoticeListItemDto>(items, total, page, pageSize);
+        return Ok(result);
     }
 
     [HttpGet]
@@ -215,7 +387,8 @@ public class NoticesController : ControllerBase
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
-                x.IsFavorite))
+                x.IsFavorite,
+                null))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
@@ -356,7 +529,8 @@ public class NoticesController : ControllerBase
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
-                true))
+                true,
+                null))
             .ToListAsync();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
@@ -942,7 +1116,8 @@ public record NoticeListItemDto(
     bool HasAnalysisAnswer,
     string? AnalysisStatus,
     DateTime? AnalysisUpdatedAt,
-    bool IsFavorite);
+    bool IsFavorite,
+    double? Similarity);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 
