@@ -365,12 +365,8 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<string>("Region")
                         .HasColumnType("tinyint")
                         .HasConversion(new ValueConverter<string, byte?>(
-                            region => byte.TryParse(region, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
-                                ? value
-                                : null,
-                            value => value.HasValue
-                                ? value.Value.ToString("D2", CultureInfo.InvariantCulture)
-                                : null));
+                            region => ParseRegion(region),
+                            value => FormatRegion(value)));
 
                     b.Property<string>("SchemeVersion")
                         .HasMaxLength(64)
@@ -1213,6 +1209,18 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("SearchVector");
                 });
 #pragma warning restore 612, 618
+        }
+
+        private static byte? ParseRegion(string region)
+        {
+            return byte.TryParse(region, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+                ? value
+                : (byte?)null;
+        }
+
+        private static string FormatRegion(byte? value)
+        {
+            return value.HasValue ? value.Value.ToString("D2", CultureInfo.InvariantCulture) : null;
         }
     }
 }

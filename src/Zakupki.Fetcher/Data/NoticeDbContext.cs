@@ -15,8 +15,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     private const int QueryVectorDimensions = 768;
 
     private static readonly ValueConverter<string?, byte?> RegionConverter = new(
-        region => byte.TryParse(region, NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : null,
-        value => value.HasValue ? value.Value.ToString("D2", CultureInfo.InvariantCulture) : null);
+        region => ParseRegion(region),
+        value => FormatRegion(value));
 
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
@@ -57,6 +57,18 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureFavoriteNotice(modelBuilder);
         ConfigureUserQueryVector(modelBuilder);
         ConfigureVectorSearchMatch(modelBuilder);
+    }
+
+    private static byte? ParseRegion(string? region)
+    {
+        return byte.TryParse(region, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : (byte?)null;
+    }
+
+    private static string? FormatRegion(byte? value)
+    {
+        return value.HasValue ? value.Value.ToString("D2", CultureInfo.InvariantCulture) : null;
     }
 
     private static void ConfigureApplicationUser(ModelBuilder modelBuilder)
