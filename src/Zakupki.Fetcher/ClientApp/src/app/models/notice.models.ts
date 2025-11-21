@@ -39,6 +39,7 @@ export interface NoticeListResponse {
 export interface NoticeQuery {
   page: number;
   pageSize: number;
+  expiredOnly: boolean;
   search?: string;
   purchaseNumber?: string;
   okpd2Codes?: string;

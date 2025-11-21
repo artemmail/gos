@@ -178,6 +178,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     const purchaseNumber = this.getTrimmedValue(this.filtersForm.controls.purchaseNumber);
     const okpd2Codes = this.getNormalizedCodes(this.filtersForm.controls.okpd2Codes);
     const kvrCodes = this.getNormalizedCodes(this.filtersForm.controls.kvrCodes);
+    const expiredOnly = this.expiredOnlyControl.value;
     const vectorCriteria = this.vectorSearchCriteria;
 
     this.isLoading = true;
@@ -196,6 +197,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
         ? this.favoritesService.getFavorites({
             page: pageIndex + 1,
             pageSize,
+            expiredOnly,
             search: search || undefined,
             purchaseNumber,
             okpd2Codes,
@@ -206,6 +208,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
         : this.noticesService.getNotices({
             page: pageIndex + 1,
             pageSize,
+            expiredOnly,
             search: search || undefined,
             purchaseNumber,
             okpd2Codes,

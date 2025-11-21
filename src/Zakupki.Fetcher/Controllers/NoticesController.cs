@@ -144,16 +144,20 @@ public class NoticesController : ControllerBase
             where e.Model == DefaultEmbeddingModel
             let distance = EF.Functions.VectorDistance("cosine", e.Vector, queryVector)
             where distance <= distanceThreshold
-            where expiredOnly
-                ? e.Notice.CollectingEnd != null && e.Notice.CollectingEnd <= normalizedCollectingEnd
-                : (e.Notice.CollectingEnd == null || e.Notice.CollectingEnd <= normalizedCollectingEnd)
             orderby distance, e.Notice.UpdatedAt descending
             select new
             {
                 e.NoticeId,
                 Distance = distance,
-                UpdatedAt = e.Notice.UpdatedAt
+                UpdatedAt = e.Notice.UpdatedAt,
+                e.Notice.CollectingEnd
             };
+
+        if (!expiredOnly)
+        {
+            matchesQuery = matchesQuery
+                .Where(m => m.CollectingEnd == null || m.CollectingEnd > normalizedCollectingEnd);
+        }
 
         // 3. Общее количество
         var totalCount = await matchesQuery.LongCountAsync(cancellationToken);
@@ -271,6 +275,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? kvrCodes,
         [FromQuery] string? sortField,
         [FromQuery] string? sortDirection,
+        [FromQuery] bool expiredOnly = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -288,6 +293,7 @@ public class NoticesController : ControllerBase
 
         await using var context = await _dbContextFactory.CreateDbContextAsync();
         var query = context.Notices.AsNoTracking();
+        var normalizedCollectingEnd = DateTime.UtcNow;
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -323,6 +329,11 @@ public class NoticesController : ControllerBase
         if (kvrCodeList.Count > 0)
         {
             query = query.Where(n => n.KvrCode != null && kvrCodeList.Contains(n.KvrCode));
+        }
+
+        if (!expiredOnly)
+        {
+            query = query.Where(n => n.CollectingEnd == null || n.CollectingEnd > normalizedCollectingEnd);
         }
 
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
@@ -409,6 +420,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? kvrCodes,
         [FromQuery] string? sortField,
         [FromQuery] string? sortDirection,
+        [FromQuery] bool expiredOnly = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -434,6 +446,7 @@ public class NoticesController : ControllerBase
         var query = context.Notices
             .AsNoTracking()
             .Where(n => n.Favorites.Any(f => f.UserId == currentUserId));
+        var normalizedCollectingEnd = DateTime.UtcNow;
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -469,6 +482,11 @@ public class NoticesController : ControllerBase
         if (kvrCodeList.Count > 0)
         {
             query = query.Where(n => n.KvrCode != null && kvrCodeList.Contains(n.KvrCode));
+        }
+
+        if (!expiredOnly)
+        {
+            query = query.Where(n => n.CollectingEnd == null || n.CollectingEnd > normalizedCollectingEnd);
         }
 
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)

@@ -29,7 +29,8 @@ export class FavoritesService {
   private buildQueryParams(query: NoticeQuery): HttpParams {
     let params = new HttpParams()
       .set('page', query.page.toString())
-      .set('pageSize', query.pageSize.toString());
+      .set('pageSize', query.pageSize.toString())
+      .set('expiredOnly', query.expiredOnly ? 'true' : 'false');
 
     if (query.search) {
       params = params.set('search', query.search);

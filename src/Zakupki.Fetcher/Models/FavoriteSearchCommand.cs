@@ -29,7 +29,7 @@ public sealed class FavoriteSearchCommand
         bool expiredOnly)
     {
         var normalizedDate = collectingEndLimit.ToUniversalTime().ToString("O");
-        var expiredSuffix = expiredOnly ? "expired" : "active";
+        var expiredSuffix = expiredOnly ? "all" : "active";
         return $"{userId}:{queryVectorId}:{similarityThresholdPercent}:{normalizedDate}:{expiredSuffix}";
     }
 
