@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Globalization;
 using Zakupki.Fetcher.Data;
 
 #nullable disable
@@ -362,8 +363,14 @@ namespace Zakupki.Fetcher.Migrations
                         .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("Region")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("tinyint")
+                        .HasConversion(new ValueConverter<string, byte?>(
+                            region => byte.TryParse(region, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+                                ? value
+                                : null,
+                            value => value.HasValue
+                                ? value.Value.ToString("D2", CultureInfo.InvariantCulture)
+                                : null));
 
                     b.Property<string>("SchemeVersion")
                         .HasMaxLength(64)
