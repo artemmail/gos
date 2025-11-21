@@ -63,6 +63,9 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   favoriteProgress: Record<string, boolean> = {};
   isFavoritesPage = false;
   similarityOptions = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90];
+  readonly directSearchTabIndex = 0;
+  readonly semanticSearchTabIndex = 1;
+  activeSearchTabIndex = this.directSearchTabIndex;
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
@@ -329,6 +332,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   applyFilters(): void {
+    this.resetVectorCriteria();
+
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
       return;
@@ -470,6 +475,21 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       : 'Поиск, сортировка и навигация по таблице данных о закупках';
   }
 
+  onSearchTabChange(index: number): void {
+    this.activeSearchTabIndex = index;
+
+    if (index === this.directSearchTabIndex && this.vectorSearchCriteria) {
+      this.resetVectorCriteria();
+
+      if (this.paginator && this.paginator.pageIndex !== 0) {
+        this.paginator.firstPage();
+        return;
+      }
+
+      this.loadNotices();
+    }
+  }
+
   runVectorSearch(): void {
     if (this.vectorSearchInProgress) {
       return;
@@ -513,8 +533,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.vectorSearchCriteria = null;
-    this.vectorSearchInProgress = false;
+    this.resetVectorCriteria();
 
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
@@ -522,5 +541,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.loadNotices();
+  }
+
+  private resetVectorCriteria(): void {
+    this.vectorSearchCriteria = null;
+    this.vectorSearchInProgress = false;
   }
 }
