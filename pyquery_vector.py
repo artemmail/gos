@@ -4,12 +4,16 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
 import sys
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, Optional
+from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import pika
@@ -76,6 +80,13 @@ class QueryVectorWorker:
         )
         sys.stdout.flush()
 
+    def encode_query(self, query: str) -> list[float]:
+        vector = self._model.encode(query, convert_to_numpy=True)
+        if isinstance(vector, list):
+            vector = np.asarray(vector)
+        vector = np.asarray(vector, dtype=np.float32).tolist()
+        return vector
+
     def _declare(self, ch: pika.adapters.blocking_connection.BlockingChannel) -> None:
         ch.queue_declare(queue=self._request_queue, durable=True)
         ch.queue_declare(queue=self._response_queue, durable=True)
@@ -95,10 +106,7 @@ class QueryVectorWorker:
             self._logger.warning("Request is missing id or query")
             return
 
-        vector = self._model.encode(query, convert_to_numpy=True)
-        if isinstance(vector, list):
-            vector = np.asarray(vector)
-        vector = np.asarray(vector, dtype=np.float32).tolist()
+        vector = self.encode_query(query)
 
         # Отвечаем в том же стиле, что и NoticeEmbeddings/SQL-клиент:
         # поля с заглавной буквы, чтобы десериализация в C# прошла без настроек
@@ -161,7 +169,62 @@ class QueryVectorWorker:
                         pass
 
 
+class HttpQueryHandler(BaseHTTPRequestHandler):
+    worker: QueryVectorWorker
+
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        query_values = params.get("query") or params.get("q")
+        if not query_values or not query_values[0].strip():
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b'{"error":"query parameter is required"}')
+            return
+
+        vector = self.worker.encode_query(query_values[0])
+        body = json.dumps({"Vector": vector}, ensure_ascii=False).encode("utf-8")
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class HttpQueryServer:
+    def __init__(self, worker: QueryVectorWorker, port: int):
+        self._worker = worker
+        self._port = port
+        self._thread: Optional[threading.Thread] = None
+        self._server: Optional[HTTPServer] = None
+
+    def start(self) -> None:
+        handler = type(
+            "_BoundHandler",
+            (HttpQueryHandler,),
+            {"worker": self._worker},
+        )
+        self._server = HTTPServer(("0.0.0.0", self._port), handler)
+
+        def _serve() -> None:
+            assert self._server
+            self._server.serve_forever()
+
+        self._thread = threading.Thread(target=_serve, daemon=True)
+        self._thread.start()
+
 def main():
+    parser = argparse.ArgumentParser(description="Query vector worker")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="HTTP порт для обработки GET-запросов с параметром 'query'",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
@@ -170,6 +233,12 @@ def main():
 
     config = load_config(DEFAULT_CONFIG_PATH)
     worker = QueryVectorWorker(config)
+
+    if args.port is not None:
+        server = HttpQueryServer(worker, args.port)
+        server.start()
+        print(f"HTTP server is listening on port {args.port}")
+
     worker.run()
 
 
