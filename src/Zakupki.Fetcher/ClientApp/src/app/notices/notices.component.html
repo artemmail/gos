@@ -20,9 +20,14 @@
               </mat-form-field>
             </div>
 
-            <mat-checkbox [formControl]="expiredOnlyControl" class="expired-checkbox">
-              Искать истекшие
-            </mat-checkbox>
+            <div class="search-toggles">
+              <mat-checkbox [formControl]="expiredOnlyControl">
+                Искать истекшие
+              </mat-checkbox>
+              <mat-checkbox [formControl]="profileRegionsControl" [disabled]="!isAuthenticated">
+                Фильтровать по регионам профиля
+              </mat-checkbox>
+            </div>
           </div>
 
           <form

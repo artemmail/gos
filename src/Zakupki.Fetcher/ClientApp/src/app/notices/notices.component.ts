@@ -23,6 +23,7 @@ import { QueryVectorService } from '../services/query-vector.service';
 import { UserQueryVectorDto } from '../models/query-vector.models';
 import { NoticeVectorQuery } from '../models/notice.models';
 import { RegionsService } from '../services/regions.service';
+import { AuthService } from '../services/AuthService.service';
 
 @Component({
   selector: 'app-notices',
@@ -66,6 +67,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   similarityOptions = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90];
   searchModeControl = new FormControl<SearchMode>(this.defaultSearchMode, { nonNullable: true });
   expiredOnlyControl = new FormControl<boolean>(false, { nonNullable: true });
+  profileRegionsControl = new FormControl<boolean>(false, { nonNullable: true });
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
@@ -86,6 +88,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   queryVectors: UserQueryVectorDto[] = [];
   queryVectorsLoading = false;
   vectorSearchCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null = null;
+  isAuthenticated = false;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -100,7 +103,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly favoritesService: FavoritesService,
     private readonly queryVectorService: QueryVectorService,
     private readonly route: ActivatedRoute,
-    private readonly regionsService: RegionsService
+    private readonly regionsService: RegionsService,
+    private readonly authService: AuthService
   ) {
     this.isFavoritesPage = this.route.snapshot.data?.['favorites'] === true;
   }
@@ -108,6 +112,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.preloadRegions();
     this.loadQueryVectors();
+    this.authService.user$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(user => {
+        this.isAuthenticated = !!user;
+
+        if (!this.isAuthenticated && this.profileRegionsControl.value) {
+          this.profileRegionsControl.setValue(false, { emitEvent: false });
+        }
+      });
   }
 
   ngAfterViewInit(): void {
@@ -179,6 +192,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     const okpd2Codes = this.getNormalizedCodes(this.filtersForm.controls.okpd2Codes);
     const kvrCodes = this.getNormalizedCodes(this.filtersForm.controls.kvrCodes);
     const expiredOnly = this.expiredOnlyControl.value;
+    const filterByUserRegions = this.profileRegionsControl.value;
     const vectorCriteria = this.vectorSearchCriteria;
 
     this.isLoading = true;
@@ -191,13 +205,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
           queryVectorId: vectorCriteria.queryVectorId,
           similarityThresholdPercent: vectorCriteria.similarityThresholdPercent,
           expiredOnly: vectorCriteria.expiredOnly,
-          collectingEndLimit: vectorCriteria.collectingEndLimit
+          collectingEndLimit: vectorCriteria.collectingEndLimit,
+          filterByUserRegions: vectorCriteria.filterByUserRegions
         })
       : this.isFavoritesPage
         ? this.favoritesService.getFavorites({
             page: pageIndex + 1,
             pageSize,
             expiredOnly,
+            filterByUserRegions,
             search: search || undefined,
             purchaseNumber,
             okpd2Codes,
@@ -209,6 +225,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
             page: pageIndex + 1,
             pageSize,
             expiredOnly,
+            filterByUserRegions,
             search: search || undefined,
             purchaseNumber,
             okpd2Codes,
@@ -236,8 +253,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
           this.totalCount = response.totalCount;
           this.pageSize = response.pageSize;
         },
-        error: () => {
-          this.errorMessage = 'Не удалось загрузить данные. Попробуйте позже.';
+        error: error => {
+          this.errorMessage = error?.error?.message ?? 'Не удалось загрузить данные. Попробуйте позже.';
         }
       });
   }
@@ -496,13 +513,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const expiredOnly = this.expiredOnlyControl.value;
+    const filterByUserRegions = this.profileRegionsControl.value;
     const similarityThresholdPercent = this.favoriteSearchForm.controls.similarityThreshold.value;
 
     this.vectorSearchCriteria = {
       queryVectorId,
       similarityThresholdPercent,
       expiredOnly,
-      collectingEndLimit: new Date().toISOString()
+      collectingEndLimit: new Date().toISOString(),
+      filterByUserRegions
     };
 
     this.vectorSearchInProgress = true;
@@ -559,6 +578,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onResetSearch(): void {
     this.expiredOnlyControl.setValue(false);
+    this.profileRegionsControl.setValue(false);
 
     if (this.isDirectSearch) {
       this.resetFilters();

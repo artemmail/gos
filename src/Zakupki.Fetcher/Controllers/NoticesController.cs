@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
@@ -31,6 +32,7 @@ public class NoticesController : ControllerBase
     private readonly NoticeAnalysisReportService _noticeAnalysisReportService;
     private readonly ILogger<NoticesController> _logger;
     private readonly IFavoriteSearchQueueService _favoriteSearchQueueService;
+    private readonly UserCompanyService _userCompanyService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
     private const string DefaultEmbeddingModel = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2";
@@ -43,7 +45,8 @@ public class NoticesController : ControllerBase
         NoticeAnalysisService noticeAnalysisService,
         NoticeAnalysisReportService noticeAnalysisReportService,
         IFavoriteSearchQueueService favoriteSearchQueueService,
-        ILogger<NoticesController> logger)
+        ILogger<NoticesController> logger,
+        UserCompanyService userCompanyService)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
@@ -53,6 +56,7 @@ public class NoticesController : ControllerBase
         _noticeAnalysisReportService = noticeAnalysisReportService;
         _favoriteSearchQueueService = favoriteSearchQueueService;
         _logger = logger;
+        _userCompanyService = userCompanyService;
     }
 
     [HttpPost("favorite-search")]
@@ -94,6 +98,7 @@ public class NoticesController : ControllerBase
         [FromQuery] Guid queryVectorId,
         [FromQuery] int similarityThresholdPercent = 60,
         [FromQuery] bool expiredOnly = false,
+        [FromQuery] bool filterByUserRegions = false,
         [FromQuery] DateTimeOffset? collectingEndLimit = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -137,11 +142,31 @@ public class NoticesController : ControllerBase
 
         var queryVector = queryVectorEntity.Vector.Value; // SqlVector<float>
 
+        string[]? userRegions = null;
+
+        if (filterByUserRegions)
+        {
+            userRegions = await GetUserRegionCodesAsync(currentUserId, cancellationToken);
+
+            if (userRegions.Length == 0)
+            {
+                return BadRequest(new { message = "В профиле не указаны регионы для фильтрации." });
+            }
+        }
+
         // 2. Базовый запрос по NoticeEmbeddings c векторной дистанцией
         //    Всё на LINQ + EF.Functions.VectorDistance
+        var embeddingsQuery = context.NoticeEmbeddings
+            .AsNoTracking()
+            .Where(e => e.Model == DefaultEmbeddingModel);
+
+        if (userRegions is not null)
+        {
+            embeddingsQuery = ApplyRegionFilter(embeddingsQuery, userRegions);
+        }
+
         var matchesQuery =
-            from e in context.NoticeEmbeddings.AsNoTracking()
-            where e.Model == DefaultEmbeddingModel
+            from e in embeddingsQuery
             let distance = EF.Functions.VectorDistance("cosine", e.Vector, queryVector)
             where distance <= distanceThreshold
             orderby distance, e.Notice.UpdatedAt descending
@@ -276,6 +301,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? sortField,
         [FromQuery] string? sortDirection,
         [FromQuery] bool expiredOnly = false,
+        [FromQuery] bool filterByUserRegions = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -293,6 +319,8 @@ public class NoticesController : ControllerBase
 
         await using var context = await _dbContextFactory.CreateDbContextAsync();
         var query = context.Notices.AsNoTracking();
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
         var normalizedCollectingEnd = DateTime.UtcNow;
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -336,6 +364,23 @@ public class NoticesController : ControllerBase
             query = query.Where(n => n.CollectingEnd == null || n.CollectingEnd > normalizedCollectingEnd);
         }
 
+        if (filterByUserRegions)
+        {
+            if (currentUserId is null)
+            {
+                return Unauthorized(new { message = "Требуется авторизация для фильтра по регионам профиля." });
+            }
+
+            var regions = await GetUserRegionCodesAsync(currentUserId, HttpContext.RequestAborted);
+
+            if (regions.Length == 0)
+            {
+                return BadRequest(new { message = "В профиле не указаны регионы для фильтрации." });
+            }
+
+            query = ApplyRegionFilter(query, regions);
+        }
+
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
             ? "publishDate"
             : sortField.Trim().ToLowerInvariant();
@@ -348,9 +393,6 @@ public class NoticesController : ControllerBase
 
         var totalCount = await query.CountAsync();
         var skip = (page - 1) * pageSize;
-
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
 
         var items = await query
             .Skip(skip)
@@ -421,6 +463,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? sortField,
         [FromQuery] string? sortDirection,
         [FromQuery] bool expiredOnly = false,
+        [FromQuery] bool filterByUserRegions = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -447,6 +490,18 @@ public class NoticesController : ControllerBase
             .AsNoTracking()
             .Where(n => n.Favorites.Any(f => f.UserId == currentUserId));
         var normalizedCollectingEnd = DateTime.UtcNow;
+
+        if (filterByUserRegions)
+        {
+            var regions = await GetUserRegionCodesAsync(currentUserId, HttpContext.RequestAborted);
+
+            if (regions.Length == 0)
+            {
+                return BadRequest(new { message = "В профиле не указаны регионы для фильтрации." });
+            }
+
+            query = ApplyRegionFilter(query, regions);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -1003,6 +1058,45 @@ public class NoticesController : ControllerBase
             .Split(CodeSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
     }
+
+    private async Task<string[]> GetUserRegionCodesAsync(string userId, CancellationToken cancellationToken)
+    {
+        var profile = await _userCompanyService.GetProfileAsync(userId, cancellationToken);
+
+        return NormalizeRegions(profile.Regions);
+    }
+
+    private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<string> regions)
+    {
+        var regionCodes = NormalizeRegions(regions);
+
+        if (regionCodes.Length == 0)
+        {
+            return query.Where(_ => false);
+        }
+
+        return query.Where(n => n.Region != null && regionCodes.Contains(n.Region));
+    }
+
+    private static IQueryable<NoticeEmbedding> ApplyRegionFilter(
+        IQueryable<NoticeEmbedding> query,
+        IReadOnlyCollection<string> regions)
+    {
+        var regionCodes = NormalizeRegions(regions);
+
+        if (regionCodes.Length == 0)
+        {
+            return query.Where(_ => false);
+        }
+
+        return query.Where(e => e.Notice.Region != null && regionCodes.Contains(e.Notice.Region));
+    }
+
+    private static string[] NormalizeRegions(IReadOnlyCollection<string> regions) =>
+        regions
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Select(r => r.Trim())
+            .ToArray();
 
     private NoticeAttachment PrepareAttachmentForConversion(NoticeAttachment attachment)
     {
