@@ -163,7 +163,7 @@ public sealed class XmlFolderImporter
             .AnyAsync(v => v.Hash == hash, cancellationToken);
     }
 
-    private static (string DocumentType, int Region, DateTime Period, string EntryName) ExtractMetadata(string rootDirectory, string file)
+    private static (string DocumentType, byte Region, DateTime Period, string EntryName) ExtractMetadata(string rootDirectory, string file)
     {
         var relativePath = Path.GetRelativePath(rootDirectory, file);
         if (relativePath == ".")

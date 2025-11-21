@@ -12,7 +12,7 @@ public class Contract
 
     public string EntryName { get; set; } = null!;
 
-    public string? Region { get; set; }
+    public byte Region { get; set; }
 
     public string? Period { get; set; }
 

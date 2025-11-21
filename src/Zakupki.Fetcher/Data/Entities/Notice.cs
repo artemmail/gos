@@ -7,7 +7,7 @@ public class Notice
 {
     public Guid Id { get; set; }
 
-    public string? Region { get; set; }
+    public byte Region { get; set; }
 
     public string PurchaseNumber { get; set; } = null!;
 

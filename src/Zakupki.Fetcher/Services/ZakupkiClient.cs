@@ -29,7 +29,7 @@ public class ZakupkiClient
         _options = options.Value;
     }
 
-    public async Task<IReadOnlyList<NoticeDocument>> FetchByOrgRegionAsync(int region, string documentType, string subsystem, DateTime date, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<NoticeDocument>> FetchByOrgRegionAsync(byte region, string documentType, string subsystem, DateTime date, CancellationToken cancellationToken)
     {
         var requestXml = SoapBuilder.BuildGetDocsByOrgRegion(_options.Token ?? string.Empty, region, subsystem, documentType, date);
         var response = await PostSoapAsync(requestXml, cancellationToken);
@@ -75,7 +75,7 @@ public class ZakupkiClient
         return await response.Content.ReadAsByteArrayAsync(cancellationToken);
     }
 
-    private async Task<IReadOnlyList<NoticeDocument>> DownloadArchiveAsync(string archiveUrl, string documentType, int region, DateTime period, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<NoticeDocument>> DownloadArchiveAsync(string archiveUrl, string documentType, byte region, DateTime period, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, archiveUrl);
         request.Headers.TryAddWithoutValidation("individualPerson_token", _options.Token);

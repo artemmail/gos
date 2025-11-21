@@ -6,7 +6,7 @@ public class ZakupkiOptions
 {
     public const string DefaultSubsystem = "PRIZ";
 
-    public static IReadOnlyList<int> DefaultRegions { get; } = new List<int> { 77 };
+    public static IReadOnlyList<byte> DefaultRegions { get; } = new List<byte> { 77 };
 
     public static IReadOnlyList<string> DefaultDocumentTypes { get; } = new List<string>
     {
@@ -19,7 +19,7 @@ public class ZakupkiOptions
 
     public int Days { get; set; } = 1;
 
-    public List<int> Regions { get; set; } = new();
+    public List<byte> Regions { get; set; } = new();
 
     public List<string> DocumentTypes { get; set; } = new();
 

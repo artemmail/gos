@@ -747,7 +747,8 @@ public sealed class NoticeAnalysisService
         builder.AppendLine($"Номер закупки: {notice.PurchaseNumber}");
         builder.AppendLine($"Предмет закупки: {notice.PurchaseObjectInfo ?? "не указан"}");
 
-        var noticeRegion = UserCompanyService.ResolveRegionName(notice.Region) ?? notice.Region ?? "не указан";
+        var noticeRegion = UserCompanyService.ResolveRegionName(notice.Region) ?? 
+             "не указан";
         builder.AppendLine($"Регион: {noticeRegion}");
         builder.AppendLine($"Площадка: {notice.EtpName ?? "не указана"}");
 

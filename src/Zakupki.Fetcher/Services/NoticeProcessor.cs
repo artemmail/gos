@@ -257,7 +257,7 @@ public sealed class NoticeProcessor
         string serializedNotification,
         string externalId)
     {
-        notice.Region = FormatDocumentRegion(document.Region);
+        notice.Region = document.Region;
         notice.PurchaseNumber = commonInfo.PurchaseNumber ?? externalId;
         notice.PublishDate = commonInfo.PublishDtInEis;
         notice.Href = commonInfo.Href;
@@ -282,7 +282,7 @@ public sealed class NoticeProcessor
         string serializedContract,
         string externalId)
     {
-        notice.Region = FormatDocumentRegion(document.Region);
+        notice.Region = (document.Region);
         notice.PurchaseNumber = contract.Foundation?.FcsOrder?.Order?.NotificationNumber ?? externalId;
         notice.PublishDate = contract.PublishDate;
         notice.Href = contract.Href;
@@ -311,7 +311,7 @@ public sealed class NoticeProcessor
         entity.Source = document.Source;
         entity.DocumentType = document.DocumentType;
         entity.EntryName = document.EntryName;
-        entity.Region = FormatDocumentRegion(document.Region);
+        entity.Region = (document.Region);
         entity.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         entity.ExternalId = externalId;
         entity.RegNumber = contract.RegNum ?? externalId;

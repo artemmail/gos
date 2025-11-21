@@ -1039,30 +1039,31 @@ public class NoticesController : ControllerBase
             .ToArray();
     }
 
-    private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<string> regions)
+    private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<byte> regions)
     {
+        /*
         var regionCodes = NormalizeRegions(regions);
 
         if (regionCodes.Length == 0)
         {
             return query.Where(_ => false);
         }
-
-        return query.Where(n => n.Region != null && regionCodes.Contains(n.Region));
+        */
+        return query.Where(n =>  regions.Contains(n.Region));
     }
 
     private static IQueryable<NoticeEmbedding> ApplyRegionFilter(
         IQueryable<NoticeEmbedding> query,
-        IReadOnlyCollection<string> regions)
+        IReadOnlyCollection<byte> regions)
     {
-        var regionCodes = NormalizeRegions(regions);
+      //  var regionCodes = NormalizeRegions(regions);
 
-        if (regionCodes.Length == 0)
+        if (!regions.Any())
         {
             return query.Where(_ => false);
         }
 
-        return query.Where(e => e.Notice.Region != null && regionCodes.Contains(e.Notice.Region));
+        return query.Where(e => e.Notice.Region != null && regions.Contains(e.Notice.Region));
     }
 
     private static string[] NormalizeRegions(IReadOnlyCollection<string> regions) =>
@@ -1167,7 +1168,7 @@ public record NoticeListItemDto(
     string PurchaseNumber,
     DateTime? PublishDate,
     string? EtpName,
-    string? Region,
+    byte Region,
     string? PurchaseObjectInfo,
     decimal? MaxPrice,
     string? Okpd2Code,

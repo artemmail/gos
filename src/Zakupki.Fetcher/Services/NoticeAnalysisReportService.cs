@@ -151,7 +151,7 @@ public sealed class NoticeAnalysisReportService
         var entries = new List<(string Label, string? Value)>
         {
             ("Дата формирования", FormatDateTime(analysis.CompletedAt ?? DateTime.UtcNow)),
-            ("Регион", NormalizeText(UserCompanyService.ResolveRegionName(notice.Region) ?? notice.Region)),
+            ("Регион", NormalizeText(UserCompanyService.ResolveRegionName(notice.Region) ?? notice.Region.ToString())),
             ("Площадка", NormalizeText(notice.EtpName)),
             ("Окончание подачи заявок", FormatDateTime(notice.CollectingEnd)),
             ("НМЦК", FormatMaxPrice(notice))

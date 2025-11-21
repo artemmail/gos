@@ -8,7 +8,7 @@ public sealed class NoticeDocument
     public NoticeDocument(
         string source,
         string documentType,
-        int region,
+        byte region,
         DateTime period,
         string entryName,
         byte[] content,
@@ -27,7 +27,7 @@ public sealed class NoticeDocument
 
     public string DocumentType { get; }
 
-    public int Region { get; }
+    public byte Region { get; }
 
     public DateTime Period { get; }
 
