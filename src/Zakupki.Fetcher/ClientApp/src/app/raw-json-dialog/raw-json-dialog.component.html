@@ -11,7 +11,7 @@
 </div>
 
 <mat-dialog-content class="dialog-content">
-  <div class="entry-name" *ngIf="data.entryName">{{ data.entryName }}</div>
+  <div class="entry-name" *ngIf="data.title">{{ data.title }}</div>
 
   <div *ngIf="parseError; else treeTemplate" class="parse-error">{{ parseError }}</div>
 
