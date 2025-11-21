@@ -234,7 +234,7 @@ public sealed class NoticeAnalysisService
             var regions = user.Regions
                 .Select(r => UserCompanyService.ResolveRegionName(r.Region))
                 .Where(r => !string.IsNullOrWhiteSpace(r))
-                .Select(r => r!.Trim())
+                .Select(r => r.Trim())
                 .Where(r => r.Length > 0)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
