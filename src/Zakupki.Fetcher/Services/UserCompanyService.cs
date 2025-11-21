@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,113 +14,121 @@ public sealed class UserCompanyService
 {
     private static readonly RegionOption[] _availableRegions =
     {
-        new("01", "Респ. Адыгея"),
-        new("02", "Респ. Башкортостан"),
-        new("03", "Респ. Бурятия"),
-        new("04", "Респ. Алтай"),
-        new("05", "Респ. Дагестан"),
-        new("06", "Респ. Ингушетия"),
-        new("07", "Кабардино-Балкарская Респ."),
-        new("08", "Карачаево-Черкесская Респ."),
-        new("09", "Респ. Карелия"),
-        new("10", "Респ. Коми"),
-        new("11", "Респ. Марий Эл"),
-        new("12", "Респ. Мордовия"),
-        new("13", "Респ. Мордовия (старый код, дублирует 12)"),
-        new("14", "Респ. Саха (Якутия)"),
-        new("15", "Респ. Северная Осетия — Алания"),
-        new("16", "Респ. Татарстан"),
-        new("17", "Респ. Тыва"),
-        new("18", "Удмуртская Респ."),
-        new("19", "Респ. Хакасия"),
-        new("20", "Чеченская Респ."),
-        new("21", "Чувашская Респ."),
-        new("22", "Алтайский край"),
-        new("23", "Краснодарский край"),
-        new("24", "Красноярский край"),
-        new("25", "Приморский край"),
-        new("26", "Ставропольский край"),
-        new("27", "Хабаровский край"),
-        new("28", "Амурская обл."),
-        new("29", "Архангельская обл."),
-        new("30", "Астраханская обл."),
-        new("31", "Белгородская обл."),
-        new("32", "Брянская обл."),
-        new("33", "Владимирская обл."),
-        new("34", "Волгоградская обл."),
-        new("35", "Вологодская обл."),
-        new("36", "Воронежская обл."),
-        new("37", "Ивановская обл."),
-        new("38", "Иркутская обл."),
-        new("39", "Калининградская обл."),
-        new("40", "Калужская обл."),
-        new("41", "Камчатский край"),
-        new("42", "Кемеровская обл. — Кузбасс"),
-        new("43", "Кировская обл."),
-        new("44", "Костромская обл."),
-        new("45", "Курганская обл."),
-        new("46", "Курская обл."),
-        new("47", "Ленинградская обл."),
-        new("48", "Липецкая обл."),
-        new("49", "Магаданская обл."),
-        new("50", "Московская обл."),
-        new("51", "Мурманская обл."),
-        new("52", "Нижегородская обл."),
-        new("53", "Новгородская обл."),
-        new("54", "Новосибирская обл."),
-        new("55", "Омская обл."),
-        new("56", "Оренбургская обл."),
-        new("57", "Орловская обл."),
-        new("58", "Пензенская обл."),
-        new("59", "Пермский край"),
-        new("60", "Псковская обл."),
-        new("61", "Ростовская обл."),
-        new("62", "Рязанская обл."),
-        new("63", "Самарская обл."),
-        new("64", "Саратовская обл."),
-        new("65", "Сахалинская обл."),
-        new("66", "Свердловская обл."),
-        new("67", "Смоленская обл."),
-        new("68", "Тамбовская обл."),
-        new("69", "Тверская обл."),
-        new("70", "Томская обл."),
-        new("71", "Тульская обл."),
-        new("72", "Тюменская обл."),
-        new("73", "Ульяновская обл."),
-        new("74", "Челябинская обл."),
-        new("75", "Забайкальский край"),
-        new("76", "Ярославская обл."),
-        new("77", "г. Москва"),
-        new("78", "г. Санкт-Петербург"),
-        new("79", "Еврейская авт. обл."),
-        new("80", "Забайкальский край (старый код, дублирует 75)"),
-        new("81", "Пермский край (старый код, дублирует 59)"),
-        new("82", "Респ. Крым"),
-        new("83", "Ненецкий авт. округ"),
-        new("84", "Красноярский край (старый код, дублирует 24)"),
-        new("85", "Иркутская обл. (старый код)"),
-        new("86", "Ханты-Мансийский авт. округ — Югра"),
-        new("87", "Чукотский авт. округ"),
-        new("88", "Ямало-Ненецкий авт. округ"),
-        new("89", "Ямало-Ненецкий авт. округ (дублирующий)"),
-        new("90", "Запорожская область (новые территории)"),
-        new("91", "Республика Крым (старый код до 2014)"),
-        new("92", "Севастополь"),
-        new("93", "Херсонская область (новые территории)"),
-        new("94", "Донецкая Народная Республика (ДНР)"),
-        new("95", "Луганская Народная Республика (ЛНР)"),
-        new("96", "Не используется"),
-        new("97", "Москва (доп. код)"),
-        new("98", "Санкт-Петербург (доп. код)"),
-        new("99", "Москва (доп. код)")
+        CreateRegion("01", "Респ. Адыгея"),
+        CreateRegion("02", "Респ. Башкортостан"),
+        CreateRegion("03", "Респ. Бурятия"),
+        CreateRegion("04", "Респ. Алтай"),
+        CreateRegion("05", "Респ. Дагестан"),
+        CreateRegion("06", "Респ. Ингушетия"),
+        CreateRegion("07", "Кабардино-Балкарская Респ."),
+        CreateRegion("08", "Карачаево-Черкесская Респ."),
+        CreateRegion("09", "Респ. Карелия"),
+        CreateRegion("10", "Респ. Коми"),
+        CreateRegion("11", "Респ. Марий Эл"),
+        CreateRegion("12", "Респ. Мордовия"),
+        CreateRegion("13", "Респ. Мордовия (старый код, дублирует 12)"),
+        CreateRegion("14", "Респ. Саха (Якутия)"),
+        CreateRegion("15", "Респ. Северная Осетия — Алания"),
+        CreateRegion("16", "Респ. Татарстан"),
+        CreateRegion("17", "Респ. Тыва"),
+        CreateRegion("18", "Удмуртская Респ."),
+        CreateRegion("19", "Респ. Хакасия"),
+        CreateRegion("20", "Чеченская Респ."),
+        CreateRegion("21", "Чувашская Респ."),
+        CreateRegion("22", "Алтайский край"),
+        CreateRegion("23", "Краснодарский край"),
+        CreateRegion("24", "Красноярский край"),
+        CreateRegion("25", "Приморский край"),
+        CreateRegion("26", "Ставропольский край"),
+        CreateRegion("27", "Хабаровский край"),
+        CreateRegion("28", "Амурская обл."),
+        CreateRegion("29", "Архангельская обл."),
+        CreateRegion("30", "Астраханская обл."),
+        CreateRegion("31", "Белгородская обл."),
+        CreateRegion("32", "Брянская обл."),
+        CreateRegion("33", "Владимирская обл."),
+        CreateRegion("34", "Волгоградская обл."),
+        CreateRegion("35", "Вологодская обл."),
+        CreateRegion("36", "Воронежская обл."),
+        CreateRegion("37", "Ивановская обл."),
+        CreateRegion("38", "Иркутская обл."),
+        CreateRegion("39", "Калининградская обл."),
+        CreateRegion("40", "Калужская обл."),
+        CreateRegion("41", "Камчатский край"),
+        CreateRegion("42", "Кемеровская обл. — Кузбасс"),
+        CreateRegion("43", "Кировская обл."),
+        CreateRegion("44", "Костромская обл."),
+        CreateRegion("45", "Курганская обл."),
+        CreateRegion("46", "Курская обл."),
+        CreateRegion("47", "Ленинградская обл."),
+        CreateRegion("48", "Липецкая обл."),
+        CreateRegion("49", "Магаданская обл."),
+        CreateRegion("50", "Московская обл."),
+        CreateRegion("51", "Мурманская обл."),
+        CreateRegion("52", "Нижегородская обл."),
+        CreateRegion("53", "Новгородская обл."),
+        CreateRegion("54", "Новосибирская обл."),
+        CreateRegion("55", "Омская обл."),
+        CreateRegion("56", "Оренбургская обл."),
+        CreateRegion("57", "Орловская обл."),
+        CreateRegion("58", "Пензенская обл."),
+        CreateRegion("59", "Пермский край"),
+        CreateRegion("60", "Псковская обл."),
+        CreateRegion("61", "Ростовская обл."),
+        CreateRegion("62", "Рязанская обл."),
+        CreateRegion("63", "Самарская обл."),
+        CreateRegion("64", "Саратовская обл."),
+        CreateRegion("65", "Сахалинская обл."),
+        CreateRegion("66", "Свердловская обл."),
+        CreateRegion("67", "Смоленская обл."),
+        CreateRegion("68", "Тамбовская обл."),
+        CreateRegion("69", "Тверская обл."),
+        CreateRegion("70", "Томская обл."),
+        CreateRegion("71", "Тульская обл."),
+        CreateRegion("72", "Тюменская обл."),
+        CreateRegion("73", "Ульяновская обл."),
+        CreateRegion("74", "Челябинская обл."),
+        CreateRegion("75", "Забайкальский край"),
+        CreateRegion("76", "Ярославская обл."),
+        CreateRegion("77", "г. Москва"),
+        CreateRegion("78", "г. Санкт-Петербург"),
+        CreateRegion("79", "Еврейская авт. обл."),
+        CreateRegion("80", "Забайкальский край (старый код, дублирует 75)"),
+        CreateRegion("81", "Пермский край (старый код, дублирует 59)"),
+        CreateRegion("82", "Респ. Крым"),
+        CreateRegion("83", "Ненецкий авт. округ"),
+        CreateRegion("84", "Красноярский край (старый код, дублирует 24)"),
+        CreateRegion("85", "Иркутская обл. (старый код)"),
+        CreateRegion("86", "Ханты-Мансийский авт. округ — Югра"),
+        CreateRegion("87", "Чукотский авт. округ"),
+        CreateRegion("88", "Ямало-Ненецкий авт. округ"),
+        CreateRegion("89", "Ямало-Ненецкий авт. округ (дублирующий)"),
+        CreateRegion("90", "Запорожская область (новые территории)"),
+        CreateRegion("91", "Республика Крым (старый код до 2014)"),
+        CreateRegion("92", "Севастополь"),
+        CreateRegion("93", "Херсонская область (новые территории)"),
+        CreateRegion("94", "Донецкая Народная Республика (ДНР)"),
+        CreateRegion("95", "Луганская Народная Республика (ЛНР)"),
+        CreateRegion("96", "Не используется"),
+        CreateRegion("97", "Москва (доп. код)"),
+        CreateRegion("98", "Санкт-Петербург (доп. код)"),
+        CreateRegion("99", "Москва (доп. код)")
     };
 
-    private static readonly Dictionary<string, RegionOption> _regionsByCode = _availableRegions
-        .ToDictionary(region => region.Code, StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<byte, RegionOption> _regionsByCode = _availableRegions
+        .ToDictionary(region => region.Code);
+
+    private static RegionOption CreateRegion(string code, string name) => new(ParseCode(code), name);
+
+    private static byte ParseCode(string code) =>
+        byte.Parse(code, NumberStyles.None, CultureInfo.InvariantCulture);
+
+    public static string FormatRegionCode(byte region) =>
+        region.ToString("D2", CultureInfo.InvariantCulture);
 
     private static readonly Dictionary<string, RegionOption> _regionsByName = CreateRegionsByNameDictionary();
 
-    private static readonly Dictionary<string, string> _legacyNameToCode = CreateLegacyNameToCodeDictionary();
+    private static readonly Dictionary<string, byte> _legacyNameToCode = CreateLegacyNameToCodeDictionary();
 
     private static Dictionary<string, RegionOption> CreateRegionsByNameDictionary()
     {
@@ -137,104 +146,104 @@ public sealed class UserCompanyService
         return dictionary;
     }
 
-    private static Dictionary<string, string> CreateLegacyNameToCodeDictionary()
+    private static Dictionary<string, byte> CreateLegacyNameToCodeDictionary()
     {
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        return new Dictionary<string, byte>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Республика Адыгея"] = "01",
-            ["Республика Башкортостан"] = "02",
-            ["Республика Бурятия"] = "03",
-            ["Республика Алтай"] = "04",
-            ["Республика Дагестан"] = "05",
-            ["Республика Ингушетия"] = "06",
-            ["Кабардино-Балкарская Республика"] = "07",
-            ["Республика Калмыкия"] = "08",
-            ["Карачаево-Черкесская Республика"] = "09",
-            ["Республика Карелия"] = "10",
-            ["Республика Коми"] = "11",
-            ["Республика Марий Эл"] = "12",
-            ["Республика Мордовия"] = "13",
-            ["Республика Саха (Якутия)"] = "14",
-            ["Республика Северная Осетия — Алания"] = "15",
-            ["Республика Татарстан"] = "16",
-            ["Республика Тыва"] = "17",
-            ["Удмуртская Республика"] = "18",
-            ["Республика Хакасия"] = "19",
-            ["Чеченская Республика"] = "20",
-            ["Чувашская Республика"] = "21",
+            ["Республика Адыгея"] = ParseCode("01"),
+            ["Республика Башкортостан"] = ParseCode("02"),
+            ["Республика Бурятия"] = ParseCode("03"),
+            ["Республика Алтай"] = ParseCode("04"),
+            ["Республика Дагестан"] = ParseCode("05"),
+            ["Республика Ингушетия"] = ParseCode("06"),
+            ["Кабардино-Балкарская Республика"] = ParseCode("07"),
+            ["Республика Калмыкия"] = ParseCode("08"),
+            ["Карачаево-Черкесская Республика"] = ParseCode("09"),
+            ["Республика Карелия"] = ParseCode("10"),
+            ["Республика Коми"] = ParseCode("11"),
+            ["Республика Марий Эл"] = ParseCode("12"),
+            ["Республика Мордовия"] = ParseCode("13"),
+            ["Республика Саха (Якутия)"] = ParseCode("14"),
+            ["Республика Северная Осетия — Алания"] = ParseCode("15"),
+            ["Республика Татарстан"] = ParseCode("16"),
+            ["Республика Тыва"] = ParseCode("17"),
+            ["Удмуртская Республика"] = ParseCode("18"),
+            ["Республика Хакасия"] = ParseCode("19"),
+            ["Чеченская Республика"] = ParseCode("20"),
+            ["Чувашская Республика"] = ParseCode("21"),
 
-            ["Алтайский край"] = "22",
-            ["Краснодарский край"] = "23",
-            ["Красноярский край"] = "24",
-            ["Приморский край"] = "25",
-            ["Ставропольский край"] = "26",
-            ["Хабаровский край"] = "27",
-            ["Амурская область"] = "28",
-            ["Архангельская область"] = "29",
-            ["Астраханская область"] = "30",
-            ["Белгородская область"] = "31",
-            ["Брянская область"] = "32",
-            ["Владимирская область"] = "33",
-            ["Волгоградская область"] = "34",
-            ["Вологодская область"] = "35",
-            ["Воронежская область"] = "36",
-            ["Ивановская область"] = "37",
-            ["Иркутская область"] = "38",
-            ["Калининградская область"] = "39",
-            ["Калужская область"] = "40",
-            ["Камчатский край"] = "41",
-            ["Кемеровская область"] = "42",
-            ["Кировская область"] = "43",
-            ["Костромская область"] = "44",
-            ["Курганская область"] = "45",
-            ["Курская область"] = "46",
-            ["Ленинградская область"] = "47",
-            ["Липецкая область"] = "48",
-            ["Магаданская область"] = "49",
-            ["Московская область"] = "50",
-            ["Мурманская область"] = "51",
-            ["Нижегородская область"] = "52",
-            ["Новгородская область"] = "53",
-            ["Новосибирская область"] = "54",
-            ["Омская область"] = "55",
-            ["Оренбургская область"] = "56",
-            ["Орловская область"] = "57",
-            ["Пензенская область"] = "58",
-            ["Пермский край"] = "59",
-            ["Псковская область"] = "60",
-            ["Ростовская область"] = "61",
-            ["Рязанская область"] = "62",
-            ["Самарская область"] = "63",
-            ["Саратовская область"] = "64",
-            ["Сахалинская область"] = "65",
-            ["Свердловская область"] = "66",
-            ["Смоленская область"] = "67",
-            ["Тамбовская область"] = "68",
-            ["Тверская область"] = "69",
-            ["Томская область"] = "70",
-            ["Тульская область"] = "71",
-            ["Тюменская область"] = "72",
-            ["Ульяновская область"] = "73",
-            ["Челябинская область"] = "74",
-            ["Забайкальский край"] = "75",
-            ["Ярославская область"] = "76",
+            ["Алтайский край"] = ParseCode("22"),
+            ["Краснодарский край"] = ParseCode("23"),
+            ["Красноярский край"] = ParseCode("24"),
+            ["Приморский край"] = ParseCode("25"),
+            ["Ставропольский край"] = ParseCode("26"),
+            ["Хабаровский край"] = ParseCode("27"),
+            ["Амурская область"] = ParseCode("28"),
+            ["Архангельская область"] = ParseCode("29"),
+            ["Астраханская область"] = ParseCode("30"),
+            ["Белгородская область"] = ParseCode("31"),
+            ["Брянская область"] = ParseCode("32"),
+            ["Владимирская область"] = ParseCode("33"),
+            ["Волгоградская область"] = ParseCode("34"),
+            ["Вологодская область"] = ParseCode("35"),
+            ["Воронежская область"] = ParseCode("36"),
+            ["Ивановская область"] = ParseCode("37"),
+            ["Иркутская область"] = ParseCode("38"),
+            ["Калининградская область"] = ParseCode("39"),
+            ["Калужская область"] = ParseCode("40"),
+            ["Камчатский край"] = ParseCode("41"),
+            ["Кемеровская область"] = ParseCode("42"),
+            ["Кировская область"] = ParseCode("43"),
+            ["Костромская область"] = ParseCode("44"),
+            ["Курганская область"] = ParseCode("45"),
+            ["Курская область"] = ParseCode("46"),
+            ["Ленинградская область"] = ParseCode("47"),
+            ["Липецкая область"] = ParseCode("48"),
+            ["Магаданская область"] = ParseCode("49"),
+            ["Московская область"] = ParseCode("50"),
+            ["Мурманская область"] = ParseCode("51"),
+            ["Нижегородская область"] = ParseCode("52"),
+            ["Новгородская область"] = ParseCode("53"),
+            ["Новосибирская область"] = ParseCode("54"),
+            ["Омская область"] = ParseCode("55"),
+            ["Оренбургская область"] = ParseCode("56"),
+            ["Орловская область"] = ParseCode("57"),
+            ["Пензенская область"] = ParseCode("58"),
+            ["Пермский край"] = ParseCode("59"),
+            ["Псковская область"] = ParseCode("60"),
+            ["Ростовская область"] = ParseCode("61"),
+            ["Рязанская область"] = ParseCode("62"),
+            ["Самарская область"] = ParseCode("63"),
+            ["Саратовская область"] = ParseCode("64"),
+            ["Сахалинская область"] = ParseCode("65"),
+            ["Свердловская область"] = ParseCode("66"),
+            ["Смоленская область"] = ParseCode("67"),
+            ["Тамбовская область"] = ParseCode("68"),
+            ["Тверская область"] = ParseCode("69"),
+            ["Томская область"] = ParseCode("70"),
+            ["Тульская область"] = ParseCode("71"),
+            ["Тюменская область"] = ParseCode("72"),
+            ["Ульяновская область"] = ParseCode("73"),
+            ["Челябинская область"] = ParseCode("74"),
+            ["Забайкальский край"] = ParseCode("75"),
+            ["Ярославская область"] = ParseCode("76"),
 
-            ["Москва"] = "77",
-            ["Санкт-Петербург"] = "78",
-            ["Еврейская автономная область"] = "79",
+            ["Москва"] = ParseCode("77"),
+            ["Санкт-Петербург"] = ParseCode("78"),
+            ["Еврейская автономная область"] = ParseCode("79"),
 
-            ["Ненецкий автономный округ"] = "83",
-            ["Ханты-Мансийский автономный округ — Югра"] = "86",
-            ["Чукотский автономный округ"] = "87",
-            ["Ямало-Ненецкий автономный округ"] = "89",
+            ["Ненецкий автономный округ"] = ParseCode("83"),
+            ["Ханты-Мансийский автономный округ — Югра"] = ParseCode("86"),
+            ["Чукотский автономный округ"] = ParseCode("87"),
+            ["Ямало-Ненецкий автономный округ"] = ParseCode("89"),
 
             // Новые субъекты в кодировке ФНС
-            ["Запорожская область"] = "90",
-            ["Республика Крым"] = "91",
-            ["Севастополь"] = "92",
-            ["Донецкая Народная Республика"] = "93",
-            ["Луганская Народная Республика"] = "94",
-            ["Херсонская область"] = "95",
+            ["Запорожская область"] = ParseCode("90"),
+            ["Республика Крым"] = ParseCode("91"),
+            ["Севастополь"] = ParseCode("92"),
+            ["Донецкая Народная Республика"] = ParseCode("93"),
+            ["Луганская Народная Республика"] = ParseCode("94"),
+            ["Херсонская область"] = ParseCode("95"),
 
             // По желанию можно добавить:
             // ["Иные территории, включая город и космодром Байконур"] = "99"
@@ -259,8 +268,8 @@ public sealed class UserCompanyService
 
         var code = MapRegionToCode(region);
 
-        if (!string.IsNullOrWhiteSpace(code) &&
-            _regionsByCode.TryGetValue(code, out var regionOption))
+        if (code.HasValue &&
+            _regionsByCode.TryGetValue(code.Value, out var regionOption))
         {
             return regionOption.Name;
         }
@@ -286,13 +295,9 @@ public sealed class UserCompanyService
             throw new InvalidOperationException($"User with id '{userId}' was not found.");
         }
 
-        var regionCodes = new HashSet<string>(
+        var regionCodes = new HashSet<byte>(
             user.Regions
-                .Select(r => r.Region)
-                .Select(MapRegionToCode)
-                .Where(code => code is not null)
-                .Select(code => code!),
-            StringComparer.OrdinalIgnoreCase);
+                .Select(r => r.Region));
 
         var orderedRegions = _availableRegions
             .Where(region => regionCodes.Contains(region.Code))
@@ -305,7 +310,7 @@ public sealed class UserCompanyService
     public async Task<UserCompanyProfile> UpdateProfileAsync(
         string userId,
         string? companyInfo,
-        IReadOnlyCollection<string>? regions,
+        IReadOnlyCollection<byte>? regions,
         CancellationToken cancellationToken)
     {
         var user = await _dbContext.Users
@@ -320,14 +325,9 @@ public sealed class UserCompanyService
         var trimmedInfo = (companyInfo ?? string.Empty).Trim();
         user.CompanyInfo = trimmedInfo;
 
-        var normalizedInput = regions ?? Array.Empty<string>();
-        var selectedRegionCodes = new HashSet<string>(
-            normalizedInput
-                .Where(r => !string.IsNullOrWhiteSpace(r))
-                .Select(MapRegionToCode)
-                .Where(code => code is not null)
-                .Select(code => code!),
-            StringComparer.OrdinalIgnoreCase);
+        var normalizedInput = regions ?? Array.Empty<byte>();
+        var selectedRegionCodes = new HashSet<byte>(
+            normalizedInput.Where(r => _regionsByCode.ContainsKey(r)));
 
         var selectedRegions = _availableRegions
             .Where(region => selectedRegionCodes.Contains(region.Code))
@@ -353,7 +353,7 @@ public sealed class UserCompanyService
 
     public IReadOnlyCollection<RegionOption> GetAvailableRegions() => _availableRegions;
 
-    private static string? MapRegionToCode(string? region)
+    private static byte? MapRegionToCode(string? region)
     {
         if (string.IsNullOrWhiteSpace(region))
         {
@@ -362,9 +362,10 @@ public sealed class UserCompanyService
 
         var trimmed = region.Trim();
 
-        if (_regionsByCode.TryGetValue(trimmed, out var byCode))
+        if (byte.TryParse(trimmed, NumberStyles.None, CultureInfo.InvariantCulture, out var numeric) &&
+            _regionsByCode.ContainsKey(numeric))
         {
-            return byCode.Code;
+            return numeric;
         }
 
         if (_regionsByName.TryGetValue(NormalizeRegionName(trimmed), out var byName))
@@ -386,7 +387,7 @@ public sealed class UserCompanyService
         return null;
     }
 
-    public sealed record UserCompanyProfile(string CompanyInfo, IReadOnlyCollection<string> Regions);
+    public sealed record UserCompanyProfile(string CompanyInfo, IReadOnlyCollection<byte> Regions);
 
-    public sealed record RegionOption(string Code, string Name);
+    public sealed record RegionOption(byte Code, string Name);
 }

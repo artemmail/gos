@@ -13,6 +13,5 @@ public class ApplicationUserRegion
     public ApplicationUser? User { get; set; }
 
     [Required]
-    [MaxLength(128)]
-    public string Region { get; set; } = string.Empty;
+    public byte Region { get; set; }
 }

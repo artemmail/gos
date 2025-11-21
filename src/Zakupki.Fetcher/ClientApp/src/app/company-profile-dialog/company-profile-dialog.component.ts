@@ -43,7 +43,7 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   ) {
     this.form = this.fb.group({
       companyInfo: ['', [Validators.maxLength(8000)]],
-      regions: [[] as string[]]
+      regions: [[] as number[]]
     });
   }
 
