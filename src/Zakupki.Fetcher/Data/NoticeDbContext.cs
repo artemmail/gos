@@ -1,6 +1,8 @@
 using System;
+using System.Globalization;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 
@@ -11,6 +13,10 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     // ����������� ���������� ��� VECTOR
     private const int NoticeEmbeddingVectorDimensions = 768;
     private const int QueryVectorDimensions = 768;
+
+    private static readonly ValueConverter<string?, byte?> RegionConverter = new(
+        region => byte.TryParse(region, NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : null,
+        value => value.HasValue ? value.Value.ToString("D2", CultureInfo.InvariantCulture) : null);
 
     public NoticeDbContext(DbContextOptions<NoticeDbContext> options)
         : base(options)
@@ -97,7 +103,9 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.Property(n => n.Source).HasMaxLength(100);
         entity.Property(n => n.DocumentType).HasMaxLength(100);
-        entity.Property(n => n.Region).HasMaxLength(128);
+        entity.Property(n => n.Region)
+            .HasConversion(RegionConverter)
+            .HasColumnType("tinyint");
         entity.Property(n => n.Period).HasMaxLength(64);
         entity.Property(n => n.EntryName).HasMaxLength(256);
         entity.Property(n => n.ExternalId).HasMaxLength(128);
