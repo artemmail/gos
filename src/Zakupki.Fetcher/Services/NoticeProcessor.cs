@@ -257,7 +257,7 @@ public sealed class NoticeProcessor
         string serializedNotification,
         string externalId)
     {
-        notice.Region = document.Region;
+        notice.Region = DetermineRegionCode(notification, document);
         notice.PurchaseNumber = commonInfo.PurchaseNumber ?? externalId;
         notice.PublishDate = commonInfo.PublishDtInEis;
         notice.Href = commonInfo.Href;
