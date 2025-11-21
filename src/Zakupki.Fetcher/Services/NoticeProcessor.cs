@@ -255,7 +255,7 @@ public sealed class NoticeProcessor
     {
         notice.Source = document.Source;
         notice.DocumentType = document.DocumentType;
-        notice.Region = notice.Region;
+        notice.Region = DetermineRegionCode(notification, document);
         notice.Period = document.Period.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         notice.EntryName = document.EntryName;
         notice.ExternalId = externalId;
