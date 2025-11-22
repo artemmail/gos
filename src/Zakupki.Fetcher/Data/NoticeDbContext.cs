@@ -323,8 +323,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.ToTable("NoticeEmbeddings");
         entity.HasKey(e => e.Id);
 
-        entity.Property(e => e.Model).HasMaxLength(200);
-
         modelBuilder.Entity<NoticeEmbedding>(entity =>
         {
             entity.Property(e => e.Vector)
@@ -341,9 +339,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Cascade);
 
         entity.HasIndex(e => e.NoticeId).HasDatabaseName("IX_NoticeEmbeddings_NoticeId");
-        entity.HasIndex(e => new { e.NoticeId, e.Model })
-            .IsUnique()
-            .HasDatabaseName("UX_NoticeEmbeddings_Notice_Model");
     }
 
     private static void ConfigureImportBatch(ModelBuilder modelBuilder)

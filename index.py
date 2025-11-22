@@ -27,17 +27,12 @@
   * есть таблица [NoticeEmbeddings] c полями:
       Id           (uniqueidentifier),
       NoticeId     (ссылка на Notices.Id),
-      Model        (nvarchar),
-      Dimensions   (int),
       Vector       (VECTOR(768) или совместимое поле),
-      CreatedAt    (datetime2),
-      UpdatedAt    (datetime2),
       Source       (nvarchar)
 """
 
 import json
 import uuid
-import datetime as dt
 import os
 from typing import Any, List, Dict
 
@@ -222,9 +217,9 @@ def vector_to_sql_vector(vector: np.ndarray) -> str:
     return json.dumps(arr, ensure_ascii=False)
 
 
-def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List[Any]:
+def fetch_notices_for_indexing(cursor: Any, limit: int) -> List[Any]:
     """
-    Выбираем Notice, для которых нет эмбеддинга указанной модели.
+    Выбираем Notice, для которых нет эмбеддинга.
     """
     sql = f"""
     SELECT TOP ({limit})
@@ -241,30 +236,27 @@ def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List
     LEFT JOIN (
         SELECT DISTINCT NoticeId
         FROM [NoticeEmbeddings]
-        WHERE Model = ?
     ) AS e ON e.NoticeId = n.Id
     WHERE e.NoticeId IS NULL
     ORDER BY n.Id DESC
     """
-    cursor.execute(sql, (model_name,))
+    cursor.execute(sql)
     rows = cursor.fetchall()
     return rows
 
 
 def upsert_embeddings(
     cursor: Any,
-    model_name: str,
     rows: List[Any],
     embeddings: np.ndarray,
     source: str = "python-indexer",
 ):
     """
     Для каждого Notice:
-      - удаляем старую запись по (NoticeId, Model),
+      - удаляем старую запись по NoticeId,
       - вставляем новую с вектором.
     Вектор сохраняем в VECTOR(...) через JSON-строку.
     """
-    now = dt.datetime.utcnow()
     dims = embeddings.shape[1]
 
     if dims != VECTOR_DIMENSIONS:
@@ -272,22 +264,18 @@ def upsert_embeddings(
             f"Размерность эмбеддинга {dims} не совпадает с ожидаемым значением {VECTOR_DIMENSIONS}"
         )
 
-    delete_sql = """
-    DELETE FROM [NoticeEmbeddings]
-    WHERE NoticeId = ? AND Model = ?
-    """
-
     insert_sql = """
     INSERT INTO [NoticeEmbeddings] (
         Id,
         NoticeId,
-        Model,
-        Dimensions,
         Vector,
-        CreatedAt,
-        UpdatedAt,
         Source
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?)
+    """
+
+    delete_sql = """
+    DELETE FROM [NoticeEmbeddings]
+    WHERE NoticeId = ?
     """
 
     for row, emb in zip(rows, embeddings):
@@ -295,18 +283,14 @@ def upsert_embeddings(
         vector_for_sql = vector_to_sql_vector(emb)
         embedding_id = uuid.uuid4()
 
-        cursor.execute(delete_sql, (notice_id, model_name))
+        cursor.execute(delete_sql, (notice_id,))
 
         cursor.execute(
             insert_sql,
             (
                 str(embedding_id),
                 str(notice_id),
-                model_name,
-                dims,
                 vector_for_sql,
-                now,
-                now,
                 source,
             ),
         )
@@ -327,7 +311,7 @@ def main():
 
     try:
         while True:
-            notices = fetch_notices_for_indexing(cursor, MODEL_NAME, DB_BATCH_SIZE)
+            notices = fetch_notices_for_indexing(cursor, DB_BATCH_SIZE)
             if not notices:
                 print("Нет записей для индексации. Выход.")
                 break
@@ -345,7 +329,7 @@ def main():
             )
 
             print("Записываю эмбеддинги в базу...")
-            upsert_embeddings(cursor, MODEL_NAME, notices, embeddings)
+            upsert_embeddings(cursor, notices, embeddings)
 
             conn.commit()
 

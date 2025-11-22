@@ -35,7 +35,6 @@ public class NoticesController : ControllerBase
     private readonly UserCompanyService _userCompanyService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
-    private const string DefaultEmbeddingModel = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2";
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
@@ -157,8 +156,7 @@ public class NoticesController : ControllerBase
         // 2. Базовый запрос по NoticeEmbeddings c векторной дистанцией
         //    Всё на LINQ + EF.Functions.VectorDistance
         var embeddingsQuery = context.NoticeEmbeddings
-            .AsNoTracking()
-            .Where(e => e.Model == DefaultEmbeddingModel);
+            .AsNoTracking();
 
         if (userRegions is not null)
         {
@@ -169,7 +167,7 @@ public class NoticesController : ControllerBase
             from e in embeddingsQuery
             let distance = EF.Functions.VectorDistance("cosine", e.Vector, queryVector)
             where distance <= distanceThreshold
-            orderby distance, e.UpdatedAt descending
+            orderby distance, e.Id
             select new
             {
                 e.NoticeId,
