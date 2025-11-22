@@ -30,6 +30,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<NoticeAttachment> NoticeAttachments => Set<NoticeAttachment>();
     public DbSet<AttachmentSignature> AttachmentSignatures => Set<AttachmentSignature>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+    public DbSet<Okpd2Code> Okpd2Codes => Set<Okpd2Code>();
     public DbSet<NoticeSearchVector> NoticeSearchVectors => Set<NoticeSearchVector>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ApplicationUserRegion> ApplicationUserRegions => Set<ApplicationUserRegion>();
@@ -49,6 +50,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureNoticeAttachment(modelBuilder);
         ConfigureAttachmentSignature(modelBuilder);
         ConfigureImportBatch(modelBuilder);
+        ConfigureOkpd2Code(modelBuilder);
         ConfigureNoticeSearchVector(modelBuilder);
         ConfigureRefreshToken(modelBuilder);
         ConfigureApplicationUser(modelBuilder);
@@ -351,6 +353,21 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(b => b.Period).HasMaxLength(64);
         entity.Property(b => b.Checksum).HasMaxLength(128);
         entity.Property(b => b.Status).HasMaxLength(64);
+    }
+
+    private static void ConfigureOkpd2Code(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<Okpd2Code>();
+        entity.ToTable("Okpd2Codes");
+        entity.HasKey(c => c.Id);
+
+        entity.Property(c => c.Code).HasMaxLength(64);
+        entity.Property(c => c.Name).HasMaxLength(512);
+        entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+        entity.HasIndex(c => c.Code)
+            .IsUnique()
+            .HasDatabaseName("UX_Okpd2Codes_Code");
     }
 
     private static void ConfigureNoticeSearchVector(ModelBuilder modelBuilder)
