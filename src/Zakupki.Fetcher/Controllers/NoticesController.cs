@@ -4,6 +4,8 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Data.SqlClient;
 using System.Threading;
 using Microsoft.AspNetCore.Authorization;
@@ -35,6 +37,11 @@ public class NoticesController : ControllerBase
     private readonly UserCompanyService _userCompanyService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
+    private static readonly JsonSerializerOptions RegionDeserializationOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
@@ -1065,12 +1072,45 @@ public class NoticesController : ControllerBase
     {
         var baseName = string.IsNullOrWhiteSpace(notice.KvrName) ? null : notice.KvrName.Trim();
         var dbRegion = notice.Region.ToString("D2");
-        var computedRegion = notice.Region.ToString("D2");
+        var computedRegion = DetermineRegionFromRawJson(notice.RawJson, notice.Region).ToString("D2");
         var debugInfo = $"[db:{dbRegion}; func:{computedRegion}]";
 
         return string.IsNullOrWhiteSpace(baseName)
             ? debugInfo
             : $"{baseName} {debugInfo}";
+    }
+
+    private static byte DetermineRegionFromRawJson(string? rawJson, byte fallbackRegion)
+    {
+        if (string.IsNullOrWhiteSpace(rawJson))
+        {
+            return fallbackRegion;
+        }
+
+        try
+        {
+            var notification = JsonSerializer.Deserialize<EpNotificationEf2020>(rawJson, RegionDeserializationOptions);
+
+            if (notification is null)
+            {
+                return fallbackRegion;
+            }
+
+            var stubDocument = new NoticeDocument(
+                source: string.Empty,
+                documentType: string.Empty,
+                region: fallbackRegion,
+                period: DateTime.MinValue,
+                entryName: string.Empty,
+                content: Array.Empty<byte>(),
+                exportModel: null);
+
+            return NoticeProcessor.DetermineRegionCode(notification, stubDocument);
+        }
+        catch (JsonException)
+        {
+            return fallbackRegion;
+        }
     }
 
     private static List<string> ParseCodeList(string? rawCodes)

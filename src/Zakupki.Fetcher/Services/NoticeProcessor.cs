@@ -335,7 +335,7 @@ public sealed class NoticeProcessor
         entity.UpdatedAt = now;
     }
 
-    private static byte DetermineRegionCode(EpNotificationEf2020 notification, NoticeDocument document)
+    internal static byte DetermineRegionCode(EpNotificationEf2020 notification, NoticeDocument document)
     {
         var regionFromAddress = ExtractRegionFromFactAddresses(notification);
         if (regionFromAddress > 0)
