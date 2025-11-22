@@ -81,6 +81,7 @@ builder.Services
 
 builder.Services.AddScoped<UserCompanyService>();
 builder.Services.AddScoped<NoticeAnalysisReportService>();
+builder.Services.AddScoped<Okpd2ImportService>();
 builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();
 builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueService>();
 builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
