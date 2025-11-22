@@ -271,7 +271,7 @@ public class NoticesController : ControllerBase
                 x.Notice.Okpd2Code,
                 x.Notice.Okpd2Name,
                 x.Notice.KvrCode,
-                x.Notice.KvrName,
+                BuildKvrNameWithRegionDebug(x.Notice),
                 x.Notice.RawJson,
                 x.Notice.CollectingEnd,
                 x.ProcedureSubmissionDate,
@@ -409,7 +409,7 @@ public class NoticesController : ControllerBase
         var totalCount = await query.CountAsync();
         var skip = (page - 1) * pageSize;
 
-        var items = await query
+        var rows = await query
             .Skip(skip)
             .Take(pageSize)
             .Select(n => new
@@ -434,6 +434,9 @@ public class NoticesController : ControllerBase
                     .FirstOrDefault(),
                 IsFavorite = includeFavorites && n.Favorites.Any(f => f.UserId == currentUserId)
             })
+            .ToListAsync();
+
+        var items = rows
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
@@ -445,7 +448,7 @@ public class NoticesController : ControllerBase
                 x.Notice.Okpd2Code,
                 x.Notice.Okpd2Name,
                 x.Notice.KvrCode,
-                x.Notice.KvrName,
+                BuildKvrNameWithRegionDebug(x.Notice),
                 x.Notice.RawJson,
                 x.Notice.CollectingEnd,
                 x.ProcedureSubmissionDate,
@@ -454,7 +457,7 @@ public class NoticesController : ControllerBase
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
                 x.IsFavorite,
                 null))
-            .ToListAsync();
+            .ToList();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
         return Ok(result);
@@ -573,7 +576,7 @@ public class NoticesController : ControllerBase
         var totalCount = await query.CountAsync();
         var skip = (page - 1) * pageSize;
 
-        var items = await query
+        var rows = await query
             .Skip(skip)
             .Take(pageSize)
             .Select(n => new
@@ -597,6 +600,9 @@ public class NoticesController : ControllerBase
                     })
                     .FirstOrDefault()
             })
+            .ToListAsync();
+
+        var items = rows
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
@@ -608,7 +614,7 @@ public class NoticesController : ControllerBase
                 x.Notice.Okpd2Code,
                 x.Notice.Okpd2Name,
                 x.Notice.KvrCode,
-                x.Notice.KvrName,
+                BuildKvrNameWithRegionDebug(x.Notice),
                 x.Notice.RawJson,
                 x.Notice.CollectingEnd,
                 x.ProcedureSubmissionDate,
@@ -617,7 +623,7 @@ public class NoticesController : ControllerBase
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
                 true,
                 null))
-            .ToListAsync();
+            .ToList();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
         return Ok(result);
@@ -1053,6 +1059,18 @@ public class NoticesController : ControllerBase
             attachment.LastSeenAt,
             attachment.BinaryContent != null,
             !string.IsNullOrWhiteSpace(attachment.MarkdownContent));
+    }
+
+    private static string BuildKvrNameWithRegionDebug(Notice notice)
+    {
+        var baseName = string.IsNullOrWhiteSpace(notice.KvrName) ? null : notice.KvrName.Trim();
+        var dbRegion = notice.Region.ToString("D2");
+        var computedRegion = notice.Region.ToString("D2");
+        var debugInfo = $"[db:{dbRegion}; func:{computedRegion}]";
+
+        return string.IsNullOrWhiteSpace(baseName)
+            ? debugInfo
+            : $"{baseName} {debugInfo}";
     }
 
     private static List<string> ParseCodeList(string? rawCodes)
