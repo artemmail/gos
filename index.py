@@ -24,9 +24,6 @@
       KvrName,
       Source,
       DocumentType
-  * есть таблица [NoticeVersions] c полями:
-      NoticeId,
-      LastSeenAt (или аналогичный timestamp для актуальной версии)
   * есть таблица [NoticeEmbeddings] c полями:
       Id           (uniqueidentifier),
       NoticeId     (ссылка на Notices.Id),
@@ -227,15 +224,9 @@ def vector_to_sql_vector(vector: np.ndarray) -> str:
 
 def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List[Any]:
     """
-    Выбираем Notice, для которых нет эмбеддинга указанной модели
-    или он старше последней версии Notice.
+    Выбираем Notice, для которых нет эмбеддинга указанной модели.
     """
     sql = f"""
-    WITH LatestNoticeVersion AS (
-        SELECT NoticeId, MAX(LastSeenAt) AS NoticeUpdatedAt
-        FROM [NoticeVersions]
-        GROUP BY NoticeId
-    )
     SELECT TOP ({limit})
         n.Id,
         n.EntryName,
@@ -245,21 +236,15 @@ def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List
         n.KvrCode,
         n.KvrName,
         n.Source,
-        n.DocumentType,
-        v.NoticeUpdatedAt,
-        e.LatestUpdatedAt AS EmbeddingUpdatedAt
+        n.DocumentType
     FROM [Notices] AS n
-    LEFT JOIN LatestNoticeVersion AS v ON v.NoticeId = n.Id
     LEFT JOIN (
-        SELECT NoticeId, MAX(UpdatedAt) AS LatestUpdatedAt
+        SELECT DISTINCT NoticeId
         FROM [NoticeEmbeddings]
         WHERE Model = ?
-        GROUP BY NoticeId
     ) AS e ON e.NoticeId = n.Id
-    WHERE
-        e.NoticeId IS NULL
-        OR (v.NoticeUpdatedAt IS NOT NULL AND v.NoticeUpdatedAt > e.LatestUpdatedAt)
-    ORDER BY v.NoticeUpdatedAt DESC
+    WHERE e.NoticeId IS NULL
+    ORDER BY n.Id DESC
     """
     cursor.execute(sql, (model_name,))
     rows = cursor.fetchall()
