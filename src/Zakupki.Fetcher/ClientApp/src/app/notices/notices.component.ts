@@ -440,6 +440,14 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     return regionCode ?? '—';
   }
 
+  getKvrNameWithRegionDebug(notice: NoticeListItem): string {
+    const baseName = notice.kvrName || '—';
+    const storedRegion = notice.region ?? '—';
+    const computedRegion = notice.computedRegion ?? '—';
+
+    return `${baseName} [регион БД: ${storedRegion}; вычислен: ${computedRegion}]`;
+  }
+
   toggleFavorite(notice: NoticeListItem): void {
     if (this.favoriteProgress[notice.id]) {
       return;
