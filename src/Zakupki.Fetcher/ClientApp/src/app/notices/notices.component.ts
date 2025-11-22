@@ -65,12 +65,11 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   searchModeControl = new FormControl<SearchMode>(this.defaultSearchMode, { nonNullable: true });
   expiredOnlyControl = new FormControl<boolean>(false, { nonNullable: true });
   profileRegionsControl = new FormControl<boolean>(false, { nonNullable: true });
+  profileOkpd2Control = new FormControl<boolean>(false, { nonNullable: true });
 
   filtersForm = new FormGroup({
     search: new FormControl<string>('', { nonNullable: true }),
-    purchaseNumber: new FormControl<string>('', { nonNullable: true }),
-    okpd2Codes: new FormControl<string>('', { nonNullable: true }),
-    kvrCodes: new FormControl<string>('', { nonNullable: true })
+    purchaseNumber: new FormControl<string>('', { nonNullable: true })
   });
 
   favoriteSearchForm = new FormGroup({
@@ -116,6 +115,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
         if (!this.isAuthenticated && this.profileRegionsControl.value) {
           this.profileRegionsControl.setValue(false, { emitEvent: false });
+        }
+
+        if (!this.isAuthenticated && this.profileOkpd2Control.value) {
+          this.profileOkpd2Control.setValue(false, { emitEvent: false });
         }
       });
   }
@@ -186,10 +189,9 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     const pageSize = this.paginator?.pageSize ?? this.pageSize;
     const search = this.getTrimmedValue(this.filtersForm.controls.search);
     const purchaseNumber = this.getTrimmedValue(this.filtersForm.controls.purchaseNumber);
-    const okpd2Codes = this.getNormalizedCodes(this.filtersForm.controls.okpd2Codes);
-    const kvrCodes = this.getNormalizedCodes(this.filtersForm.controls.kvrCodes);
     const expiredOnly = this.expiredOnlyControl.value;
     const filterByUserRegions = this.profileRegionsControl.value;
+    const filterByUserOkpd2Codes = this.profileOkpd2Control.value;
     const vectorCriteria = this.vectorSearchCriteria;
 
     this.isLoading = true;
@@ -203,7 +205,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
           similarityThresholdPercent: vectorCriteria.similarityThresholdPercent,
           expiredOnly: vectorCriteria.expiredOnly,
           collectingEndLimit: vectorCriteria.collectingEndLimit,
-          filterByUserRegions: vectorCriteria.filterByUserRegions
+          filterByUserRegions: vectorCriteria.filterByUserRegions,
+          filterByUserOkpd2Codes: vectorCriteria.filterByUserOkpd2Codes
         })
       : this.isFavoritesPage
         ? this.favoritesService.getFavorites({
@@ -213,8 +216,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
             filterByUserRegions,
             search: search || undefined,
             purchaseNumber,
-            okpd2Codes,
-            kvrCodes,
+            filterByUserOkpd2Codes,
             sortField,
             sortDirection
           })
@@ -225,8 +227,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
             filterByUserRegions,
             search: search || undefined,
             purchaseNumber,
-            okpd2Codes,
-            kvrCodes,
+            filterByUserOkpd2Codes,
             sortField,
             sortDirection
           });
@@ -361,9 +362,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   resetFilters(): void {
     this.filtersForm.reset({
       search: '',
-      purchaseNumber: '',
-      okpd2Codes: '',
-      kvrCodes: ''
+      purchaseNumber: ''
     });
     this.filtersForm.markAsPristine();
     this.filtersForm.markAsUntouched();
@@ -428,15 +427,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   private getTrimmedValue(control: FormControl<string>): string | undefined {
     const value = control.value.trim();
     return value ? value : undefined;
-  }
-
-  private getNormalizedCodes(control: FormControl<string>): string | undefined {
-    const codes = control.value
-      .split(/[\s,;]+/)
-      .map(code => code.trim())
-      .filter(code => code.length > 0);
-
-    return codes.length > 0 ? codes.join(',') : undefined;
   }
 
   getRegionLabel(notice: NoticeListItem): string {
@@ -515,6 +505,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const expiredOnly = this.expiredOnlyControl.value;
     const filterByUserRegions = this.profileRegionsControl.value;
+    const filterByUserOkpd2Codes = this.profileOkpd2Control.value;
     const similarityThresholdPercent = this.favoriteSearchForm.controls.similarityThreshold.value;
 
     this.vectorSearchCriteria = {
@@ -522,7 +513,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       similarityThresholdPercent,
       expiredOnly,
       collectingEndLimit: new Date().toISOString(),
-      filterByUserRegions
+      filterByUserRegions,
+      filterByUserOkpd2Codes
     };
 
     this.vectorSearchInProgress = true;
