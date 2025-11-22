@@ -98,6 +98,7 @@ public class NoticesController : ControllerBase
         [FromQuery] int similarityThresholdPercent = 60,
         [FromQuery] bool expiredOnly = false,
         [FromQuery] bool filterByUserRegions = false,
+        [FromQuery] bool filterByUserOkpd2Codes = false,
         [FromQuery] DateTimeOffset? collectingEndLimit = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -142,6 +143,7 @@ public class NoticesController : ControllerBase
         var queryVector = queryVectorEntity.Vector.Value; // SqlVector<float>
 
         string[]? userRegions = null;
+        string[]? userOkpd2Codes = null;
 
         if (filterByUserRegions)
         {
@@ -153,6 +155,11 @@ public class NoticesController : ControllerBase
             }
         }
 
+        if (filterByUserOkpd2Codes)
+        {
+            userOkpd2Codes = await GetUserOkpd2CodesAsync(currentUserId, cancellationToken);
+        }
+
         // 2. Базовый запрос по NoticeEmbeddings c векторной дистанцией
         //    Всё на LINQ + EF.Functions.VectorDistance
         var embeddingsQuery = context.NoticeEmbeddings
@@ -161,6 +168,11 @@ public class NoticesController : ControllerBase
         if (userRegions is not null)
         {
             embeddingsQuery = ApplyRegionFilter(embeddingsQuery, userRegions);
+        }
+
+        if (userOkpd2Codes is not null && userOkpd2Codes.Length > 0)
+        {
+            embeddingsQuery = ApplyOkpd2Filter(embeddingsQuery, userOkpd2Codes);
         }
 
         var matchesQuery =
@@ -291,6 +303,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? sortDirection,
         [FromQuery] bool expiredOnly = false,
         [FromQuery] bool filterByUserRegions = false,
+        [FromQuery] bool filterByUserOkpd2Codes = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -368,6 +381,21 @@ public class NoticesController : ControllerBase
             query = ApplyRegionFilter(query, regions);
         }
 
+        if (filterByUserOkpd2Codes)
+        {
+            if (currentUserId is null)
+            {
+                return Unauthorized(new { message = "Требуется авторизация для фильтра по ОКПД2 профиля." });
+            }
+
+            var userOkpd2Codes = await GetUserOkpd2CodesAsync(currentUserId, HttpContext.RequestAborted);
+
+            if (userOkpd2Codes.Length > 0)
+            {
+                query = ApplyOkpd2Filter(query, userOkpd2Codes);
+            }
+        }
+
         var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
             ? "publishDate"
             : sortField.Trim().ToLowerInvariant();
@@ -443,6 +471,7 @@ public class NoticesController : ControllerBase
         [FromQuery] string? sortDirection,
         [FromQuery] bool expiredOnly = false,
         [FromQuery] bool filterByUserRegions = false,
+        [FromQuery] bool filterByUserOkpd2Codes = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -480,6 +509,16 @@ public class NoticesController : ControllerBase
             }
 
             query = ApplyRegionFilter(query, regions);
+        }
+
+        if (filterByUserOkpd2Codes)
+        {
+            var userOkpd2Codes = await GetUserOkpd2CodesAsync(currentUserId, HttpContext.RequestAborted);
+
+            if (userOkpd2Codes.Length > 0)
+            {
+                query = ApplyOkpd2Filter(query, userOkpd2Codes);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -1037,6 +1076,16 @@ public class NoticesController : ControllerBase
             .ToArray();
     }
 
+    private async Task<string[]> GetUserOkpd2CodesAsync(string userId, CancellationToken cancellationToken)
+    {
+        var profile = await _userCompanyService.GetProfileAsync(userId, cancellationToken);
+
+        return profile.Okpd2Codes
+            .Select(code => code.Trim())
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .ToArray();
+    }
+
     private static IQueryable<Notice> ApplyRegionFilter(IQueryable<Notice> query, IReadOnlyCollection<string> regions)
     {
         var regionCodes = NormalizeRegions(regions);
@@ -1047,6 +1096,21 @@ public class NoticesController : ControllerBase
         }
 
         return query.Where(n => regionCodes.Contains(n.Region));
+    }
+
+    private static IQueryable<Notice> ApplyOkpd2Filter(IQueryable<Notice> query, IReadOnlyCollection<string> okpd2Codes)
+    {
+        var normalizedCodes = okpd2Codes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim())
+            .ToArray();
+
+        if (normalizedCodes.Length == 0)
+        {
+            return query;
+        }
+
+        return query.Where(n => n.Okpd2Code != null && normalizedCodes.Any(code => n.Okpd2Code!.StartsWith(code)));
     }
 
     private static IQueryable<NoticeEmbedding> ApplyRegionFilter(
@@ -1061,6 +1125,23 @@ public class NoticesController : ControllerBase
         }
 
         return query.Where(e => e.Notice.Region != null && regionCodes.Contains(e.Notice.Region));
+    }
+
+    private static IQueryable<NoticeEmbedding> ApplyOkpd2Filter(
+        IQueryable<NoticeEmbedding> query,
+        IReadOnlyCollection<string> okpd2Codes)
+    {
+        var normalizedCodes = okpd2Codes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim())
+            .ToArray();
+
+        if (normalizedCodes.Length == 0)
+        {
+            return query;
+        }
+
+        return query.Where(e => e.Notice.Okpd2Code != null && normalizedCodes.Any(code => e.Notice.Okpd2Code!.StartsWith(code)));
     }
 
     private static byte[] NormalizeRegions(IReadOnlyCollection<string> regions) =>

@@ -33,10 +33,9 @@ export interface NoticeQuery {
   pageSize: number;
   expiredOnly: boolean;
   filterByUserRegions?: boolean;
+  filterByUserOkpd2Codes?: boolean;
   search?: string;
   purchaseNumber?: string;
-  okpd2Codes?: string;
-  kvrCodes?: string;
   sortField?: string;
   sortDirection?: string;
 }
@@ -49,4 +48,5 @@ export interface NoticeVectorQuery {
   expiredOnly: boolean;
   collectingEndLimit: string;
   filterByUserRegions?: boolean;
+  filterByUserOkpd2Codes?: boolean;
 }

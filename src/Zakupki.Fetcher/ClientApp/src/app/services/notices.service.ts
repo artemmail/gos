@@ -22,20 +22,16 @@ export class NoticesService {
       params = params.set('filterByUserRegions', 'true');
     }
 
+    if (query.filterByUserOkpd2Codes) {
+      params = params.set('filterByUserOkpd2Codes', 'true');
+    }
+
     if (query.search) {
       params = params.set('search', query.search);
     }
 
     if (query.purchaseNumber) {
       params = params.set('purchaseNumber', query.purchaseNumber);
-    }
-
-    if (query.okpd2Codes) {
-      params = params.set('okpd2Codes', query.okpd2Codes);
-    }
-
-    if (query.kvrCodes) {
-      params = params.set('kvrCodes', query.kvrCodes);
     }
 
     if (query.sortField) {
@@ -60,6 +56,10 @@ export class NoticesService {
 
     if (query.filterByUserRegions) {
       params = params.set('filterByUserRegions', 'true');
+    }
+
+    if (query.filterByUserOkpd2Codes) {
+      params = params.set('filterByUserOkpd2Codes', 'true');
     }
 
     return this.http.get<NoticeListResponse>(`${this.baseUrl}/vector-search`, { params });
