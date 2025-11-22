@@ -15,7 +15,7 @@
                 <mat-label>Тип поиска</mat-label>
                 <mat-select [formControl]="searchModeControl" (selectionChange)="onSearchModeChange($event.value)">
                   <mat-option value="direct">Прямой поиск</mat-option>
-                  <mat-option value="semantic">Семантический поиск (ИИ)</mat-option>
+                  <mat-option value="semantic">Семантический поиск (ИИ)</мат-option>
                 </mat-select>
               </mat-form-field>
             </div>
@@ -30,7 +30,7 @@
             </div>
           </div>
 
-          <form
+        <form
             *ngIf="isDirectSearch"
             class="search-form"
             [formGroup]="filtersForm"
