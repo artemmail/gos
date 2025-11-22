@@ -428,25 +428,66 @@ public sealed class NoticeProcessor
         }
 
         byte? detected = null;
+        var detectedPosition = int.MaxValue;
+        var hasConflictAtDetectedPosition = false;
 
         foreach (var keyword in RegionKeywordsToCode)
         {
-            if (!normalizedAddress.Contains(keyword.Key, StringComparison.Ordinal))
+            var position = IndexOfWord(normalizedAddress, keyword.Key);
+            if (position < 0)
             {
                 continue;
             }
 
-            if (detected is null)
+            if (position < detectedPosition)
             {
                 detected = keyword.Value;
+                detectedPosition = position;
+                hasConflictAtDetectedPosition = false;
+                continue;
             }
-            else if (detected.Value != keyword.Value)
+
+            if (position == detectedPosition && detected != keyword.Value)
             {
-                return 0;
+                hasConflictAtDetectedPosition = true;
             }
         }
 
-        return detected ?? 0;
+        if (detected is null || hasConflictAtDetectedPosition)
+        {
+            return 0;
+        }
+
+        return detected.Value;
+    }
+
+    private static int IndexOfWord(string source, string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword))
+        {
+            return -1;
+        }
+
+        var startIndex = 0;
+        while (true)
+        {
+            var position = source.IndexOf(keyword, startIndex, StringComparison.Ordinal);
+            if (position < 0)
+            {
+                return -1;
+            }
+
+            var wordStart = position == 0 || char.IsWhiteSpace(source[position - 1]);
+            var endIndex = position + keyword.Length;
+            var wordEnd = endIndex == source.Length || char.IsWhiteSpace(source[endIndex]);
+
+            if (wordStart && wordEnd)
+            {
+                return position;
+            }
+
+            startIndex = position + keyword.Length;
+        }
     }
 
     private static byte ExtractRegionFromInn(string? inn)
