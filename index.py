@@ -21,9 +21,7 @@
       Okpd2Code,
       Okpd2Name,
       KvrCode,
-      KvrName,
-      Source,
-      DocumentType
+      KvrName
   * есть таблица [NoticeEmbeddings] c полями:
       Id           (uniqueidentifier),
       NoticeId     (ссылка на Notices.Id),
@@ -200,10 +198,6 @@ def build_notice_text(row: Any) -> str:
         kvr_text = f"{kvr_code or ''} {kvr_name or ''}".strip()
         add("КВР", kvr_text)
 
-    # Прочее
-    add("Источник", getattr(row, "Source", None))
-    add("Тип документа", getattr(row, "DocumentType", None))
-
     return "\n".join(parts)
 
 
@@ -229,9 +223,7 @@ def fetch_notices_for_indexing(cursor: Any, limit: int) -> List[Any]:
         n.Okpd2Code,
         n.Okpd2Name,
         n.KvrCode,
-        n.KvrName,
-        n.Source,
-        n.DocumentType
+        n.KvrName
     FROM [Notices] AS n
     LEFT JOIN (
         SELECT DISTINCT NoticeId
