@@ -1,15 +1,16 @@
 <div class="notices-page">
   <div class="content-container">
     <mat-card>
-      <div class="card-header">
+    
+
+      <section class="search-panel">
+        <div class="search-panel-card1">
+          <div class="search-panel-row">
+            <div class="search-mode-group">
+                <div class="card-header">
         <h1>{{ pageTitle }}</h1>
         <p class="subtitle">{{ pageSubtitle }}</p>
       </div>
-
-      <section class="search-panel">
-        <div class="search-panel-card">
-          <div class="search-panel-row">
-            <div class="search-mode-group">
               <div class="section-label">Режим поиска</div>
               <mat-form-field appearance="outline" class="search-mode-field">
                 <mat-label>Тип поиска</mat-label>
@@ -31,6 +32,25 @@
                 Фильтровать по ОКПД2 из профиля
               </mat-checkbox>
             </div>
+
+             <!--mat-form-field appearance="outline" class="form-field">
+                <mat-label>Номер заявки</mat-label>
+                <input
+                  matInput
+                  formControlName="purchaseNumber"
+                  placeholder="Например, 0123456789"
+                >
+                <button
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  *ngIf="filtersForm.controls.purchaseNumber.value"
+                  (click)="filtersForm.controls.purchaseNumber.setValue('')"
+                  aria-label="Очистить номер заявки"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </mat-form-field-->
           </div>
 
           <form
@@ -38,12 +58,7 @@
             class="search-form"
             [formGroup]="filtersForm"
             (ngSubmit)="onSubmitSearch()">
-            <div class="form-title-row">
-              <div>
-                <div class="form-title">Прямой поиск</div>
-                <p class="form-subtitle">Фильтры подберут закупки по номеру, тексту и ОКПД2 из профиля.</p>
-              </div>
-            </div>
+            
 
             <div class="form-grid">
               <mat-form-field appearance="outline" class="form-field full-row">
@@ -65,24 +80,7 @@
                 </button>
               </mat-form-field>
 
-              <mat-form-field appearance="outline" class="form-field">
-                <mat-label>Номер заявки</mat-label>
-                <input
-                  matInput
-                  formControlName="purchaseNumber"
-                  placeholder="Например, 0123456789"
-                >
-                <button
-                  mat-icon-button
-                  matSuffix
-                  type="button"
-                  *ngIf="filtersForm.controls.purchaseNumber.value"
-                  (click)="filtersForm.controls.purchaseNumber.setValue('')"
-                  aria-label="Очистить номер заявки"
-                >
-                  <mat-icon>close</mat-icon>
-                </button>
-              </mat-form-field>
+             
             </div>
 
             <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
@@ -93,12 +91,7 @@
             class="search-form"
             [formGroup]="favoriteSearchForm"
             (ngSubmit)="onSubmitSearch()">
-            <div class="form-title-row">
-              <div>
-                <div class="form-title">Семантический поиск</div>
-                <p class="form-subtitle">Используйте сохранённые запросы, чтобы быстро получить похожие закупки.</p>
-              </div>
-            </div>
+         
 
             <div class="form-grid">
               <mat-form-field appearance="outline" class="form-field">
@@ -127,7 +120,7 @@
               </mat-form-field>
             </div>
 
-            <p class="form-hint">Запрос выполняется сразу, результаты выводятся в таблице ниже. Дата окончания подачи определяется по текущему времени.</p>
+
 
             <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
           </form>
