@@ -16,13 +16,29 @@
       <mat-hint align="end">{{ form.get('companyInfo')?.value?.length || 0 }}/8000</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="full-width">
+    <mat-form-field appearance="outline" class="full-width region-field">
       <mat-label>Регионы работы</mat-label>
-      <mat-select formControlName="regions" multiple>
-        <mat-option *ngFor="let region of availableRegions" [value]="region.code">
-          {{ region.name }}
+      <mat-chip-grid #chipGrid aria-label="Выбранные регионы">
+        <mat-chip-row *ngFor="let code of form.value.regions" [removable]="true" (removed)="removeRegion(code)">
+          {{ getRegionName(code) || code }}
+          <button matChipRemove>
+            <mat-icon>cancel</mat-icon>
+          </button>
+        </mat-chip-row>
+      </mat-chip-grid>
+
+      <input
+        matInput
+        placeholder="Введите код или название региона"
+        [matAutocomplete]="regionAuto"
+        [matChipInputFor]="chipGrid"
+        [formControl]="regionSearchControl"
+      />
+      <mat-autocomplete #regionAuto="matAutocomplete" (optionSelected)="handleRegionSelected($event)">
+        <mat-option *ngFor="let region of filteredRegions" [value]="region">
+          {{ region.code }} — {{ region.name }}
         </mat-option>
-      </mat-select>
+      </mat-autocomplete>
     </mat-form-field>
 
     <section class="vector-section">
