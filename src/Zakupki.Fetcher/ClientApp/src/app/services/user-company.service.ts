@@ -10,12 +10,14 @@ export interface RegionOption {
 export interface UserCompanyProfile {
   companyInfo: string;
   regions: number[];
+  okpd2Codes: string[];
   availableRegions: RegionOption[];
 }
 
 export interface UpdateUserCompanyProfileRequest {
   companyInfo: string;
   regions: number[];
+  okpd2Codes: string[];
 }
 
 @Injectable({ providedIn: 'root' })

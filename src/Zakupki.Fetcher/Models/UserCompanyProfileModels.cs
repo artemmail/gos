@@ -9,6 +9,8 @@ public sealed class UserCompanyProfileResponse
 
     public List<byte> Regions { get; init; } = new();
 
+    public List<string> Okpd2Codes { get; init; } = new();
+
     public List<RegionOptionResponse> AvailableRegions { get; init; } = new();
 }
 
@@ -18,6 +20,8 @@ public sealed class UpdateUserCompanyProfileRequest
     public string CompanyInfo { get; set; } = string.Empty;
 
     public List<byte> Regions { get; set; } = new();
+
+    public List<string> Okpd2Codes { get; set; } = new();
 }
 
 public sealed class RegionOptionResponse

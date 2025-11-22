@@ -34,6 +34,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<NoticeSearchVector> NoticeSearchVectors => Set<NoticeSearchVector>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ApplicationUserRegion> ApplicationUserRegions => Set<ApplicationUserRegion>();
+    public DbSet<ApplicationUserOkpd2Code> ApplicationUserOkpd2Codes => Set<ApplicationUserOkpd2Code>();
     public DbSet<NoticeAnalysis> NoticeAnalyses => Set<NoticeAnalysis>();
     public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
     public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
@@ -85,6 +86,12 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Cascade);
 
         userEntity
+            .HasMany(u => u.Okpd2Codes)
+            .WithOne(c => c.User)
+            .HasForeignKey(c => c.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        userEntity
             .HasMany(u => u.NoticeAnalyses)
             .WithOne(a => a.User)
             .HasForeignKey(a => a.UserId)
@@ -107,6 +114,15 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         regionEntity.HasKey(r => r.Id);
         regionEntity.Property(r => r.Region).HasColumnType("tinyint");
         regionEntity.HasIndex(r => new { r.UserId, r.Region }).IsUnique();
+
+        var okpd2Entity = modelBuilder.Entity<ApplicationUserOkpd2Code>();
+        okpd2Entity.ToTable("ApplicationUserOkpd2Codes");
+        okpd2Entity.HasKey(c => c.Id);
+        okpd2Entity.HasOne(c => c.Okpd2Code)
+            .WithMany()
+            .HasForeignKey(c => c.Okpd2CodeId)
+            .OnDelete(DeleteBehavior.Cascade);
+        okpd2Entity.HasIndex(c => new { c.UserId, c.Okpd2CodeId }).IsUnique();
     }
 
     private static void ConfigureNotice(ModelBuilder modelBuilder)

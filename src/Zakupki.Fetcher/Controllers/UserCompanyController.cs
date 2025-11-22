@@ -38,6 +38,7 @@ public sealed class UserCompanyController : ControllerBase
         {
             CompanyInfo = profile.CompanyInfo,
             Regions = new(profile.Regions),
+            Okpd2Codes = new(profile.Okpd2Codes),
             AvailableRegions = _userCompanyService
                 .GetAvailableRegions()
                 .Select(region => new RegionOptionResponse
@@ -69,12 +70,14 @@ public sealed class UserCompanyController : ControllerBase
             userId,
             request.CompanyInfo,
             request.Regions,
+            request.Okpd2Codes,
             cancellationToken);
 
         return Ok(new UserCompanyProfileResponse
         {
             CompanyInfo = profile.CompanyInfo,
             Regions = new(profile.Regions),
+            Okpd2Codes = new(profile.Okpd2Codes),
             AvailableRegions = _userCompanyService
                 .GetAvailableRegions()
                 .Select(region => new RegionOptionResponse

@@ -80,6 +80,7 @@ builder.Services
     .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<UserCompanyService>();
+builder.Services.AddScoped<Okpd2CodeService>();
 builder.Services.AddScoped<NoticeAnalysisReportService>();
 builder.Services.AddScoped<Okpd2ImportService>();
 builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();

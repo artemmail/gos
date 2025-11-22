@@ -41,6 +41,35 @@
       </mat-autocomplete>
     </mat-form-field>
 
+    <mat-form-field appearance="outline" class="full-width okpd2-field">
+      <mat-label>Коды ОКПД2</mat-label>
+      <mat-chip-grid #okpd2ChipGrid aria-label="Выбранные коды ОКПД2">
+        <mat-chip-row
+          *ngFor="let code of form.value.okpd2Codes"
+          [removable]="true"
+          (removed)="removeOkpd2Code(code)"
+        >
+          {{ getOkpd2Name(code) || code }}
+          <button matChipRemove>
+            <mat-icon>cancel</mat-icon>
+          </button>
+        </mat-chip-row>
+      </mat-chip-grid>
+
+      <input
+        matInput
+        placeholder="Введите код или название ОКПД2"
+        [matAutocomplete]="okpd2Auto"
+        [matChipInputFor]="okpd2ChipGrid"
+        [formControl]="okpd2SearchControl"
+      />
+      <mat-autocomplete #okpd2Auto="matAutocomplete" (optionSelected)="handleOkpd2Selected($event)">
+        <mat-option *ngFor="let item of filteredOkpd2Codes" [value]="item">
+          {{ item.code }} — {{ item.name }}
+        </mat-option>
+      </mat-autocomplete>
+    </mat-form-field>
+
     <section class="vector-section">
       <div class="section-header">
         <div>

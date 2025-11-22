@@ -14,6 +14,7 @@ import {
 import { QueryVectorService } from '../services/query-vector.service';
 import { UserQueryVectorDto } from '../models/query-vector.models';
 import { QueryVectorDialogComponent } from '../query-vectors/query-vector-dialog.component';
+import { Okpd2CodeOption, Okpd2CodesService } from '../services/okpd2-codes.service';
 
 @Component({
   selector: 'app-company-profile-dialog',
@@ -23,6 +24,7 @@ import { QueryVectorDialogComponent } from '../query-vectors/query-vector-dialog
 export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   form: FormGroup;
   availableRegions: RegionOption[] = [];
+  availableOkpd2Codes: Okpd2CodeOption[] = [];
   queryVectors: UserQueryVectorDto[] = [];
   vectorColumns = ['query', 'vector', 'actions'];
   isLoading = false;
@@ -34,6 +36,8 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   vectorsErrorMessage = '';
   filteredRegions: RegionOption[] = [];
   regionSearchControl = new FormControl('');
+  filteredOkpd2Codes: Okpd2CodeOption[] = [];
+  okpd2SearchControl = new FormControl('');
 
   private readonly destroy$ = new Subject<void>();
 
@@ -42,22 +46,31 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
     private readonly fb: FormBuilder,
     private readonly userCompanyService: UserCompanyService,
     private readonly queryVectorService: QueryVectorService,
-    private readonly dialog: MatDialog
+    private readonly dialog: MatDialog,
+    private readonly okpd2CodesService: Okpd2CodesService
   ) {
     this.form = this.fb.group({
       companyInfo: ['', [Validators.maxLength(8000)]],
-      regions: [[] as number[]]
+      regions: [[] as number[]],
+      okpd2Codes: [[] as string[]]
     });
   }
 
   ngOnInit(): void {
     this.loadProfile();
     this.loadVectors();
+    this.loadOkpd2Codes();
 
     this.regionSearchControl.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(value => {
         this.filteredRegions = this.filterRegions(value);
+      });
+
+    this.okpd2SearchControl.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        this.filteredOkpd2Codes = this.filterOkpd2Codes(value);
       });
   }
 
@@ -78,7 +91,8 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
 
     const payload: UpdateUserCompanyProfileRequest = {
       companyInfo: this.form.value.companyInfo ?? '',
-      regions: this.form.value.regions ?? []
+      regions: this.form.value.regions ?? [],
+      okpd2Codes: this.form.value.okpd2Codes ?? []
     };
 
     this.isSaving = true;
@@ -177,6 +191,23 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
       });
   }
 
+  private loadOkpd2Codes(): void {
+    this.okpd2CodesService
+      .getCodes()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: codes => {
+          this.availableOkpd2Codes = codes;
+          this.filteredOkpd2Codes = this.filterOkpd2Codes(this.okpd2SearchControl.value);
+        },
+        error: () => {
+          // Keep the UI functional even if codes fail to load.
+          this.availableOkpd2Codes = [];
+          this.filteredOkpd2Codes = [];
+        }
+      });
+  }
+
   private loadVectors(): void {
     this.isVectorsLoading = true;
     this.vectorsErrorMessage = '';
@@ -200,10 +231,12 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
     this.availableRegions = profile.availableRegions ?? [];
     this.form.setValue({
       companyInfo: profile.companyInfo ?? '',
-      regions: profile.regions ?? []
+      regions: profile.regions ?? [],
+      okpd2Codes: profile.okpd2Codes ?? []
     });
 
     this.filteredRegions = this.filterRegions(this.regionSearchControl.value);
+    this.filteredOkpd2Codes = this.filterOkpd2Codes(this.okpd2SearchControl.value);
 
     this.isLoading = false;
     this.isSaving = false;
@@ -219,19 +252,41 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
     this.regionSearchControl.setValue('');
   }
 
+  handleOkpd2Selected(event: MatAutocompleteSelectedEvent): void {
+    const selected = event.option.value as Okpd2CodeOption;
+    this.addOkpd2Code(selected.code);
+    this.okpd2SearchControl.setValue('');
+  }
+
   removeRegion(code: number): void {
     const regions = this.form.value.regions ?? [];
     this.form.patchValue({ regions: regions.filter((regionCode: number) => regionCode !== code) });
+  }
+
+  removeOkpd2Code(code: string): void {
+    const okpd2Codes = this.form.value.okpd2Codes ?? [];
+    this.form.patchValue({ okpd2Codes: okpd2Codes.filter((okpd2Code: string) => okpd2Code !== code) });
   }
 
   getRegionName(code: number): string | undefined {
     return this.availableRegions.find(region => region.code === code)?.name;
   }
 
+  getOkpd2Name(code: string): string | undefined {
+    return this.availableOkpd2Codes.find(item => item.code === code)?.name;
+  }
+
   private addRegion(code: number): void {
     const regions = this.form.value.regions ?? [];
     if (!regions.includes(code)) {
       this.form.patchValue({ regions: [...regions, code] });
+    }
+  }
+
+  private addOkpd2Code(code: string): void {
+    const okpd2Codes = this.form.value.okpd2Codes ?? [];
+    if (!okpd2Codes.includes(code)) {
+      this.form.patchValue({ okpd2Codes: [...okpd2Codes, code] });
     }
   }
 
@@ -246,5 +301,17 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
       region =>
         region.name.toLowerCase().includes(query) || region.code.toString().includes(query)
     );
+  }
+
+  private filterOkpd2Codes(value: string | Okpd2CodeOption | null): Okpd2CodeOption[] {
+    const query = (typeof value === 'string' ? value : value?.name ?? '').trim().toLowerCase();
+
+    if (!query) {
+      return this.availableOkpd2Codes.slice(0, 50);
+    }
+
+    return this.availableOkpd2Codes
+      .filter(code => code.name.toLowerCase().includes(query) || code.code.toLowerCase().includes(query))
+      .slice(0, 50);
   }
 }
