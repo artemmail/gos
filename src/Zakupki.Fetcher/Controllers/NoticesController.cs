@@ -19,6 +19,7 @@ using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Services;
 using Zakupki.Fetcher.Utilities;
+using Zakupki.EF2020;
 
 namespace Zakupki.Fetcher.Controllers;
 
