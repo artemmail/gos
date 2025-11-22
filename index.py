@@ -183,7 +183,7 @@ def build_notice_text(row: Any) -> str:
             parts.append(f"{label}: {s}")
 
     # Основные поля
-    add("Название", getattr(row, "EntryName", None))
+    add("Название", getattr(row, "PurchaseNumber", None))
     add("Предмет закупки", getattr(row, "PurchaseObjectInfo", None))
 
     # ОКПД2
@@ -229,7 +229,7 @@ def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List
     sql = f"""
     SELECT TOP ({limit})
         n.Id,
-        n.EntryName,
+        n.PurchaseNumber,
         n.PurchaseObjectInfo,
         n.Okpd2Code,
         n.Okpd2Name,
