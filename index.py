@@ -23,8 +23,7 @@
       KvrCode,
       KvrName,
       Source,
-      DocumentType,
-      UpdatedAt
+      DocumentType
   * есть таблица [NoticeEmbeddings] c полями:
       Id           (uniqueidentifier),
       NoticeId     (ссылка на Notices.Id),
@@ -225,8 +224,7 @@ def vector_to_sql_vector(vector: np.ndarray) -> str:
 
 def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List[Any]:
     """
-    Выбираем Notice, для которых нет эмбеддинга указанной модели
-    или он старше UpdatedAt у Notice.
+    Выбираем Notice, для которых нет эмбеддинга указанной модели.
     """
     sql = f"""
     SELECT TOP ({limit})
@@ -238,20 +236,15 @@ def fetch_notices_for_indexing(cursor: Any, model_name: str, limit: int) -> List
         n.KvrCode,
         n.KvrName,
         n.Source,
-        n.DocumentType,
-        n.UpdatedAt,
-        e.LatestUpdatedAt AS EmbeddingUpdatedAt
+        n.DocumentType
     FROM [Notices] AS n
     LEFT JOIN (
-        SELECT NoticeId, MAX(UpdatedAt) AS LatestUpdatedAt
+        SELECT DISTINCT NoticeId
         FROM [NoticeEmbeddings]
         WHERE Model = ?
-        GROUP BY NoticeId
     ) AS e ON e.NoticeId = n.Id
-    WHERE
-        e.NoticeId IS NULL
-        OR n.UpdatedAt > e.LatestUpdatedAt
-    ORDER BY n.UpdatedAt DESC
+    WHERE e.NoticeId IS NULL
+    ORDER BY n.Id DESC
     """
     cursor.execute(sql, (model_name,))
     rows = cursor.fetchall()
