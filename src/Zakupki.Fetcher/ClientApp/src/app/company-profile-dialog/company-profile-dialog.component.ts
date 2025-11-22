@@ -1,8 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 
 import {
   RegionOption,
@@ -31,6 +32,8 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   errorMessage = '';
   successMessage = '';
   vectorsErrorMessage = '';
+  filteredRegions: RegionOption[] = [];
+  regionSearchControl = new FormControl('');
 
   private readonly destroy$ = new Subject<void>();
 
@@ -50,6 +53,12 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadProfile();
     this.loadVectors();
+
+    this.regionSearchControl.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        this.filteredRegions = this.filterRegions(value);
+      });
   }
 
   ngOnDestroy(): void {
@@ -194,11 +203,48 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
       regions: profile.regions ?? []
     });
 
+    this.filteredRegions = this.filterRegions(this.regionSearchControl.value);
+
     this.isLoading = false;
     this.isSaving = false;
 
     if (fromSave) {
       this.successMessage = 'Данные успешно сохранены.';
     }
+  }
+
+  handleRegionSelected(event: MatAutocompleteSelectedEvent): void {
+    const selected = event.option.value as RegionOption;
+    this.addRegion(selected.code);
+    this.regionSearchControl.setValue('');
+  }
+
+  removeRegion(code: number): void {
+    const regions = this.form.value.regions ?? [];
+    this.form.patchValue({ regions: regions.filter(regionCode => regionCode !== code) });
+  }
+
+  getRegionName(code: number): string | undefined {
+    return this.availableRegions.find(region => region.code === code)?.name;
+  }
+
+  private addRegion(code: number): void {
+    const regions = this.form.value.regions ?? [];
+    if (!regions.includes(code)) {
+      this.form.patchValue({ regions: [...regions, code] });
+    }
+  }
+
+  private filterRegions(value: string | RegionOption | null): RegionOption[] {
+    const query = (typeof value === 'string' ? value : value?.name ?? '').trim().toLowerCase();
+
+    if (!query) {
+      return this.availableRegions;
+    }
+
+    return this.availableRegions.filter(
+      region =>
+        region.name.toLowerCase().includes(query) || region.code.toString().includes(query)
+    );
   }
 }

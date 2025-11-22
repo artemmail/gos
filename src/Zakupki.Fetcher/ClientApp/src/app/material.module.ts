@@ -16,6 +16,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatChipsModule } from '@angular/material/chips';
 
 const MATERIAL_MODULES = [
   MatToolbarModule,
@@ -33,7 +35,9 @@ const MATERIAL_MODULES = [
   MatSelectModule,
   MatSnackBarModule,
   MatCheckboxModule,
-  MatTabsModule
+  MatTabsModule,
+  MatAutocompleteModule,
+  MatChipsModule
 ];
 
 @NgModule({
