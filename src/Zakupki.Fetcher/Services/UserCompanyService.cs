@@ -288,16 +288,20 @@ public sealed class UserCompanyService
     }
 
     private readonly NoticeDbContext _dbContext;
+    private readonly Okpd2CodeService _okpd2CodeService;
 
-    public UserCompanyService(NoticeDbContext dbContext)
+    public UserCompanyService(NoticeDbContext dbContext, Okpd2CodeService okpd2CodeService)
     {
         _dbContext = dbContext;
+        _okpd2CodeService = okpd2CodeService;
     }
 
     public async Task<UserCompanyProfile> GetProfileAsync(string userId, CancellationToken cancellationToken)
     {
         var user = await _dbContext.Users
             .Include(u => u.Regions)
+            .Include(u => u.Okpd2Codes)
+            .ThenInclude(c => c.Okpd2Code)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
         if (user is null)
@@ -314,17 +318,27 @@ public sealed class UserCompanyService
             .Select(region => region.Code)
             .ToArray();
 
-        return new UserCompanyProfile(user.CompanyInfo ?? string.Empty, orderedRegions);
+        var okpd2Codes = user.Okpd2Codes
+            .Select(c => c.Okpd2Code?.Code)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(code => code)
+            .ToArray();
+
+        return new UserCompanyProfile(user.CompanyInfo ?? string.Empty, orderedRegions, okpd2Codes);
     }
 
     public async Task<UserCompanyProfile> UpdateProfileAsync(
         string userId,
         string? companyInfo,
         IReadOnlyCollection<byte>? regions,
+        IReadOnlyCollection<string>? okpd2Codes,
         CancellationToken cancellationToken)
     {
         var user = await _dbContext.Users
             .Include(u => u.Regions)
+            .Include(u => u.Okpd2Codes)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
         if (user is null)
@@ -356,12 +370,53 @@ public sealed class UserCompanyService
             });
         }
 
+        var okpd2ByCode = await _okpd2CodeService.GetCodesByCodeAsync(cancellationToken);
+        var normalizedOkpd2Codes = (okpd2Codes ?? Array.Empty<string>())
+            .Select(code => code?.Trim())
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!)
+            .ToArray();
+
+        var selectedOkpd2Codes = new List<Okpd2Code>();
+        var seenCodes = new HashSet<int>();
+
+        foreach (var code in normalizedOkpd2Codes)
+        {
+            if (okpd2ByCode.TryGetValue(code, out var okpd2) && seenCodes.Add(okpd2.Id))
+            {
+                selectedOkpd2Codes.Add(okpd2);
+            }
+        }
+
+        _dbContext.ApplicationUserOkpd2Codes.RemoveRange(user.Okpd2Codes);
+        user.Okpd2Codes.Clear();
+
+        foreach (var okpd2 in selectedOkpd2Codes)
+        {
+            user.Okpd2Codes.Add(new ApplicationUserOkpd2Code
+            {
+                Okpd2CodeId = okpd2.Id,
+                UserId = userId
+            });
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new UserCompanyProfile(user.CompanyInfo ?? string.Empty, selectedRegions);
+        return new UserCompanyProfile(
+            user.CompanyInfo ?? string.Empty,
+            selectedRegions,
+            selectedOkpd2Codes
+                .Select(c => c.Code)
+                .Where(code => !string.IsNullOrWhiteSpace(code))
+                .Select(code => code!)
+                .OrderBy(code => code)
+                .ToArray());
     }
 
     public IReadOnlyCollection<RegionOption> GetAvailableRegions() => _availableRegions;
+
+    public Task<IReadOnlyList<Okpd2Code>> GetAvailableOkpd2CodesAsync(CancellationToken cancellationToken) =>
+        _okpd2CodeService.GetCodesAsync(cancellationToken);
 
     private static byte? MapRegionToCode(string? region)
     {
@@ -397,7 +452,10 @@ public sealed class UserCompanyService
         return null;
     }
 
-    public sealed record UserCompanyProfile(string CompanyInfo, IReadOnlyCollection<byte> Regions);
+    public sealed record UserCompanyProfile(
+        string CompanyInfo,
+        IReadOnlyCollection<byte> Regions,
+        IReadOnlyCollection<string> Okpd2Codes);
 
     public sealed record RegionOption(byte Code, string Name);
 }

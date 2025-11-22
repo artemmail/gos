@@ -58,6 +58,7 @@
   color: rgba(0, 0, 0, 0.6);
 }
 
-.region-field mat-chip-row {
+.region-field mat-chip-row,
+.okpd2-field mat-chip-row {
   margin: 4px 4px 0 0;
 }

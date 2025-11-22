@@ -18,6 +18,8 @@ public class ApplicationUser : IdentityUser
 
     public ICollection<ApplicationUserRegion> Regions { get; set; } = new List<ApplicationUserRegion>();
 
+    public ICollection<ApplicationUserOkpd2Code> Okpd2Codes { get; set; } = new List<ApplicationUserOkpd2Code>();
+
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     public ICollection<NoticeAnalysis> NoticeAnalyses { get; set; } = new List<NoticeAnalysis>();
