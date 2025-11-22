@@ -221,7 +221,7 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
 
   removeRegion(code: number): void {
     const regions = this.form.value.regions ?? [];
-    this.form.patchValue({ regions: regions.filter(regionCode => regionCode !== code) });
+    this.form.patchValue({ regions: regions.filter((regionCode: number) => regionCode !== code) });
   }
 
   getRegionName(code: number): string | undefined {
