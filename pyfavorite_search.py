@@ -709,15 +709,22 @@ def main():
     worker = RabbitFavoriteWorker(config)
 
     http_port = os.environ.get("FAVORITE_HTTP_PORT") or os.environ.get("HTTP_PORT")
+    if not http_port:
+        http_port = "8000"
+        print(
+            "[INFO] FAVORITE_HTTP_PORT/HTTP_PORT not set, starting vector server on "
+            "default port 8000"
+        )
+        sys.stdout.flush()
+
     server: Optional[VectorHttpServer] = None
-    if http_port:
-        try:
-            port = int(http_port)
-            server = VectorHttpServer(worker.engine, port)
-            server.start()
-        except Exception as exc:  # pragma: no cover - startup helper
-            print(f"[WARN] Failed to start HTTP vector server on {http_port}: {exc}")
-            sys.stdout.flush()
+    try:
+        port = int(http_port)
+        server = VectorHttpServer(worker.engine, port)
+        server.start()
+    except Exception as exc:  # pragma: no cover - startup helper
+        print(f"[WARN] Failed to start HTTP vector server on {http_port}: {exc}")
+        sys.stdout.flush()
 
     worker.run()
 
