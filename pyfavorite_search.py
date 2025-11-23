@@ -12,7 +12,11 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
+import threading
 
 import numpy as np
 import pika
@@ -285,6 +289,10 @@ class FavoriteSearchEngine:
         except Exception as exc:  # pragma: no cover - safety net for unexpected types
             raise TypeError(f"Неизвестный тип вектора: {type(value)!r}") from exc
 
+    def encode_text(self, text: str) -> List[float]:
+        vector = self.model.encode([text], convert_to_numpy=True)[0]
+        return np.asarray(vector, dtype=np.float32).tolist()
+
 
     def _fetch_top_similar_notices(
         self,
@@ -453,6 +461,105 @@ class FavoriteSearchEngine:
             raise
 
 
+# ---------- HTTP SERVER FOR VECTORIZATION ----------
+
+
+class _VectorRequestHandler(BaseHTTPRequestHandler):
+    engine: FavoriteSearchEngine
+
+    def _send_json(self, status: int, payload: Any):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path not in ("/", "/vector", "/vectors"):
+            self._send_json(404, {"error": "not found"})
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            content_length = 0
+
+        if content_length <= 0:
+            self._send_json(400, {"error": "empty request body"})
+            return
+
+        body_bytes = self.rfile.read(content_length)
+        try:
+            payload = json.loads(body_bytes.decode("utf-8"))
+        except Exception:
+            self._send_json(400, {"error": "invalid json"})
+            return
+
+        if not isinstance(payload, list):
+            self._send_json(400, {"error": "expected array of objects"})
+            return
+
+        results: List[Dict[str, Any]] = []
+        errors: List[str] = []
+
+        for idx, item in enumerate(payload):
+            if not isinstance(item, dict):
+                errors.append(f"item {idx} is not an object")
+                continue
+
+            text = (
+                item.get("string")
+                or item.get("text")
+                or item.get("query")
+                or item.get("Query")
+            )
+            item_id = item.get("id") or item.get("Id")
+
+            if item_id is None:
+                errors.append(f"item {idx} is missing id")
+                continue
+            if not text or not str(text).strip():
+                errors.append(f"item {idx} is missing text")
+                continue
+
+            vector = self.engine.encode_text(str(text))
+            results.append({"id": item_id, "string": text, "vector": vector})
+
+        response: Dict[str, Any] = {"results": results}
+        if errors:
+            response["errors"] = errors
+
+        self._send_json(200, response)
+
+
+class VectorHttpServer:
+    def __init__(self, engine: FavoriteSearchEngine, port: int):
+        self._engine = engine
+        self._port = port
+        self._thread: Optional[threading.Thread] = None
+        self._httpd: Optional[HTTPServer] = None
+
+    def start(self):
+        handler = _VectorRequestHandler
+        handler.engine = self._engine
+        self._httpd = HTTPServer(("0.0.0.0", self._port), handler)
+        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        self._thread.start()
+        print(f"[DEBUG] HTTP vector server started on port {self._port}")
+        sys.stdout.flush()
+
+    def stop(self):
+        if self._httpd:
+            try:
+                self._httpd.shutdown()
+            except Exception:
+                pass
+        if self._thread:
+            self._thread.join(timeout=2)
+
+
 # ---------- RABBIT WORKER ----------
 
 
@@ -506,6 +613,10 @@ class RabbitFavoriteWorker:
             f"exchange={self._exchange}, queue={self._queue}\n"
         )
         sys.stdout.flush()
+
+    @property
+    def engine(self) -> FavoriteSearchEngine:
+        return self._engine
 
     def _declare(self, ch):
         ch.exchange_declare(
@@ -596,6 +707,18 @@ def main():
 
     config = load_config(DEFAULT_CONFIG_PATH)
     worker = RabbitFavoriteWorker(config)
+
+    http_port = os.environ.get("FAVORITE_HTTP_PORT") or os.environ.get("HTTP_PORT")
+    server: Optional[VectorHttpServer] = None
+    if http_port:
+        try:
+            port = int(http_port)
+            server = VectorHttpServer(worker.engine, port)
+            server.start()
+        except Exception as exc:  # pragma: no cover - startup helper
+            print(f"[WARN] Failed to start HTTP vector server on {http_port}: {exc}")
+            sys.stdout.flush()
+
     worker.run()
 
 
