@@ -13,7 +13,6 @@ export interface NoticeListItem {
   collectingEnd: string | null;
   submissionProcedureDateRaw: string | null;
   rawJson: string | null;
-  computedRegion?: string | null;
   hasAnalysisAnswer: boolean;
   analysisStatus: string | null;
   analysisUpdatedAt: string | null;

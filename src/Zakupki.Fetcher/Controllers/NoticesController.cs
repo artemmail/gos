@@ -4,8 +4,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Data.SqlClient;
 using System.Threading;
 using Microsoft.AspNetCore.Authorization;
@@ -36,14 +34,8 @@ public class NoticesController : ControllerBase
     private readonly ILogger<NoticesController> _logger;
     private readonly IFavoriteSearchQueueService _favoriteSearchQueueService;
     private readonly UserCompanyService _userCompanyService;
-    private readonly RegionDeterminationService _regionDeterminationService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
-    private static readonly JsonSerializerOptions RegionDeserializationOptions = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
 
     public NoticesController(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
@@ -54,8 +46,7 @@ public class NoticesController : ControllerBase
         NoticeAnalysisReportService noticeAnalysisReportService,
         IFavoriteSearchQueueService favoriteSearchQueueService,
         ILogger<NoticesController> logger,
-        UserCompanyService userCompanyService,
-        RegionDeterminationService regionDeterminationService)
+        UserCompanyService userCompanyService)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
@@ -66,7 +57,6 @@ public class NoticesController : ControllerBase
         _favoriteSearchQueueService = favoriteSearchQueueService;
         _logger = logger;
         _userCompanyService = userCompanyService;
-        _regionDeterminationService = regionDeterminationService;
     }
 
     [HttpPost("favorite-search")]
@@ -1075,83 +1065,12 @@ public class NoticesController : ControllerBase
     private string BuildKvrNameWithRegionDebug(Notice notice)
     {
         var baseName = string.IsNullOrWhiteSpace(notice.KvrName) ? null : notice.KvrName.Trim();
-        var dbRegion = notice.Region.ToString("D2");
-        var computedRegion = DetermineRegionFromRawJson(notice.RawJson, notice.Region).ToString("D2");
-        var debugInfo = $"[db:{dbRegion}; func:{computedRegion}]";
+        var region = notice.Region.ToString("D2");
+        var debugInfo = $"[db:{region}]";
 
         return string.IsNullOrWhiteSpace(baseName)
             ? debugInfo
             : $"{baseName} {debugInfo}";
-    }
-
-    private byte DetermineRegionFromRawJson(string? rawJson, byte fallbackRegion)
-    {
-        if (string.IsNullOrWhiteSpace(rawJson))
-        {
-            return fallbackRegion;
-        }
-
-        try
-        {
-            var notification = JsonSerializer.Deserialize<EpNotificationEf2020>(rawJson, RegionDeserializationOptions);
-
-            if (notification is null)
-            {
-                return fallbackRegion;
-            }
-
-            var stubDocument = new NoticeDocument(
-                source: string.Empty,
-                documentType: string.Empty,
-                region: fallbackRegion,
-                period: DateTime.MinValue,
-                entryName: string.Empty,
-                content: Array.Empty<byte>(),
-                exportModel: null);
-
-            return _regionDeterminationService.DetermineRegionCode(
-                EnumerateFactAddresses(notification),
-                EnumerateInnCandidates(notification),
-                fallbackRegion);
-        }
-        catch (JsonException)
-        {
-            return fallbackRegion;
-        }
-    }
-
-    private static IEnumerable<string?> EnumerateFactAddresses(EpNotificationEf2020 notification)
-    {
-        yield return notification.PurchaseResponsibleInfo?.ResponsibleOrgInfo?.FactAddress;
-        yield return notification.PurchaseResponsibleInfo?.SpecializedOrgInfo?.FactAddress;
-        yield return notification.PurchaseResponsibleInfo?.ResponsibleInfo?.OrgFactAddress;
-    }
-
-    private static IEnumerable<string?> EnumerateInnCandidates(EpNotificationEf2020 notification)
-    {
-        yield return notification.PurchaseResponsibleInfo?.ResponsibleOrgInfo?.INN;
-        yield return notification.PurchaseResponsibleInfo?.SpecializedOrgInfo?.INN;
-
-        var customerRequirements = notification.NotificationInfo?.CustomerRequirementsInfo?.Items;
-        if (customerRequirements is not { Count: > 0 })
-        {
-            yield break;
-        }
-
-        foreach (var requirement in customerRequirements)
-        {
-            var applicationInn = requirement.ApplicationGuarantee?.AccountBudget?.AccountBudgetAdmin?.Inn;
-            if (!string.IsNullOrWhiteSpace(applicationInn))
-            {
-                yield return applicationInn;
-            }
-
-            var contractInn = requirement.ContractGuarantee?.AccountBudget?.AccountBudgetAdmin?.Inn;
-            if (!string.IsNullOrWhiteSpace(contractInn))
-            {
-                yield return contractInn;
-            }
-        }
     }
 
     private static List<string> ParseCodeList(string? rawCodes)
