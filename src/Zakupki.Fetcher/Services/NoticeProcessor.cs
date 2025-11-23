@@ -427,6 +427,7 @@ public sealed class NoticeProcessor
             return 0;
         }
 
+        // 1) Сначала — старый точный поиск по словарю
         byte? detected = null;
         var detectedPosition = int.MaxValue;
         var hasConflictAtDetectedPosition = false;
@@ -453,12 +454,173 @@ public sealed class NoticeProcessor
             }
         }
 
-        if (detected is null || hasConflictAtDetectedPosition)
+        // если есть однозначное точное попадание — используем его
+        if (detected is not null && !hasConflictAtDetectedPosition)
+        {
+            return detected.Value;
+        }
+
+        // 2) Если точного совпадения НЕТ — пробуем fuzzy-поиск по опечаткам
+        if (detected is null)
+        {
+            return ExtractRegionFromAddressFuzzy(normalizedAddress);
+        }
+
+        // если была коллизия нескольких регионов на одной позиции —
+        // оставляем старое поведение: регион считаем неопределённым
+        return 0;
+    }
+
+    /// <summary>
+    /// Fuzzy-поиск региона по нормализованному адресу с помощью расстояния Левенштейна.
+    /// Работает только если точный поиск не нашёл ничего.
+    /// </summary>
+    private static byte ExtractRegionFromAddressFuzzy(string normalizedAddress)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedAddress))
         {
             return 0;
         }
 
-        return detected.Value;
+        // Разбиваем нормализованный адрес на токены
+        var tokens = normalizedAddress
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (tokens.Length == 0)
+        {
+            return 0;
+        }
+
+        // Порог, который можно покрутить:
+        const int maxDistance = 1;        // максимум 1 опечатка
+        const int minKeywordLength = 6;   // чтобы не ловить мусор по коротким словам
+
+        byte? bestRegion = null;
+        var bestDistance = int.MaxValue;
+        var bestTokenPosition = int.MaxValue;
+
+        // Используем твой RegionKeywordSeeds — он уже есть в этом классе
+        foreach (var seed in RegionKeywordSeeds)
+        {
+            var regionCode = seed.Code;
+
+            foreach (var rawKeyword in seed.Keywords)
+            {
+                if (string.IsNullOrWhiteSpace(rawKeyword))
+                {
+                    continue;
+                }
+
+                var keyword = rawKeyword.Trim();
+
+                // Fuzzy делаем только по однословным ключам:
+                // "белгородская", "ростовская", "свердловская" и т.п.
+                if (keyword.Contains(' '))
+                {
+                    continue;
+                }
+
+                // Отсекаем короткие ключи (типа "уфа", "томск"), чтобы меньше ловить ложных совпадений
+                if (keyword.Length < minKeywordLength)
+                {
+                    continue;
+                }
+
+                foreach (var token in tokens)
+                {
+                    // Оптимизация: если длины сильно отличаются — нет смысла считать
+                    if (Math.Abs(token.Length - keyword.Length) > maxDistance)
+                    {
+                        continue;
+                    }
+
+                    var distance = LevenshteinDistance(token, keyword);
+                    if (distance > maxDistance)
+                    {
+                        continue;
+                    }
+
+                    // Позиция токена в строке, чтобы предпочитать более "ранние" в адресе
+                    var tokenPosition = normalizedAddress.IndexOf(token, StringComparison.Ordinal);
+
+                    var isBetter =
+                        distance < bestDistance ||
+                        (distance == bestDistance && tokenPosition >= 0 && tokenPosition < bestTokenPosition);
+
+                    if (isBetter)
+                    {
+                        bestDistance = distance;
+                        bestRegion = regionCode;
+                        bestTokenPosition = tokenPosition;
+                    }
+                }
+            }
+        }
+
+        return bestRegion ?? 0;
+    }
+
+    /// <summary>
+    /// Классическое расстояние Левенштейна (вставка / удаление / замена = 1).
+    /// </summary>
+    private static int LevenshteinDistance(string source, string target)
+    {
+        if (ReferenceEquals(source, target))
+        {
+            return 0;
+        }
+
+        if (source.Length == 0)
+        {
+            return target.Length;
+        }
+
+        if (target.Length == 0)
+        {
+            return source.Length;
+        }
+
+        var n = source.Length;
+        var m = target.Length;
+
+        var d = new int[n + 1, m + 1];
+
+        for (var i = 0; i <= n; i++)
+        {
+            d[i, 0] = i;
+        }
+
+        for (var j = 0; j <= m; j++)
+        {
+            d[0, j] = j;
+        }
+
+        for (var i = 1; i <= n; i++)
+        {
+            for (var j = 1; j <= m; j++)
+            {
+                var cost = source[i - 1] == target[j - 1] ? 0 : 1;
+
+                var deletion = d[i - 1, j] + 1;
+                var insertion = d[i, j - 1] + 1;
+                var substitution = d[i - 1, j - 1] + cost;
+
+                var value = deletion;
+                if (insertion < value)
+                {
+                    value = insertion;
+                }
+
+                if (substitution < value)
+                {
+                    value = substitution;
+                }
+
+                d[i, j] = value;
+            }
+        }
+
+        return d[n, m];
     }
 
     private static int IndexOfWord(string source, string keyword)
