@@ -229,6 +229,7 @@ if (!string.IsNullOrWhiteSpace(vkClientId) && !string.IsNullOrWhiteSpace(vkClien
 builder.Services.AddAuthorization();
 
 builder.Services.AddHostedService<DatabaseMigrationHostedService>();
+builder.Services.AddSingleton<RegionDeterminationService>();
 builder.Services.AddSingleton<NoticeProcessor>();
 builder.Services.AddScoped<XmlFolderImporter>();
 builder.Services.AddHostedService<Worker>();
