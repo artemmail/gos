@@ -481,23 +481,20 @@ class _VectorRequestHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "not found"})
             return
 
-        try:
-            content_length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            content_length = 0
-
-        if content_length <= 0:
+        body_bytes = self._read_body()
+        if not body_bytes:
             self._send_json(400, {"error": "empty request body"})
             return
 
-        body_bytes = self.rfile.read(content_length)
         try:
             payload = json.loads(body_bytes.decode("utf-8"))
         except Exception:
             self._send_json(400, {"error": "invalid json"})
             return
 
-        if not isinstance(payload, list):
+        if isinstance(payload, dict):
+            payload = [payload]
+        elif not isinstance(payload, list):
             self._send_json(400, {"error": "expected array of objects"})
             return
 
@@ -532,6 +529,48 @@ class _VectorRequestHandler(BaseHTTPRequestHandler):
             response["errors"] = errors
 
         self._send_json(200, response)
+
+    def _read_body(self) -> bytes:
+        transfer_encoding = (self.headers.get("Transfer-Encoding") or "").lower()
+        if transfer_encoding == "chunked":
+            return self._read_chunked_body()
+
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            content_length = 0
+
+        if content_length <= 0:
+            return b""
+
+        return self.rfile.read(content_length)
+
+    def _read_chunked_body(self) -> bytes:
+        body = bytearray()
+
+        while True:
+            line = self.rfile.readline()
+            if not line:
+                break
+
+            try:
+                chunk_size = int(line.strip().split(b";", 1)[0], 16)
+            except ValueError:
+                break
+
+            if chunk_size == 0:
+                # consume trailer headers if any
+                while True:
+                    trailer = self.rfile.readline()
+                    if trailer in (b"\r\n", b"\n", b""):
+                        break
+                break
+
+            body.extend(self.rfile.read(chunk_size))
+            # read the trailing CRLF after each chunk
+            self.rfile.read(2)
+
+        return bytes(body)
 
 
 class VectorHttpServer:
