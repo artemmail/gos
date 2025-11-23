@@ -249,7 +249,7 @@ public sealed class NoticeProcessor
         return candidates.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
     }
 
-    private static void MapNotice(
+    private void MapNotice(
         Notice notice,
         NoticeDocument document,
         EpNotificationEf2020 notification,
