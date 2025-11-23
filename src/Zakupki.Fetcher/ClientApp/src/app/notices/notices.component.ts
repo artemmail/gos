@@ -560,6 +560,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onSemanticModeToggle(enabled: boolean): void {
+    this.onSearchModeChange(enabled ? 'semantic' : 'direct');
+  }
+
   onSubmitSearch(): void {
     if (this.isDirectSearch) {
       this.applyFilters();
