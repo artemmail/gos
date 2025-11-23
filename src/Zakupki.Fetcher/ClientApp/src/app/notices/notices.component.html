@@ -6,19 +6,18 @@
       <section class="search-panel">
         <div class="search-panel-card1">
           <div class="search-panel-row">
-            <div class="search-mode-group">
+              <div class="search-mode-group">
                 <div class="card-header">
         <h1>{{ pageTitle }}</h1>
         <p class="subtitle">{{ pageSubtitle }}</p>
       </div>
               <div class="section-label">Режим поиска</div>
-              <mat-form-field appearance="outline" class="search-mode-field">
-                <mat-label>Тип поиска</mat-label>
-                <mat-select [formControl]="searchModeControl" (selectionChange)="onSearchModeChange($event.value)">
-                  <mat-option value="direct">Прямой поиск</mat-option>
-                  <mat-option value="semantic">Семантический поиск (ИИ)</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <mat-checkbox
+                class="search-mode-toggle"
+                [checked]="isSemanticSearch"
+                (change)="onSemanticModeToggle($event.checked)">
+                Семантический поиск (ИИ)
+              </mat-checkbox>
             </div>
 
             <div class="search-toggles">
