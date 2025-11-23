@@ -11,16 +11,17 @@
         <h1>{{ pageTitle }}</h1>
         <p class="subtitle">{{ pageSubtitle }}</p>
       </div>
-              <div class="section-label">Режим поиска</div>
-              <mat-checkbox
+              
+            
+            </div>
+
+            <div class="search-toggles">
+                <mat-checkbox
                 class="search-mode-toggle"
                 [checked]="isSemanticSearch"
                 (change)="onSemanticModeToggle($event.checked)">
                 Семантический поиск (ИИ)
               </mat-checkbox>
-            </div>
-
-            <div class="search-toggles">
               <mat-checkbox [formControl]="expiredOnlyControl">
                 Искать истекшие
               </mat-checkbox>
