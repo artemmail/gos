@@ -17,7 +17,6 @@ import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
 import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
-import { determineRegionFromRawJson } from '../constants/regions';
 import { FavoritesService } from '../services/favorites.service';
 import { QueryVectorService } from '../services/query-vector.service';
 import { UserQueryVectorDto } from '../models/query-vector.models';
@@ -244,10 +243,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (response: NoticeListResponse) => {
-          this.notices = response.items.map(item => ({
-            ...item,
-            computedRegion: determineRegionFromRawJson(item.rawJson, item.region)
-          }));
+          this.notices = response.items;
           this.totalCount = response.totalCount;
           this.pageSize = response.pageSize;
         },
@@ -430,14 +426,13 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getRegionLabel(notice: NoticeListItem): string {
-    const regionCode = notice.computedRegion ?? notice.region;
-    const label = this.regionsService.getRegionLabel(regionCode);
+    const label = this.regionsService.getRegionLabel(notice.region);
 
     if (label) {
       return label;
     }
 
-    return regionCode ?? '—';
+    return notice.region ?? '—';
   }
 
   toggleFavorite(notice: NoticeListItem): void {
