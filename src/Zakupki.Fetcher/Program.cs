@@ -40,8 +40,10 @@ builder.Services.Configure<ZakupkiOptions>(builder.Configuration.GetSection("Zak
 builder.Services.Configure<AttachmentConversionOptions>(builder.Configuration.GetSection("AttachmentConversion"));
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<EventBusOptions>(builder.Configuration.GetSection("EventBus"));
+builder.Services.Configure<QueryVectorOptions>(builder.Configuration.GetSection("QueryVector"));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(new CookieContainer());
+builder.Services.AddHttpClient();
 builder.Services
     .AddHttpClient<AttachmentDownloadService>()
     .ConfigurePrimaryHttpMessageHandler(sp => new HttpClientHandler
