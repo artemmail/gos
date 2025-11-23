@@ -40,7 +40,7 @@ export class QueryVectorDialogComponent {
     this.queryVectorService.create({ query: this.form.value.query }).subscribe({
       next: () => this.dialogRef.close(true),
       error: () => {
-        this.errorMessage = 'Не удалось отправить запрос в очередь.';
+        this.errorMessage = 'Не удалось обратиться к сервису векторизации.';
         this.isSubmitting = false;
       }
     });

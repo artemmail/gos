@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
 using Microsoft.Data.SqlTypes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,15 +20,21 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly IEventBusPublisher _eventBusPublisher;
     private readonly EventBusOptions _options;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly QueryVectorOptions _vectorOptions;
 
     public QueryVectorQueueService(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
         IEventBusPublisher eventBusPublisher,
-        IOptions<EventBusOptions> options)
+        IOptions<EventBusOptions> options,
+        IHttpClientFactory httpClientFactory,
+        IOptions<QueryVectorOptions> vectorOptions)
     {
         _dbContextFactory = dbContextFactory;
         _eventBusPublisher = eventBusPublisher;
         _options = options.Value;
+        _httpClientFactory = httpClientFactory;
+        _vectorOptions = vectorOptions.Value;
     }
 
     public async Task<UserQueryVector> CreateAsync(string userId, CreateUserQueryVectorRequest request, CancellationToken cancellationToken)
@@ -34,11 +42,6 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
         if (string.IsNullOrWhiteSpace(request.Query))
         {
             throw new ArgumentException("Query is required", nameof(request));
-        }
-
-        if (!IsQueueConfigured())
-        {
-            throw new InvalidOperationException("Очередь для генерации вектора не настроена");
         }
 
         var trimmedQuery = request.Query.Trim();
@@ -54,6 +57,27 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
 
         context.UserQueryVectors.Add(entity);
         await context.SaveChangesAsync(cancellationToken);
+
+        var vectorizerUrl = _vectorOptions.VectorizerUrl;
+        if (!string.IsNullOrWhiteSpace(vectorizerUrl))
+        {
+            var vector = await RequestVectorAsync(vectorizerUrl, entity.Id, trimmedQuery, cancellationToken);
+            if (vector?.Length > 0)
+            {
+                entity.Vector = new SqlVector<float>(vector);
+                entity.UpdatedAt = DateTime.UtcNow;
+                entity.CompletedAt = DateTime.UtcNow;
+                await context.SaveChangesAsync(cancellationToken);
+                return entity;
+            }
+
+            throw new InvalidOperationException("Сервис векторизации вернул пустой ответ");
+        }
+
+        if (!IsQueueConfigured())
+        {
+            throw new InvalidOperationException("Очередь для генерации вектора не настроена");
+        }
 
         var command = new QueryVectorCommand
         {
@@ -122,5 +146,40 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
     {
         return _options.Enabled &&
                !string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName);
+    }
+
+    private async Task<float[]?> RequestVectorAsync(string endpoint, Guid id, string query, CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient(nameof(QueryVectorQueueService));
+        var payload = new[] { new VectorRequestDto(id, query) };
+
+        using var response = await client.PostAsJsonAsync(endpoint, payload, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Не удалось обратиться к сервису векторизации (HTTP {(int)response.StatusCode})");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<VectorizationResponse>(cancellationToken: cancellationToken);
+        if (result?.Results == null || result.Results.Count == 0)
+        {
+            return null;
+        }
+
+        var match = result.Results.FirstOrDefault(r => r.Id == id);
+        return match?.Vector?.Select(v => (float)v).ToArray();
+    }
+
+    private sealed record VectorRequestDto(Guid Id, string @string);
+
+    private sealed class VectorizationResponse
+    {
+        public List<VectorizationResult>? Results { get; init; }
+    }
+
+    private sealed class VectorizationResult
+    {
+        public Guid Id { get; init; }
+        public string? String { get; init; }
+        public IReadOnlyList<double>? Vector { get; init; }
     }
 }
