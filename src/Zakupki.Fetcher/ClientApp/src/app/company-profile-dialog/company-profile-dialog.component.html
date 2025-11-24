@@ -74,16 +74,26 @@
       <div class="section-header">
         <div>
           <h3>Векторные запросы</h3>
-          <div class="hint">Добавьте хотя бы один запрос, чтобы сохранить данные компании.</div>
+          <div class="hint">Управляйте запросами для поиска релевантных закупок.</div>
         </div>
-        <button
-          mat-stroked-button
-          color="primary"
-          (click)="openAddVectorDialog()"
-          [disabled]="isVectorsLoading || isVectorActionInProgress"
-        >
-          Добавить запрос
-        </button>
+        <div class="section-actions">
+          <button
+            mat-stroked-button
+            color="primary"
+            (click)="refreshVectors()"
+            [disabled]="isVectorsLoading || isVectorActionInProgress"
+          >
+            Обновить
+          </button>
+          <button
+            mat-stroked-button
+            color="primary"
+            (click)="openAddVectorDialog()"
+            [disabled]="isVectorsLoading || isVectorActionInProgress"
+          >
+            Добавить запрос
+          </button>
+        </div>
       </div>
 
       <div class="message error" *ngIf="vectorsErrorMessage">{{ vectorsErrorMessage }}</div>
@@ -125,7 +135,7 @@
         </div>
 
         <ng-template #emptyVectors>
-          <div class="empty-state">Нет запросов. Добавьте минимум один, чтобы сохранить данные.</div>
+          <div class="empty-state">Нет запросов. Добавьте или обновите список при необходимости.</div>
         </ng-template>
       </ng-container>
     </section>
