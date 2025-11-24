@@ -18,23 +18,26 @@ public class Worker : BackgroundService
     private readonly NoticeProcessor _processor;
     private readonly IOptionsMonitor<ZakupkiOptions> _optionsMonitor;
     private readonly IServiceScopeFactory _scopeFactory;
-
+    private readonly Okpd2ImportService okpd2CodeService_;
     public Worker(
+        
         ILogger<Worker> logger,
         ZakupkiClient client,
         NoticeProcessor processor,
         IOptionsMonitor<ZakupkiOptions> options,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory, Okpd2ImportService okpd2CodeService)
     {
         _logger = logger;
         _client = client;
         _processor = processor;
         _optionsMonitor = options;
         _scopeFactory = scopeFactory;
+        okpd2CodeService_ = okpd2CodeService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+     //   await okpd2CodeService_.ImportAsync("c:/xml/okpd.xlsx ", stoppingToken);
         _logger.LogInformation("Worker starting...");
         var hasImportedFromFolder = false;
 
