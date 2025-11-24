@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -106,49 +107,26 @@ public sealed class QueryVectorResultListener : BackgroundService
             var isNoticeEmbedding = !string.IsNullOrWhiteSpace(_embeddingOptions.ServiceId)
                 && string.Equals(response.ServiceId, _embeddingOptions.ServiceId, StringComparison.OrdinalIgnoreCase);
 
+            var normalizedItems = response.Items
+                .Where(item => item.Vector != null)
+                .Select(item => new QueryVectorResult
+                {
+                    Id = item.Id,
+                    Vector = item.Vector,
+                    UserId = item.UserId,
+                    Query = item.String
+                })
+                .ToArray();
+
             if (isNoticeEmbedding)
             {
                 var embeddingService = scope.ServiceProvider.GetRequiredService<INoticeEmbeddingService>();
-
-                foreach (var item in response.Items)
-                {
-                    if (item.Vector == null)
-                    {
-                        continue;
-                    }
-
-                    var normalized = new QueryVectorResult
-                    {
-                        Id = item.Id,
-                        Vector = item.Vector,
-                        UserId = item.UserId,
-                        Query = item.String
-                    };
-
-                    await embeddingService.ApplyVectorAsync(normalized, cancellationToken);
-                }
+                await embeddingService.ApplyVectorAsync(normalizedItems, cancellationToken);
             }
             else
             {
                 var service = scope.ServiceProvider.GetRequiredService<IQueryVectorQueueService>();
-
-                foreach (var item in response.Items)
-                {
-                    if (item.Vector == null)
-                    {
-                        continue;
-                    }
-
-                    var normalized = new QueryVectorResult
-                    {
-                        Id = item.Id,
-                        Vector = item.Vector,
-                        UserId = item.UserId,
-                        Query = item.String
-                    };
-
-                    await service.ApplyVectorAsync(normalized, cancellationToken);
-                }
+                await service.ApplyVectorAsync(normalizedItems, cancellationToken);
             }
 
             _channel?.BasicAck(args.DeliveryTag, false);

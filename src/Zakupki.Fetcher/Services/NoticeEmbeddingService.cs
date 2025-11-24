@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,40 +24,46 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
         _logger = logger;
     }
 
-    public async Task ApplyVectorAsync(QueryVectorResult result, CancellationToken cancellationToken)
+    public async Task ApplyVectorAsync(IReadOnlyList<QueryVectorResult> results, CancellationToken cancellationToken)
     {
-        if (result.Vector == null || result.Vector.Count == 0)
+        var validResults = results
+            .Where(r => r.Vector != null && r.Vector.Count > 0)
+            .Where(r => Guid.TryParse(r.UserId, out _))
+            .ToArray();
+
+        if (validResults.Length == 0)
         {
-            _logger.LogWarning("Received empty vector for notice embedding {Id}", result.Id);
             return;
         }
 
-        if (!Guid.TryParse(result.UserId, out var noticeId))
-        {
-            _logger.LogWarning(
-                "Skipping notice embedding {Id} because notice id is missing or invalid: {UserId}",
-                result.Id,
-                result.UserId);
-            return;
-        }
+        var noticeIds = validResults
+            .Select(r => Guid.Parse(r.UserId!))
+            .Concat(validResults.Select(r => r.Id))
+            .Distinct()
+            .ToArray();
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var notice = await context.Notices
-            .Where(n => n.Id == noticeId || n.Id == result.Id )
-            .FirstOrDefaultAsync(cancellationToken);
+        var notices = await context.Notices
+            .Where(n => noticeIds.Contains(n.Id))
+            .ToListAsync(cancellationToken);
 
-        if (notice == null)
+        foreach (var result in validResults)
         {
-            _logger.LogWarning("Notice {NoticeId} not found for embedding update", noticeId);
-            return;
+            var noticeId = Guid.Parse(result.UserId!);
+            var notice = notices.FirstOrDefault(n => n.Id == noticeId) ?? notices.FirstOrDefault(n => n.Id == result.Id);
+
+            if (notice == null)
+            {
+                _logger.LogWarning("Notice {NoticeId} not found for embedding update", noticeId);
+                continue;
+            }
+
+            if (notice.Vector == null)
+            {
+                notice.Vector = new SqlVector<float>(result.Vector!.Select(v => (float)v).ToArray());
+            }
         }
 
-        if (notice.Vector == null)
-        {
-            notice.Vector = new SqlVector<float>(result.Vector.Select(v => (float)v).ToArray());
-
-            await context.SaveChangesAsync(cancellationToken);
-        }
-        //ogger.LogInformation("Stored notice embedding for notice {NoticeId}", noticeId);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }
