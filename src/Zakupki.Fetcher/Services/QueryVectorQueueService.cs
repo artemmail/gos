@@ -53,7 +53,7 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
         context.UserQueryVectors.Add(entity);
         await context.SaveChangesAsync(cancellationToken);
 
-        if (!IsQueueConfigured())
+        if (!TryGetQueueName(out _))
         {
             throw new InvalidOperationException("Очередь для генерации вектора не настроена");
         }
@@ -129,9 +129,19 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private bool IsQueueConfigured()
+    private bool TryGetQueueName(out string queueName)
     {
-        return _options.Enabled &&
-               !string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName);
+        queueName = string.Empty;
+
+        if (!_options.Enabled)
+        {
+            return false;
+        }
+
+        queueName = string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName)
+            ? _options.ResolveCommandQueueName()
+            : _options.QueryVectorRequestQueueName;
+
+        return !string.IsNullOrWhiteSpace(queueName);
     }
 }
