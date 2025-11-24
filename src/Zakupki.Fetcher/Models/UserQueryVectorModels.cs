@@ -19,7 +19,7 @@ public sealed class QueryVectorRequestItem
 
 public sealed class QueryVectorBatchRequest
 {
-    public string ServiceId { get; init; } = "AddQuery";
+    public string ServiceId { get; init; } = "AddUserSemanticReq";
 
     public IReadOnlyList<QueryVectorRequestItem> Items { get; init; } = Array.Empty<QueryVectorRequestItem>();
 }
@@ -44,6 +44,10 @@ public sealed class UserQueryVectorDto
 public sealed class QueryVectorResult
 {
     public Guid Id { get; init; }
+
+    public string? UserId { get; init; }
+
+    public string? Query { get; init; }
 
     public IReadOnlyList<float>? Vector { get; init; }
 }

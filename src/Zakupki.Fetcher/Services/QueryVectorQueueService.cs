@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.SqlTypes;
@@ -15,6 +16,10 @@ namespace Zakupki.Fetcher.Services;
 
 public sealed class QueryVectorQueueService : IQueryVectorQueueService
 {
+    private static readonly ConcurrentDictionary<Guid, PendingQueryVectorRequest> PendingRequests = new();
+
+    private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(3);
+
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly IEventBusPublisher _eventBusPublisher;
     private readonly EventBusOptions _options;
@@ -41,31 +46,23 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
 
         var trimmedQuery = request.Query.Trim();
 
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var entity = new UserQueryVector
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Query = trimmedQuery,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        context.UserQueryVectors.Add(entity);
-        await context.SaveChangesAsync(cancellationToken);
-
         if (!TryGetQueueName(out _))
         {
             throw new InvalidOperationException("Очередь для генерации вектора не настроена");
         }
 
+        var requestId = Guid.NewGuid();
+        var pendingRequest = new PendingQueryVectorRequest(requestId, userId, trimmedQuery);
+        PendingRequests.TryAdd(requestId, pendingRequest);
+
         var batch = new QueryVectorBatchRequest
         {
-            ServiceId = _vectorOptions.ServiceId,
+            ServiceId = GetServiceId(),
             Items = new[]
             {
                 new QueryVectorRequestItem
                 {
-                    Id = entity.Id,
+                    Id = requestId,
                     UserId = userId,
                     String = trimmedQuery
                 }
@@ -74,7 +71,16 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
 
         await _eventBusPublisher.PublishQueryVectorRequestAsync(batch, cancellationToken);
 
-        return entity;
+        var completedTask = await Task.WhenAny(pendingRequest.Completion.Task, Task.Delay(ResponseTimeout, cancellationToken));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (completedTask == pendingRequest.Completion.Task)
+        {
+            return await pendingRequest.Completion.Task;
+        }
+
+        throw new QueryVectorPendingException(requestId);
     }
 
     public async Task<IReadOnlyList<UserQueryVector>> GetAllAsync(string userId, CancellationToken cancellationToken)
@@ -108,8 +114,11 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
     {
         if (result.Vector == null)
         {
+            CompleteWithFailure(result.Id, new InvalidOperationException("Vector result is empty"));
             return;
         }
+
+        PendingRequests.TryGetValue(result.Id, out var pendingRequest);
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await context.UserQueryVectors
@@ -118,7 +127,24 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
 
         if (entity == null)
         {
-            return;
+            var userId = pendingRequest?.UserId ?? result.UserId;
+            var query = pendingRequest?.Query ?? result.Query;
+
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(query))
+            {
+                CompleteWithFailure(result.Id, new InvalidOperationException("Не удалось определить пользователя или текст запроса для вектора"));
+                return;
+            }
+
+            entity = new UserQueryVector
+            {
+                Id = result.Id,
+                UserId = userId,
+                Query = query.Trim(),
+                CreatedAt = pendingRequest?.CreatedAt ?? DateTime.UtcNow
+            };
+
+            context.UserQueryVectors.Add(entity);
         }
 
         var vector = result.Vector?.Select(v => (float)v).ToArray();
@@ -127,6 +153,12 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
         entity.CompletedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync(cancellationToken);
+
+        if (pendingRequest != null)
+        {
+            pendingRequest.Completion.TrySetResult(entity);
+            PendingRequests.TryRemove(result.Id, out _);
+        }
     }
 
     private bool TryGetQueueName(out string queueName)
@@ -143,5 +175,42 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
             : _options.QueryVectorRequestQueueName;
 
         return !string.IsNullOrWhiteSpace(queueName);
+    }
+
+    private string GetServiceId()
+    {
+        return string.IsNullOrWhiteSpace(_vectorOptions.ServiceId)
+            ? "AddUserSemanticReq"
+            : _vectorOptions.ServiceId;
+    }
+
+    private static void CompleteWithFailure(Guid id, Exception ex)
+    {
+        if (PendingRequests.TryRemove(id, out var pending))
+        {
+            pending.Completion.TrySetException(ex);
+        }
+    }
+
+    private sealed class PendingQueryVectorRequest
+    {
+        public PendingQueryVectorRequest(Guid id, string userId, string query)
+        {
+            Id = id;
+            UserId = userId;
+            Query = query;
+            CreatedAt = DateTime.UtcNow;
+            Completion = new TaskCompletionSource<UserQueryVector>(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public Guid Id { get; }
+
+        public string UserId { get; }
+
+        public string Query { get; }
+
+        public DateTime CreatedAt { get; }
+
+        public TaskCompletionSource<UserQueryVector> Completion { get; }
     }
 }
