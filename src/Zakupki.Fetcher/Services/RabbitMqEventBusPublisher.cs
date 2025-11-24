@@ -59,7 +59,7 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         return Task.CompletedTask;
     }
 
-    public Task PublishQueryVectorRequestAsync(QueryVectorCommand command, CancellationToken cancellationToken)
+    public Task PublishQueryVectorRequestAsync(QueryVectorBatchRequest request, CancellationToken cancellationToken)
     {
         if (!_options.Enabled)
         {
@@ -70,7 +70,7 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
 
         var channel = EnsureChannel();
-        var payload = JsonSerializer.Serialize(command);
+        var payload = JsonSerializer.Serialize(request);
         var body = Encoding.UTF8.GetBytes(payload);
 
         var properties = channel.CreateBasicProperties();
@@ -85,8 +85,9 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
             body: body);
 
         _logger.LogDebug(
-            "Query vector task published for request {RequestId}",
-            command.Id);
+            "Query vector task batch published for service {ServiceId} ({Count} item(s))",
+            request.ServiceId,
+            request.Items?.Count ?? 0);
 
         return Task.CompletedTask;
     }

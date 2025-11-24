@@ -3,9 +3,7 @@ namespace Zakupki.Fetcher.Options;
 public sealed class QueryVectorOptions
 {
     /// <summary>
-    /// HTTP endpoint of the vectorization service that accepts POST batches
-    /// with payloads [{ id, string }]. When specified, the dialog sends
-    /// vectors directly without using RabbitMQ.
+    /// Service name used in outgoing vectorization requests.
     /// </summary>
-    public string? VectorizerUrl { get; set; }
+    public string ServiceId { get; set; } = "AddQuery";
 }

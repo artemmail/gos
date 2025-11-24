@@ -87,12 +87,12 @@ public sealed class QueryVectorResultListener : BackgroundService
         try
         {
             var payload = Encoding.UTF8.GetString(args.Body.Span);
-            var result = JsonSerializer.Deserialize<QueryVectorResult>(payload, new JsonSerializerOptions
+            var response = JsonSerializer.Deserialize<QueryVectorBatchResponse>(payload, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
 
-            if (result?.Vector == null)
+            if (response?.Items == null || response.Items.Count == 0)
             {
                 _logger.LogWarning("Received vector response with empty payload");
                 _channel?.BasicAck(args.DeliveryTag, false);
@@ -101,7 +101,22 @@ public sealed class QueryVectorResultListener : BackgroundService
 
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IQueryVectorQueueService>();
-            await service.ApplyVectorAsync(result, cancellationToken);
+
+            foreach (var item in response.Items)
+            {
+                if (item.Vector == null)
+                {
+                    continue;
+                }
+
+                var normalized = new QueryVectorResult
+                {
+                    Id = item.Id,
+                    Vector = item.Vector
+                };
+
+                await service.ApplyVectorAsync(normalized, cancellationToken);
+            }
 
             _channel?.BasicAck(args.DeliveryTag, false);
         }
