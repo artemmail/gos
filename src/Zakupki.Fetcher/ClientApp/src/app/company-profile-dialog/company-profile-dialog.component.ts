@@ -169,9 +169,16 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
       !this.isSaving &&
       !this.isLoading &&
       !this.isVectorsLoading &&
-      this.queryVectors.length > 0 &&
       this.form.valid
     );
+  }
+
+  refreshVectors(): void {
+    if (this.isVectorsLoading || this.isVectorActionInProgress) {
+      return;
+    }
+
+    this.loadVectors();
   }
 
   private loadProfile(): void {

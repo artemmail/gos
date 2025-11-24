@@ -40,6 +40,13 @@
   gap: 12px;
 }
 
+.section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .section-header h3 {
   margin: 0;
 }
