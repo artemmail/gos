@@ -13,11 +13,6 @@ public sealed class NoticeEmbeddingOptions
     public string ServiceId { get; set; } = "NoticeEmbeddingUpdate";
 
     /// <summary>
-    /// Source value stored in the NoticeEmbeddings table.
-    /// </summary>
-    public string Source { get; set; } = "notice_vectorizer";
-
-    /// <summary>
     /// Maximum number of notices to send in a single batch.
     /// </summary>
     public int BatchSize { get; set; } = 100;

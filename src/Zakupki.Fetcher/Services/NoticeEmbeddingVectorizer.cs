@@ -83,7 +83,7 @@ public sealed class NoticeEmbeddingVectorizer : BackgroundService
 
         var notices = await context.Notices
             .AsNoTracking()
-            .Where(n => !context.NoticeEmbeddings.Any(e => e.NoticeId == n.Id && e.Source == _options.Source))
+            .Where(n => n.Vector == null)
             .OrderBy(n => n.PublishDate ?? DateTime.MinValue)
             .ThenBy(n => n.Id)
             .Take(_options.BatchSize)

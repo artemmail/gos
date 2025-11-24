@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Data.SqlTypes;
 
 namespace Zakupki.Fetcher.Data.Entities;
 
@@ -38,11 +39,11 @@ public class Notice
 
     public DateTime? CollectingEnd { get; set; }
 
+    public SqlVector<float> Vector { get; set; } = null!;
+
     public ICollection<NoticeVersion> Versions { get; set; } = new List<NoticeVersion>();
 
     public ICollection<NoticeAnalysis> Analyses { get; set; } = new List<NoticeAnalysis>();
-
-    public ICollection<NoticeEmbedding> Embeddings { get; set; } = new List<NoticeEmbedding>();
 
     public ICollection<FavoriteNotice> Favorites { get; set; } = new List<FavoriteNotice>();
 }

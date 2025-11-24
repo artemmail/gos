@@ -11,7 +11,7 @@ namespace Zakupki.Fetcher.Data;
 public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
     // ����������� ���������� ��� VECTOR
-    private const int NoticeEmbeddingVectorDimensions = 768;
+    private const int NoticeVectorDimensions = 768;
     private const int QueryVectorDimensions = 768;
 
     private static readonly ValueConverter<string?, byte?> RegionConverter = new(
@@ -36,7 +36,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ApplicationUserRegion> ApplicationUserRegions => Set<ApplicationUserRegion>();
     public DbSet<ApplicationUserOkpd2Code> ApplicationUserOkpd2Codes => Set<ApplicationUserOkpd2Code>();
     public DbSet<NoticeAnalysis> NoticeAnalyses => Set<NoticeAnalysis>();
-    public DbSet<NoticeEmbedding> NoticeEmbeddings => Set<NoticeEmbedding>();
     public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
     public DbSet<UserQueryVector> UserQueryVectors => Set<UserQueryVector>();
     public DbSet<VectorSearchMatch> VectorSearchMatches => Set<VectorSearchMatch>();
@@ -56,7 +55,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureRefreshToken(modelBuilder);
         ConfigureApplicationUser(modelBuilder);
         ConfigureNoticeAnalysis(modelBuilder);
-        ConfigureNoticeEmbedding(modelBuilder);
         ConfigureFavoriteNotice(modelBuilder);
         ConfigureUserQueryVector(modelBuilder);
         ConfigureVectorSearchMatch(modelBuilder);
@@ -145,6 +143,9 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(n => n.KvrCode).HasMaxLength(64);
         entity.Property(n => n.KvrName).HasMaxLength(512);
         entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
+        entity.Property(n => n.Vector)
+            .HasColumnType($"vector({NoticeVectorDimensions})")
+            .IsRequired(false);
 
         entity.HasIndex(n => n.PurchaseNumber).HasDatabaseName("IX_Notices_PurchaseNumber");
         entity.HasIndex(n => n.CollectingEnd).HasDatabaseName("IX_Notices_CollectingEnd");
@@ -221,9 +222,9 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<UserQueryVector>(entity =>
         {
             entity.Property(e => e.Vector)
-                .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
+                .HasColumnType($"vector({QueryVectorDimensions})");
             // Альтернатива (можно вместо HasColumnType):
-            // .HasMaxLength(NoticeEmbeddingVectorDimensions);
+            // .HasMaxLength(QueryVectorDimensions);
         });
 
         entity.Property(q => q.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
@@ -333,30 +334,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.HasIndex(a => new { a.NoticeId, a.UserId })
             .IsUnique()
             .HasDatabaseName("UX_NoticeAnalyses_Notice_User");
-    }
-
-    private static void ConfigureNoticeEmbedding(ModelBuilder modelBuilder)
-    {
-        var entity = modelBuilder.Entity<NoticeEmbedding>();
-        entity.ToTable("NoticeEmbeddings");
-        entity.HasKey(e => e.Id);
-
-        modelBuilder.Entity<NoticeEmbedding>(entity =>
-        {
-            entity.Property(e => e.Vector)
-                .HasColumnType($"vector({NoticeEmbeddingVectorDimensions})");
-            // Альтернатива (можно вместо HasColumnType):
-            // .HasMaxLength(NoticeEmbeddingVectorDimensions);
-        });
-
-        entity.Property(e => e.Source).HasMaxLength(100);
-
-        entity.HasOne(e => e.Notice)
-            .WithMany(n => n.Embeddings)
-            .HasForeignKey(e => e.NoticeId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        entity.HasIndex(e => e.NoticeId).HasDatabaseName("IX_NoticeEmbeddings_NoticeId");
     }
 
     private static void ConfigureImportBatch(ModelBuilder modelBuilder)
