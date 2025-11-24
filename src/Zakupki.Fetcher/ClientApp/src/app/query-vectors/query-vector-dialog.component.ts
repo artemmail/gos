@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 
@@ -39,7 +40,12 @@ export class QueryVectorDialogComponent {
 
     this.queryVectorService.create({ query: this.form.value.query }).subscribe({
       next: () => this.dialogRef.close(true),
-      error: () => {
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 425 || err.error?.code === 'waiting') {
+          this.dialogRef.close(true);
+          return;
+        }
+
         this.errorMessage = 'Не удалось обратиться к сервису векторизации.';
         this.isSubmitting = false;
       }

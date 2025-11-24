@@ -106,6 +106,8 @@ class QueryVectorWorker:
             self._logger.warning("Request is missing id or query")
             return
 
+        self._logger.info("message received: id=%s", request_id)
+
         vector = self.encode_query(query)
 
         # Отвечаем в том же стиле, что и NoticeEmbeddings/SQL-клиент:
@@ -171,6 +173,10 @@ class QueryVectorWorker:
 
 class HttpQueryHandler(BaseHTTPRequestHandler):
     worker: QueryVectorWorker
+    _logger = logging.getLogger("query_vector_worker.http")
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A003 - follows BaseHTTPRequestHandler
+        self._logger.info("%s - " + format, self.address_string(), *args)
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -183,7 +189,10 @@ class HttpQueryHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"error":"query parameter is required"}')
             return
 
-        vector = self.worker.encode_query(query_values[0])
+        query = query_values[0].strip()
+        self.log_message("GET %s query='%s'", parsed.path, query)
+
+        vector = self.worker.encode_query(query)
         body = json.dumps({"Vector": vector}, ensure_ascii=False).encode("utf-8")
 
         self.send_response(200)
