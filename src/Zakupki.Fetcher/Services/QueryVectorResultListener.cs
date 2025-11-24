@@ -102,18 +102,20 @@ public sealed class QueryVectorResultListener : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IQueryVectorQueueService>();
 
-            foreach (var item in response.Items)
-            {
-                if (item.Vector == null)
+                foreach (var item in response.Items)
                 {
-                    continue;
-                }
+                    if (item.Vector == null)
+                    {
+                        continue;
+                    }
 
-                var normalized = new QueryVectorResult
-                {
-                    Id = item.Id,
-                    Vector = item.Vector
-                };
+                    var normalized = new QueryVectorResult
+                    {
+                        Id = item.Id,
+                        Vector = item.Vector,
+                        UserId = item.UserId,
+                        Query = item.String
+                    };
 
                 await service.ApplyVectorAsync(normalized, cancellationToken);
             }

@@ -56,6 +56,16 @@ public class QueryVectorsController : ControllerBase
             var entity = await _queryVectorQueueService.CreateAsync(userId, request, cancellationToken);
             return Ok(ToDto(entity));
         }
+        catch (QueryVectorPendingException ex)
+        {
+            const int waitingStatusCode = 425;
+            return StatusCode(waitingStatusCode, new
+            {
+                code = "waiting",
+                message = "Результат генерации вектора будет доступен чуть позже",
+                requestId = ex.RequestId
+            });
+        }
         catch (InvalidOperationException ex)
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
