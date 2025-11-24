@@ -191,49 +191,56 @@ def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
 
 
 @dataclass
-class FavoriteSearchCommand:
-    user_id: str
-    query: str
-    collecting_end_limit: datetime
-    expired_only: bool
-    top: int
-    limit: int
+class BatchVectorItem:
+    id: str
+    text: str
+
+
+@dataclass
+class BatchVectorRequest:
+    service_id: str
+    items: List[BatchVectorItem]
 
     @classmethod
-    def from_payload(cls, payload: Dict[str, Any]) -> "FavoriteSearchCommand":
-        def first(*keys, default=None):
-            for k in keys:
-                if k in payload:
-                    return payload[k]
-            return default
-
-        query = first("query", "Query")
-        if not query:
-            raise ValueError("query is required")
-
-        user_id = first("userId", "UserId")
-        if not user_id:
-            raise ValueError("userId is required")
-
-        collecting_end = first("collectingEndLimit", "CollectingEndLimit")
-        if collecting_end:
-            dt = datetime.fromisoformat(str(collecting_end).replace("Z", "+00:00"))
-            collecting_end_dt = dt.astimezone(timezone.utc)
+    def from_payload(cls, payload: Any) -> "BatchVectorRequest":
+        if isinstance(payload, list):
+            # Старый формат: просто список объектов {id, string}
+            service_id = "unknown-service"
+            items_payload = payload
+        elif isinstance(payload, dict):
+            service_id = _first_non_empty(
+                payload.get("serviceId"),
+                payload.get("ServiceId"),
+                payload.get("service_id"),
+            )
+            items_payload = payload.get("items") or payload.get("Items")
         else:
-            collecting_end_dt = datetime.fromtimestamp(0, tz=timezone.utc)
+            raise ValueError("payload must be an object or array")
 
-        expired_only = bool(first("expiredOnly", "ExpiredOnly", default=False))
-        top = int(first("top", "Top", default=20))
-        limit = int(first("limit", "Limit", default=500))
+        if not isinstance(items_payload, list) or not items_payload:
+            raise ValueError("items must be a non-empty array")
 
-        return cls(
-            user_id=str(user_id),
-            query=str(query).strip(),
-            collecting_end_limit=collecting_end_dt,
-            expired_only=expired_only,
-            top=top,
-            limit=limit,
-        )
+        items: List[BatchVectorItem] = []
+        for idx, item in enumerate(items_payload):
+            if not isinstance(item, dict):
+                raise ValueError(f"item {idx} is not an object")
+
+            item_id = _first_non_empty(item.get("id"), item.get("Id"))
+            text = _first_non_empty(
+                item.get("string"),
+                item.get("text"),
+                item.get("query"),
+                item.get("Query"),
+            )
+
+            if not item_id:
+                raise ValueError(f"item {idx} is missing id")
+            if not text:
+                raise ValueError(f"item {idx} is missing text")
+
+            items.append(BatchVectorItem(id=str(item_id), text=str(text)))
+
+        return cls(service_id=str(service_id or "unknown-service"), items=items)
 
 
 # ---------- ENGINE ----------
@@ -292,6 +299,11 @@ class FavoriteSearchEngine:
     def encode_text(self, text: str) -> List[float]:
         vector = self.model.encode([text], convert_to_numpy=True)[0]
         return np.asarray(vector, dtype=np.float32).tolist()
+
+    def encode_batch(self, texts: List[str]) -> List[List[float]]:
+        vectors = self.model.encode(texts, convert_to_numpy=True)
+        vectors = np.asarray(vectors, dtype=np.float32)
+        return [v.tolist() for v in vectors]
 
 
     def _fetch_top_similar_notices(
@@ -492,42 +504,20 @@ class _VectorRequestHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "invalid json"})
             return
 
-        if isinstance(payload, dict):
-            payload = [payload]
-        elif not isinstance(payload, list):
-            self._send_json(400, {"error": "expected array of objects"})
+        try:
+            batch = BatchVectorRequest.from_payload(payload)
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
             return
 
+        texts = [item.text for item in batch.items]
+        vectors = self.engine.encode_batch(texts)
+
         results: List[Dict[str, Any]] = []
-        errors: List[str] = []
+        for item, vector in zip(batch.items, vectors):
+            results.append({"id": item.id, "string": item.text, "vector": vector})
 
-        for idx, item in enumerate(payload):
-            if not isinstance(item, dict):
-                errors.append(f"item {idx} is not an object")
-                continue
-
-            text = (
-                item.get("string")
-                or item.get("text")
-                or item.get("query")
-                or item.get("Query")
-            )
-            item_id = item.get("id") or item.get("Id")
-
-            if item_id is None:
-                errors.append(f"item {idx} is missing id")
-                continue
-            if not text or not str(text).strip():
-                errors.append(f"item {idx} is missing text")
-                continue
-
-            vector = self.engine.encode_text(str(text))
-            results.append({"id": item_id, "string": text, "vector": vector})
-
-        response: Dict[str, Any] = {"results": results}
-        if errors:
-            response["errors"] = errors
-
+        response = {"serviceId": batch.service_id, "items": results}
         self._send_json(200, response)
 
     def _read_body(self) -> bytes:
@@ -612,10 +602,16 @@ class RabbitFavoriteWorker:
             event_bus.get("Broker"),
         )
 
-        command_queue = _first_non_empty(
+        request_queue = _first_non_empty(
+            os.environ.get("EVENTBUS_BATCH_VECTOR_REQUEST_QUEUE"),
             os.environ.get("EVENTBUS_COMMAND_QUEUE_NAME"),
+            event_bus.get("BatchVectorRequestQueueName"),
             event_bus.get("CommandQueueName"),
             event_bus.get("QueueName"),
+        )
+        response_queue = _first_non_empty(
+            os.environ.get("EVENTBUS_BATCH_VECTOR_RESPONSE_QUEUE"),
+            event_bus.get("BatchVectorResponseQueueName"),
         )
 
         host = _first_non_empty(os.environ.get("EVENTBUS_HOST"), bus_access.get("Host"))
@@ -641,15 +637,21 @@ class RabbitFavoriteWorker:
         conn_str = build_odbc_connection_string(config)
         self._engine = FavoriteSearchEngine(conn_str)
 
-        self._queue = command_queue
-        self._exchange = broker
+        if not request_queue:
+            raise RuntimeError("Не задана очередь запросов для batch-векторизации")
+
+        self._request_queue = request_queue
+        self._response_queue = response_queue or f"{self._request_queue}.response"
+        self._exchange = broker or ""
         self._exchange_type = event_bus.get("ExchangeType", "direct")
 
+        self._channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
         self._logger = logging.getLogger("favorite_worker")
 
         print(
             f"\n[DEBUG] RabbitMQ: host={host}, user={user}, "
-            f"exchange={self._exchange}, queue={self._queue}\n"
+            f"exchange={self._exchange or '[default]'}, "
+            f"request={self._request_queue}, response={self._response_queue}\n"
         )
         sys.stdout.flush()
 
@@ -658,17 +660,28 @@ class RabbitFavoriteWorker:
         return self._engine
 
     def _declare(self, ch):
-        ch.exchange_declare(
-            exchange=self._exchange,
-            exchange_type=self._exchange_type,
-            durable=True,
-        )
-        ch.queue_declare(queue=self._queue, durable=True)
-        ch.queue_bind(
-            queue=self._queue,
-            exchange=self._exchange,
-            routing_key=self._queue,
-        )
+        if self._exchange:
+            ch.exchange_declare(
+                exchange=self._exchange,
+                exchange_type=self._exchange_type,
+                durable=True,
+            )
+
+        ch.queue_declare(queue=self._request_queue, durable=True)
+        ch.queue_declare(queue=self._response_queue, durable=True)
+
+        if self._exchange:
+            ch.queue_bind(
+                queue=self._request_queue,
+                exchange=self._exchange,
+                routing_key=self._request_queue,
+            )
+            ch.queue_bind(
+                queue=self._response_queue,
+                exchange=self._exchange,
+                routing_key=self._response_queue,
+            )
+
         ch.basic_qos(prefetch_count=1)
 
     def _process_message(self, body: bytes):
@@ -682,8 +695,33 @@ class RabbitFavoriteWorker:
         sys.stdout.flush()
 
         payload = json.loads(text)
-        command = FavoriteSearchCommand.from_payload(payload)
-        return self._engine.process_command(command)
+        batch = BatchVectorRequest.from_payload(payload)
+
+        vectors = self._engine.encode_batch([item.text for item in batch.items])
+        response_items = []
+        for item, vector in zip(batch.items, vectors):
+            response_items.append(
+                {"id": item.id, "string": item.text, "vector": vector}
+            )
+
+        response_body = json.dumps(
+            {"serviceId": batch.service_id, "items": response_items},
+            ensure_ascii=False,
+        ).encode("utf-8")
+
+        ch = self._channel
+        if ch is None:
+            raise RuntimeError("Channel is not ready")
+
+        ch.basic_publish(
+            exchange=self._exchange,
+            routing_key=self._response_queue,
+            body=response_body,
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json",
+            ),
+        )
 
     def run(self):
         while True:
@@ -691,6 +729,7 @@ class RabbitFavoriteWorker:
             try:
                 connection = pika.BlockingConnection(self._connection_params)
                 ch = connection.channel()
+                self._channel = ch
                 self._declare(ch)
 
                 def callback(ch, method, props, body):
@@ -708,10 +747,10 @@ class RabbitFavoriteWorker:
                         except Exception:
                             self._logger.exception("failed to ack message")
 
-                ch.basic_consume(self._queue, callback)
+                ch.basic_consume(self._request_queue, callback)
                 self._logger.info(
-                    "Waiting for favorite search commands on queue '%s'...",
-                    self._queue,
+                    "Waiting for batch vector requests on queue '%s'...",
+                    self._request_queue,
                 )
                 ch.start_consuming()
 
@@ -722,6 +761,7 @@ class RabbitFavoriteWorker:
                 self._logger.exception("Unexpected error, reconnect in 5 seconds...")
                 time.sleep(5)
             finally:
+                self._channel = None
                 if connection and connection.is_open:
                     try:
                         connection.close()
