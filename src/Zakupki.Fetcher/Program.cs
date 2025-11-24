@@ -41,6 +41,7 @@ builder.Services.Configure<AttachmentConversionOptions>(builder.Configuration.Ge
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<EventBusOptions>(builder.Configuration.GetSection("EventBus"));
 builder.Services.Configure<QueryVectorOptions>(builder.Configuration.GetSection("QueryVector"));
+builder.Services.Configure<NoticeEmbeddingOptions>(builder.Configuration.GetSection("NoticeEmbedding"));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(new CookieContainer());
 builder.Services.AddHttpClient();
@@ -88,7 +89,9 @@ builder.Services.AddSingleton<Okpd2ImportService>();
 builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();
 builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueService>();
 builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
+builder.Services.AddScoped<INoticeEmbeddingService, NoticeEmbeddingService>();
 builder.Services.AddHostedService<QueryVectorResultListener>();
+builder.Services.AddHostedService<NoticeEmbeddingVectorizer>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {

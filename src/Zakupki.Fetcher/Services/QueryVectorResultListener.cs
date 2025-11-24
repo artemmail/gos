@@ -18,6 +18,7 @@ public sealed class QueryVectorResultListener : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly EventBusOptions _options;
+    private readonly NoticeEmbeddingOptions _embeddingOptions;
     private readonly ILogger<QueryVectorResultListener> _logger;
     private IConnection? _connection;
     private IModel? _channel;
@@ -25,10 +26,12 @@ public sealed class QueryVectorResultListener : BackgroundService
     public QueryVectorResultListener(
         IServiceScopeFactory scopeFactory,
         IOptions<EventBusOptions> options,
+        IOptions<NoticeEmbeddingOptions> embeddingOptions,
         ILogger<QueryVectorResultListener> logger)
     {
         _scopeFactory = scopeFactory;
         _options = options.Value;
+        _embeddingOptions = embeddingOptions.Value;
         _logger = logger;
     }
 
@@ -100,7 +103,12 @@ public sealed class QueryVectorResultListener : BackgroundService
             }
 
             using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<IQueryVectorQueueService>();
+            var isNoticeEmbedding = !string.IsNullOrWhiteSpace(_embeddingOptions.ServiceId)
+                && string.Equals(response.ServiceId, _embeddingOptions.ServiceId, StringComparison.OrdinalIgnoreCase);
+
+            if (isNoticeEmbedding)
+            {
+                var embeddingService = scope.ServiceProvider.GetRequiredService<INoticeEmbeddingService>();
 
                 foreach (var item in response.Items)
                 {
@@ -117,7 +125,30 @@ public sealed class QueryVectorResultListener : BackgroundService
                         Query = item.String
                     };
 
-                await service.ApplyVectorAsync(normalized, cancellationToken);
+                    await embeddingService.ApplyVectorAsync(normalized, cancellationToken);
+                }
+            }
+            else
+            {
+                var service = scope.ServiceProvider.GetRequiredService<IQueryVectorQueueService>();
+
+                foreach (var item in response.Items)
+                {
+                    if (item.Vector == null)
+                    {
+                        continue;
+                    }
+
+                    var normalized = new QueryVectorResult
+                    {
+                        Id = item.Id,
+                        Vector = item.Vector,
+                        UserId = item.UserId,
+                        Query = item.String
+                    };
+
+                    await service.ApplyVectorAsync(normalized, cancellationToken);
+                }
             }
 
             _channel?.BasicAck(args.DeliveryTag, false);
