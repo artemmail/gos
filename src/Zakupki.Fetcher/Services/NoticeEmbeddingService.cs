@@ -42,7 +42,7 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var notice = await context.Notices
-            .Where(n => n.Id == noticeId)
+            .Where(n => n.Id == noticeId || n.Id == result.Id )
             .FirstOrDefaultAsync(cancellationToken);
 
         if (notice == null)
@@ -51,9 +51,12 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
             return;
         }
 
-        notice.Vector = new SqlVector<float>(result.Vector.Select(v => (float)v).ToArray());
+        if (notice.Vector == null)
+        {
+            notice.Vector = new SqlVector<float>(result.Vector.Select(v => (float)v).ToArray());
 
-        await context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Stored notice embedding for notice {NoticeId}", noticeId);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        //ogger.LogInformation("Stored notice embedding for notice {NoticeId}", noticeId);
     }
 }

@@ -179,7 +179,7 @@ public class NoticesController : ControllerBase
         var matchesQuery =
             from n in noticesQuery
             where n.Vector != null
-            let distance = EF.Functions.VectorDistance("cosine", n.Vector, queryVector)
+            let distance = EF.Functions.VectorDistance("cosine",  n.Vector.Value, queryVector)
             where distance <= distanceThreshold
             orderby distance, n.Id
             select new

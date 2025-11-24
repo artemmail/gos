@@ -538,12 +538,11 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<string>("RawJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<SqlVector<float>>("Vector")
-                        .HasColumnType("vector(768)")
-                        .IsRequired(false);
-
                     b.Property<byte>("Region")
                         .HasColumnType("tinyint");
+
+                    b.Property<SqlVector<float>?>("Vector")
+                        .HasColumnType("vector(768)");
 
                     b.HasKey("Id");
 
@@ -1157,6 +1156,7 @@ namespace Zakupki.Fetcher.Migrations
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Notice", b =>
                 {
                     b.Navigation("Analyses");
+
                     b.Navigation("Favorites");
 
                     b.Navigation("Versions");

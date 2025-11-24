@@ -1,14 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data;
+using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Options;
 
@@ -77,93 +78,29 @@ public sealed class NoticeEmbeddingVectorizer : BackgroundService
         }
     }
 
-    private async Task<IReadOnlyList<QueryVectorRequestItem>> LoadBatchAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<QueryVectorRequestItem>> LoadBatchAsync(
+    CancellationToken cancellationToken)
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var notices = await context.Notices
+        var batch = await context.Notices
             .AsNoTracking()
-            .Where(n => n.Vector == null)
-            .OrderBy(n => n.PublishDate ?? DateTime.MinValue)
-            .ThenBy(n => n.Id)
-            .Take(_options.BatchSize)
+            .Where(n => n.Vector == null)              // выбираем только те, где нет вектора
+            .OrderBy(n => n.Id)                        // желательно зафиксировать порядок
+            .Select(n => new QueryVectorRequestItem    // в SELECT попадают только нужные поля
+            {
+                UserId = Guid.Empty.ToString(),
+                Id = n.Id,
+                String = n.PurchaseObjectInfo
+            })
+            .Take(_options.BatchSize)                  // читаем кусками по BatchSize
             .ToListAsync(cancellationToken);
 
-        var items = new List<QueryVectorRequestItem>(notices.Count);
-
-        foreach (var notice in notices)
-        {
-            var text = notice.PurchaseObjectInfo;// BuildNoticeText(notice);
-
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                continue;
-            }
-
-            items.Add(new QueryVectorRequestItem
-            {
-                Id = Guid.NewGuid(),
-                UserId = notice.Id.ToString(),
-                String = text
-            });
-        }
-
-        return items;
+        // Возвращаем список "блока" (батча). Если пусто — пустой массив.
+        return batch.Count > 0
+            ? batch
+            : Array.Empty<QueryVectorRequestItem>();
     }
 
-    private static string BuildNoticeText(Data.Entities.Notice notice)
-    {
-        var builder = new StringBuilder();
-
-        void Append(string label, string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return;
-            }
-
-            if (builder.Length > 0)
-            {
-                builder.Append(" | ");
-            }
-
-            builder.Append(label);
-            builder.Append(':');
-            builder.Append(value.Trim());
-        }
-
-        Append("Название", notice.PurchaseNumber);
-        Append("Предмет закупки", notice.PurchaseObjectInfo);
-
-        var okpd2 = CombineParts(notice.Okpd2Code, notice.Okpd2Name);
-        Append("ОКПД2", okpd2);
-
-        var kvr = CombineParts(notice.KvrCode, notice.KvrName);
-        Append("КВР", kvr);
-
-        return builder.ToString();
-    }
-
-    private static string? CombineParts(string? code, string? name)
-    {
-        var hasCode = !string.IsNullOrWhiteSpace(code);
-        var hasName = !string.IsNullOrWhiteSpace(name);
-
-        if (hasCode && hasName)
-        {
-            return $"{code!.Trim()} ({name!.Trim()})";
-        }
-
-        if (hasCode)
-        {
-            return code!.Trim();
-        }
-
-        if (hasName)
-        {
-            return name!.Trim();
-        }
-
-        return null;
-    }
+   
 }
