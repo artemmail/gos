@@ -44,26 +44,23 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var notices = await context.Notices
-            .Where(n => noticeIds.Contains(n.Id))
+            .Where(n => noticeIds.Contains(n.Id) && n.Vector == null)
             .ToListAsync(cancellationToken);
 
-        foreach (var result in validResults)
+        if (notices.Any())
         {
-            var noticeId = Guid.Parse(result.UserId!);
-            var notice = notices.FirstOrDefault(n => n.Id == noticeId) ?? notices.FirstOrDefault(n => n.Id == result.Id);
 
-            if (notice == null)
+            var dic = validResults.ToDictionary(key => key.Id, value => value.Vector);
+
+            foreach (var notice in notices)
             {
-                _logger.LogWarning("Notice {NoticeId} not found for embedding update", noticeId);
-                continue;
+                notice.Vector = new SqlVector<float>(dic[notice.Id]!.Select(v => (float)v).ToArray());
             }
 
-            if (notice.Vector == null)
-            {
-                notice.Vector = new SqlVector<float>(result.Vector!.Select(v => (float)v).ToArray());
-            }
+            await context.SaveChangesAsync(cancellationToken);
         }
-
-        await context.SaveChangesAsync(cancellationToken);
     }
 }
+
+
+
