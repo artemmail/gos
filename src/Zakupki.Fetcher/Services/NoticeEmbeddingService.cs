@@ -5,28 +5,22 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data;
-using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
-using Zakupki.Fetcher.Options;
 
 namespace Zakupki.Fetcher.Services;
 
 public sealed class NoticeEmbeddingService : INoticeEmbeddingService
 {
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
-    private readonly NoticeEmbeddingOptions _options;
     private readonly ILogger<NoticeEmbeddingService> _logger;
 
     public NoticeEmbeddingService(
         IDbContextFactory<NoticeDbContext> dbContextFactory,
-        IOptions<NoticeEmbeddingOptions> options,
         ILogger<NoticeEmbeddingService> logger)
     {
         _dbContextFactory = dbContextFactory;
         _logger = logger;
-        _options = options.Value;
     }
 
     public async Task ApplyVectorAsync(QueryVectorResult result, CancellationToken cancellationToken)
@@ -46,34 +40,20 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
             return;
         }
 
-        var embeddingId = result.Id == Guid.Empty ? Guid.NewGuid() : result.Id;
-        var vector = new SqlVector<float>(result.Vector.Select(v => (float)v).ToArray());
-
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var embedding = await context.NoticeEmbeddings
-            .Where(e => e.Id == embeddingId || (e.NoticeId == noticeId && e.Source == _options.Source))
+        var notice = await context.Notices
+            .Where(n => n.Id == noticeId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (embedding == null)
+        if (notice == null)
         {
-            embedding = new NoticeEmbedding
-            {
-                Id = embeddingId,
-                NoticeId = noticeId,
-                Source = _options.Source,
-                Vector = vector
-            };
+            _logger.LogWarning("Notice {NoticeId} not found for embedding update", noticeId);
+            return;
+        }
 
-            context.NoticeEmbeddings.Add(embedding);
-        }
-        else
-        {
-            embedding.Vector = vector;
-            embedding.Source = _options.Source;
-        }
+        notice.Vector = new SqlVector<float>(result.Vector.Select(v => (float)v).ToArray());
 
         await context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Stored notice embedding for notice {NoticeId} with id {EmbeddingId}", noticeId, embedding.Id);
+        _logger.LogInformation("Stored notice embedding for notice {NoticeId}", noticeId);
     }
 }

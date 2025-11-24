@@ -161,31 +161,32 @@ public class NoticesController : ControllerBase
             userOkpd2Codes = await GetUserOkpd2CodesAsync(currentUserId, cancellationToken);
         }
 
-        // 2. Базовый запрос по NoticeEmbeddings c векторной дистанцией
+        // 2. Базовый запрос по Notices c векторной дистанцией
         //    Всё на LINQ + EF.Functions.VectorDistance
-        var embeddingsQuery = context.NoticeEmbeddings
+        var noticesQuery = context.Notices
             .AsNoTracking();
 
         if (userRegions is not null)
         {
-            embeddingsQuery = ApplyRegionFilter(embeddingsQuery, userRegions);
+            noticesQuery = ApplyRegionFilter(noticesQuery, userRegions);
         }
 
         if (userOkpd2Codes is not null && userOkpd2Codes.Length > 0)
         {
-            embeddingsQuery = ApplyOkpd2Filter(embeddingsQuery, userOkpd2Codes);
+            noticesQuery = ApplyOkpd2Filter(noticesQuery, userOkpd2Codes);
         }
 
         var matchesQuery =
-            from e in embeddingsQuery
-            let distance = EF.Functions.VectorDistance("cosine", e.Vector, queryVector)
+            from n in noticesQuery
+            where n.Vector != null
+            let distance = EF.Functions.VectorDistance("cosine", n.Vector, queryVector)
             where distance <= distanceThreshold
-            orderby distance, e.Id
+            orderby distance, n.Id
             select new
             {
-                e.NoticeId,
+                NoticeId = n.Id,
                 Distance = distance,
-                e.Notice.CollectingEnd
+                n.CollectingEnd
             };
 
         if (!expiredOnly)
@@ -1129,37 +1130,6 @@ public class NoticesController : ControllerBase
         }
 
         return query.Where(n => n.Okpd2Code != null && normalizedCodes.Any(code => n.Okpd2Code!.StartsWith(code)));
-    }
-
-    private static IQueryable<NoticeEmbedding> ApplyRegionFilter(
-        IQueryable<NoticeEmbedding> query,
-        IReadOnlyCollection<string> regions)
-    {
-        var regionCodes = NormalizeRegions(regions);
-
-        if (regionCodes.Length == 0)
-        {
-            return query.Where(_ => false);
-        }
-
-        return query.Where(e => e.Notice.Region != null && regionCodes.Contains(e.Notice.Region));
-    }
-
-    private static IQueryable<NoticeEmbedding> ApplyOkpd2Filter(
-        IQueryable<NoticeEmbedding> query,
-        IReadOnlyCollection<string> okpd2Codes)
-    {
-        var normalizedCodes = okpd2Codes
-            .Where(code => !string.IsNullOrWhiteSpace(code))
-            .Select(code => code.Trim())
-            .ToArray();
-
-        if (normalizedCodes.Length == 0)
-        {
-            return query;
-        }
-
-        return query.Where(e => e.Notice.Okpd2Code != null && normalizedCodes.Any(code => e.Notice.Okpd2Code!.StartsWith(code)));
     }
 
     private static byte[] NormalizeRegions(IReadOnlyCollection<string> regions) =>
