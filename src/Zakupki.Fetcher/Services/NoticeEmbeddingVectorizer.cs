@@ -93,7 +93,7 @@ public sealed class NoticeEmbeddingVectorizer : BackgroundService
 
         foreach (var notice in notices)
         {
-            var text = BuildNoticeText(notice);
+            var text = notice.PurchaseObjectInfo;// BuildNoticeText(notice);
 
             if (string.IsNullOrWhiteSpace(text))
             {

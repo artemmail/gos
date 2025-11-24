@@ -9,21 +9,21 @@ import json
 import logging
 import os
 import sys
-import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, Optional
-from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import pika
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-DEFAULT_CONFIG_PATH = os.environ.get("APPSETTINGS_PATH", "src/Zakupki.Fetcher/appsettings.json")
+DEFAULT_CONFIG_PATH = os.environ.get(
+    "APPSETTINGS_PATH", "src/Zakupki.Fetcher/appsettings.json"
+)
 
 
 def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
+    """Вернуть первую непустую строку из списка значений."""
     for v in values:
         if v is None:
             continue
@@ -34,15 +34,24 @@ def _first_non_empty(*values: Optional[Any]) -> Optional[str]:
 
 
 def load_config(path: str) -> Dict[str, Any]:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Config file not found: {path}")
+
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.load(f)
+
+    if not isinstance(cfg, dict):
+        raise ValueError("Config root must be a JSON object")
+
+    return cfg
 
 
 class QueryVectorWorker:
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]) -> None:
         event_bus = config.get("EventBus") or {}
         bus_access = event_bus.get("BusAccess") or {}
 
+        # Имена очередей можно переопределить через переменные окружения
         self._request_queue = _first_non_empty(
             os.environ.get("EVENTBUS_QUERY_VECTOR_REQUEST_QUEUE"),
             event_bus.get("QueryVectorRequestQueueName"),
@@ -52,9 +61,19 @@ class QueryVectorWorker:
             event_bus.get("QueryVectorResponseQueueName"),
         )
 
-        host = _first_non_empty(os.environ.get("EVENTBUS_HOST"), bus_access.get("Host"))
-        user = _first_non_empty(os.environ.get("EVENTBUS_USERNAME"), bus_access.get("UserName"))
-        pwd = _first_non_empty(os.environ.get("EVENTBUS_PASSWORD"), bus_access.get("Password"))
+        # Параметры доступа к RabbitMQ (EventBus)
+        host = _first_non_empty(
+            os.environ.get("EVENTBUS_HOST"),
+            bus_access.get("Host"),
+        )
+        user = _first_non_empty(
+            os.environ.get("EVENTBUS_USERNAME"),
+            bus_access.get("UserName"),
+        )
+        pwd = _first_non_empty(
+            os.environ.get("EVENTBUS_PASSWORD"),
+            bus_access.get("Password"),
+        )
 
         if not host or not user or not pwd:
             raise RuntimeError(
@@ -76,16 +95,37 @@ class QueryVectorWorker:
         self._channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
 
         print(
-            f"\n[DEBUG] RabbitMQ: host={host}, user={user}, request={self._request_queue}, response={self._response_queue}\n"
+            f"\n[DEBUG] RabbitMQ: host={host}, user={user}, "
+            f"request={self._request_queue}, response={self._response_queue}\n"
         )
         sys.stdout.flush()
 
+    # --------- Кодирование запросов ---------
+
+    def encode_queries(self, queries: list[str]) -> list[list[float]]:
+        """Закодировать список запросов одним батчевым вызовом модели."""
+        if not queries:
+            return []
+
+        vectors = self._model.encode(queries, convert_to_numpy=True)
+
+        if isinstance(vectors, list):
+            vectors = np.asarray(vectors)
+
+        vectors = np.asarray(vectors, dtype=np.float32)
+
+        # Гарантируем форму (batch_size, dim)
+        if vectors.ndim == 1:
+            vectors = vectors.reshape(1, -1)
+
+        return vectors.tolist()
+
     def encode_query(self, query: str) -> list[float]:
-        vector = self._model.encode(query, convert_to_numpy=True)
-        if isinstance(vector, list):
-            vector = np.asarray(vector)
-        vector = np.asarray(vector, dtype=np.float32).tolist()
-        return vector
+        """Совместимость: один запрос через батчевый encode_queries."""
+        vectors = self.encode_queries([query])
+        return vectors[0] if vectors else []
+
+    # --------- RabbitMQ ---------
 
     def _declare(self, ch: pika.adapters.blocking_connection.BlockingChannel) -> None:
         ch.queue_declare(queue=self._request_queue, durable=True)
@@ -93,7 +133,9 @@ class QueryVectorWorker:
         ch.basic_qos(prefetch_count=1)
 
     def _process_message(
-        self, ch: pika.adapters.blocking_connection.BlockingChannel, body: bytes
+        self,
+        ch: pika.adapters.blocking_connection.BlockingChannel,
+        body: bytes,
     ) -> None:
         try:
             payload = json.loads(body.decode("utf-8"))
@@ -103,12 +145,19 @@ class QueryVectorWorker:
 
         items = payload.get("Items")
         service_id = payload.get("ServiceId")
-        responses = []
+        responses: list[Dict[str, Any]] = []
 
+        # ---------- Батчевый запрос ----------
         if isinstance(items, list):
+            valid_items: list[tuple[str, Optional[str], str]] = []
+
             for i, item in enumerate(items, start=1):
                 request_id = item.get("id") or item.get("Id")
-                query = item.get("String") or item.get("Query") or item.get("query")
+                query = (
+                    item.get("String")
+                    or item.get("Query")
+                    or item.get("query")
+                )
                 user_id = item.get("UserId") or item.get("userId")
 
                 if not request_id or not query:
@@ -117,11 +166,36 @@ class QueryVectorWorker:
                     )
                     continue
 
-                self._logger.info("message received: id=%s", request_id)
-                vector = self.encode_query(query)
-                responses.append(
-                    {"Id": request_id, "UserId": user_id, "String": query, "Vector": vector}
+                valid_items.append((request_id, user_id, query))
+
+            if not valid_items:
+                self._logger.warning(
+                    "Batch message contained %s items, but none were valid",
+                    len(items),
                 )
+                return
+
+            # Одно сообщение лога на батч
+            self._logger.info(
+                "batch received: total_items=%d, valid_items=%d",
+                len(items),
+                len(valid_items),
+            )
+
+            queries = [q for (_, _, q) in valid_items]
+            vectors = self.encode_queries(queries)
+
+            for (request_id, user_id, query), vector in zip(valid_items, vectors):
+                responses.append(
+                    {
+                        "Id": request_id,
+                        "UserId": user_id,
+                        "String": query,
+                        "Vector": vector,
+                    }
+                )
+
+        # ---------- Одиночный запрос (старый режим) ----------
         else:
             request_id = payload.get("id") or payload.get("Id")
             query = payload.get("query") or payload.get("Query")
@@ -130,7 +204,7 @@ class QueryVectorWorker:
                 self._logger.warning("Request is missing id or query")
                 return
 
-            self._logger.info("message received: id=%s", request_id)
+            self._logger.info("single request received: id=%s", request_id)
             vector = self.encode_query(query)
             responses.append({"Id": request_id, "Vector": vector})
 
@@ -171,7 +245,10 @@ class QueryVectorWorker:
                             "processing error, message will be nacked"
                         )
                         try:
-                            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                            ch.basic_nack(
+                                delivery_tag=method.delivery_tag,
+                                requeue=False,
+                            )
                         except Exception:
                             self._logger.exception("failed to nack message")
                         return
@@ -202,68 +279,10 @@ class QueryVectorWorker:
                         pass
 
 
-class HttpQueryHandler(BaseHTTPRequestHandler):
-    worker: QueryVectorWorker
-    _logger = logging.getLogger("query_vector_worker.http")
-
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A003 - follows BaseHTTPRequestHandler
-        self._logger.info("%s - " + format, self.address_string(), *args)
-
-    def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-        params = parse_qs(parsed.query)
-        query_values = params.get("query") or params.get("q")
-        if not query_values or not query_values[0].strip():
-            self.send_response(400)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(b'{"error":"query parameter is required"}')
-            return
-
-        query = query_values[0].strip()
-        self.log_message("GET %s query='%s'", parsed.path, query)
-
-        vector = self.worker.encode_query(query)
-        body = json.dumps({"Vector": vector}, ensure_ascii=False).encode("utf-8")
-
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-
-class HttpQueryServer:
-    def __init__(self, worker: QueryVectorWorker, port: int):
-        self._worker = worker
-        self._port = port
-        self._thread: Optional[threading.Thread] = None
-        self._server: Optional[HTTPServer] = None
-
-    def start(self) -> None:
-        handler = type(
-            "_BoundHandler",
-            (HttpQueryHandler,),
-            {"worker": self._worker},
-        )
-        self._server = HTTPServer(("0.0.0.0", self._port), handler)
-
-        def _serve() -> None:
-            assert self._server
-            self._server.serve_forever()
-
-        self._thread = threading.Thread(target=_serve, daemon=True)
-        self._thread.start()
-
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Query vector worker")
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=None,
-        help="HTTP порт для обработки GET-запросов с параметром 'query'",
-    )
-    args = parser.parse_args()
+    # пока без параметров CLI, но задел оставим
+    parser.parse_args()
 
     logging.basicConfig(
         level=logging.INFO,
@@ -273,12 +292,6 @@ def main():
 
     config = load_config(DEFAULT_CONFIG_PATH)
     worker = QueryVectorWorker(config)
-
-    if args.port is not None:
-        server = HttpQueryServer(worker, args.port)
-        server.start()
-        print(f"HTTP server is listening on port {args.port}")
-
     worker.run()
 
 
