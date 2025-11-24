@@ -28,7 +28,7 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
     {
         var validResults = results
             .Where(r => r.Vector != null && r.Vector.Count > 0)
-            .Where(r => Guid.TryParse(r.UserId, out _))
+        //    .Where(r => Guid.TryParse(r.UserId, out _))
             .ToArray();
 
         if (validResults.Length == 0)
@@ -37,9 +37,9 @@ public sealed class NoticeEmbeddingService : INoticeEmbeddingService
         }
 
         var noticeIds = validResults
-            .Select(r => Guid.Parse(r.UserId!))
-            .Concat(validResults.Select(r => r.Id))
-            .Distinct()
+            .Select(r => r.Id)
+            //.Concat(validResults.Select(r => r.Id))
+           
             .ToArray();
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);

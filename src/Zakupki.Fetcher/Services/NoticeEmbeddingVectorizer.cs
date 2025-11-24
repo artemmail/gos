@@ -2,15 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using RabbitMQ.Client;
 using Zakupki.Fetcher.Data;
-using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Options;
 
@@ -52,25 +51,41 @@ public sealed class NoticeEmbeddingVectorizer : BackgroundService
         {
             try
             {
-                var batch = await LoadBatchAsync(stoppingToken);
+                var page = 0;
 
-                if (batch.Count == 0)
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(_options.IdleDelaySeconds), stoppingToken);
-                    continue;
+                    var batch = await LoadBatchAsync(page, stoppingToken);
+
+                    if (batch.Count == 0)
+                    {
+                        // Страницы кончились — всю таблицу прочитали.
+                        _logger.LogInformation(
+                            "No more notices to queue for vectorization. Processed {Pages} pages.",
+                            page);
+                        break;
+                    }
+
+                    var request = new QueryVectorBatchRequest
+                    {
+                        ServiceId = _options.ServiceId,
+                        Items = batch
+                    };
+
+                    await _eventBusPublisher.PublishQueryVectorRequestAsync(request, stoppingToken);
+
+                    _logger.LogInformation(
+                        "Queued page {Page} with {Count} notices for vectorization with service id {ServiceId}",
+                        page,
+                        batch.Count,
+                        _options.ServiceId);
+
+                    page++;
                 }
 
-                var request = new QueryVectorBatchRequest
-                {
-                    ServiceId = _options.ServiceId,
-                    Items = batch
-                };
-
-                await _eventBusPublisher.PublishQueryVectorRequestAsync(request, stoppingToken);
-                _logger.LogInformation(
-                    "Queued {Count} notices for vectorization with service id {ServiceId}",
-                    batch.Count,
-                    _options.ServiceId);
+                // Если нужен всего один полный проход по таблице — вместо Delay можно просто выйти из цикла:
+                // break;
+                await Task.Delay(TimeSpan.FromSeconds(_options.IdleDelaySeconds), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -84,28 +99,32 @@ public sealed class NoticeEmbeddingVectorizer : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Читает очередную страницу таблицы Notices, без фильтра по Vector.
+    /// </summary>
     private async Task<IReadOnlyList<QueryVectorRequestItem>> LoadBatchAsync(
-    CancellationToken cancellationToken)
+        int pageIndex,
+        CancellationToken cancellationToken)
     {
+        var skip = pageIndex * _options.BatchSize;
+
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var batch = await context.Notices
             .AsNoTracking()
-            .Where(n => n.Vector == null)              // выбираем только те, где нет вектора
-            .OrderBy(n => n.Id)                        // желательно зафиксировать порядок
-            .Select(n => new QueryVectorRequestItem    // в SELECT попадают только нужные поля
+            .Where(x=>x.Vector == null)
+            .OrderBy(n => n.Id) // фиксируем порядок
+            .Skip(skip)         // пропускаем предыдущие страницы
+            .Take(_options.BatchSize)
+            .Select(n => new QueryVectorRequestItem
             {
-                UserId = Guid.Empty.ToString(),
+                UserId = "",
                 Id = n.Id,
                 String = n.PurchaseObjectInfo
             })
-            .Take(_options.BatchSize)                  // читаем кусками по BatchSize
             .ToListAsync(cancellationToken);
 
-        // Возвращаем список "блока" (батча). Если пусто — пустой массив.
-        return batch.Count > 0
-            ? batch
-            : Array.Empty<QueryVectorRequestItem>();
+        return batch;
     }
 
     private async Task PurgeQueuesAsync(CancellationToken cancellationToken)
@@ -176,5 +195,4 @@ public sealed class NoticeEmbeddingVectorizer : BackgroundService
             _logger.LogError(ex, "Failed to purge vector queues on startup");
         }
     }
-   
 }
