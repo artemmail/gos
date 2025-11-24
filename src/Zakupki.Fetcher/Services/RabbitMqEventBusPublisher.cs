@@ -191,12 +191,18 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
 
     private string GetQueryVectorRequestQueueName()
     {
-        if (string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName))
+        if (!string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName))
+        {
+            return _options.QueryVectorRequestQueueName;
+        }
+
+        var fallback = _options.ResolveCommandQueueName();
+        if (string.IsNullOrWhiteSpace(fallback))
         {
             throw new InvalidOperationException("Query vector request queue is not configured in EventBus options.");
         }
 
-        return _options.QueryVectorRequestQueueName;
+        return fallback;
     }
 
     private void DisposeChannel()
