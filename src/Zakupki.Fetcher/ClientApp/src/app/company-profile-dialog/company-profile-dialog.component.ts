@@ -61,6 +61,10 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
     this.loadVectors();
     this.loadOkpd2Codes();
 
+    this.queryVectorService.queryVectors$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(vectors => (this.queryVectors = vectors));
+
     this.regionSearchControl.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(value => {

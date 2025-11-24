@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 
 import { UserQueryVectorDto } from '../models/query-vector.models';
 import { QueryVectorService } from '../services/query-vector.service';
@@ -10,11 +12,13 @@ import { QueryVectorDialogComponent } from './query-vector-dialog.component';
   templateUrl: './query-vectors.component.html',
   styleUrls: ['./query-vectors.component.css']
 })
-export class QueryVectorsComponent implements OnInit {
+export class QueryVectorsComponent implements OnInit, OnDestroy {
   displayedColumns = ['id', 'userId', 'query', 'vector', 'actions'];
   vectors: UserQueryVectorDto[] = [];
   isLoading = false;
   errorMessage = '';
+
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private readonly queryVectorService: QueryVectorService,
@@ -22,7 +26,16 @@ export class QueryVectorsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.queryVectorService.queryVectors$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(vectors => (this.vectors = vectors));
+
     this.loadData();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   openAddDialog(): void {
@@ -47,16 +60,17 @@ export class QueryVectorsComponent implements OnInit {
     }
 
     this.isLoading = true;
-    this.queryVectorService.delete(item.id).subscribe({
-      next: () => {
-        this.vectors = this.vectors.filter(v => v.id !== item.id);
-        this.isLoading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Не удалось удалить запись.';
-        this.isLoading = false;
-      }
-    });
+    this.queryVectorService
+      .delete(item.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.isLoading = false))
+      )
+      .subscribe({
+        error: () => {
+          this.errorMessage = 'Не удалось удалить запись.';
+        }
+      });
   }
 
   vectorPreview(vector?: number[] | null): string {
@@ -72,15 +86,16 @@ export class QueryVectorsComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.queryVectorService.getAll().subscribe({
-      next: data => {
-        this.vectors = data;
-        this.isLoading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Не удалось загрузить данные.';
-        this.isLoading = false;
-      }
-    });
+    this.queryVectorService
+      .getAll()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.isLoading = false))
+      )
+      .subscribe({
+        error: () => {
+          this.errorMessage = 'Не удалось загрузить данные.';
+        }
+      });
   }
 }
