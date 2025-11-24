@@ -110,54 +110,71 @@ public sealed class QueryVectorQueueService : IQueryVectorQueueService
         return true;
     }
 
-    public async Task ApplyVectorAsync(QueryVectorResult result, CancellationToken cancellationToken)
+    public async Task ApplyVectorAsync(IReadOnlyList<QueryVectorResult> results, CancellationToken cancellationToken)
     {
-        if (result.Vector == null)
+        var validResults = results.Where(r => r.Vector != null).ToArray();
+
+        foreach (var result in results.Except(validResults))
         {
             CompleteWithFailure(result.Id, new InvalidOperationException("Vector result is empty"));
+        }
+
+        if (validResults.Length == 0)
+        {
             return;
         }
 
-        PendingRequests.TryGetValue(result.Id, out var pendingRequest);
+        var resultIds = validResults.Select(r => r.Id).ToArray();
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var entity = await context.UserQueryVectors
-            .Where(q => q.Id == result.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var existing = await context.UserQueryVectors
+            .Where(q => resultIds.Contains(q.Id))
+            .ToListAsync(cancellationToken);
 
-        if (entity == null)
+        var existingById = existing.ToDictionary(q => q.Id);
+        var now = DateTime.UtcNow;
+
+        foreach (var result in validResults)
         {
-            var userId = pendingRequest?.UserId ?? result.UserId;
-            var query = pendingRequest?.Query ?? result.Query;
+            PendingRequests.TryGetValue(result.Id, out var pendingRequest);
 
-            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(query))
+            if (!existingById.TryGetValue(result.Id, out var entity))
             {
-                CompleteWithFailure(result.Id, new InvalidOperationException("Не удалось определить пользователя или текст запроса для вектора"));
-                return;
+                var userId = pendingRequest?.UserId ?? result.UserId;
+                var query = pendingRequest?.Query ?? result.Query;
+
+                if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(query))
+                {
+                    CompleteWithFailure(result.Id, new InvalidOperationException("Не удалось определить пользователя или текст запроса для вектора"));
+                    continue;
+                }
+
+                entity = new UserQueryVector
+                {
+                    Id = result.Id,
+                    UserId = userId,
+                    Query = query.Trim(),
+                    CreatedAt = pendingRequest?.CreatedAt ?? now
+                };
+
+                context.UserQueryVectors.Add(entity);
+                existingById[result.Id] = entity;
             }
 
-            entity = new UserQueryVector
-            {
-                Id = result.Id,
-                UserId = userId,
-                Query = query.Trim(),
-                CreatedAt = pendingRequest?.CreatedAt ?? DateTime.UtcNow
-            };
-
-            context.UserQueryVectors.Add(entity);
+            var vector = result.Vector!.Select(v => (float)v).ToArray();
+            entity.Vector = new SqlVector<float>(vector);
+            entity.UpdatedAt = now;
+            entity.CompletedAt = now;
         }
-
-        var vector = result.Vector?.Select(v => (float)v).ToArray();
-        entity.Vector = vector != null ? new SqlVector<float>(vector) : null;
-        entity.UpdatedAt = DateTime.UtcNow;
-        entity.CompletedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync(cancellationToken);
 
-        if (pendingRequest != null)
+        foreach (var result in validResults)
         {
-            pendingRequest.Completion.TrySetResult(entity);
-            PendingRequests.TryRemove(result.Id, out _);
+            if (PendingRequests.TryRemove(result.Id, out var pendingRequest))
+            {
+                pendingRequest.Completion.TrySetResult(existingById[result.Id]);
+            }
         }
     }
 

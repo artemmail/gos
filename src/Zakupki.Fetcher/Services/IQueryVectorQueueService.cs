@@ -15,5 +15,5 @@ public interface IQueryVectorQueueService
 
     Task<bool> DeleteAsync(string userId, Guid id, CancellationToken cancellationToken);
 
-    Task ApplyVectorAsync(QueryVectorResult result, CancellationToken cancellationToken);
+    Task ApplyVectorAsync(IReadOnlyList<QueryVectorResult> results, CancellationToken cancellationToken);
 }
