@@ -92,37 +92,61 @@ class QueryVectorWorker:
         ch.queue_declare(queue=self._response_queue, durable=True)
         ch.basic_qos(prefetch_count=1)
 
-    def _process_message(self, body: bytes) -> None:
+    def _process_message(
+        self, ch: pika.adapters.blocking_connection.BlockingChannel, body: bytes
+    ) -> None:
         try:
             payload = json.loads(body.decode("utf-8"))
         except Exception:
             self._logger.warning("Invalid message encoding, skipping")
             return
 
-        request_id = payload.get("id") or payload.get("Id")
-        query = payload.get("query") or payload.get("Query")
+        items = payload.get("Items")
+        service_id = payload.get("ServiceId")
+        responses = []
 
-        if not request_id or not query:
-            self._logger.warning("Request is missing id or query")
+        if isinstance(items, list):
+            for i, item in enumerate(items, start=1):
+                request_id = item.get("id") or item.get("Id")
+                query = item.get("String") or item.get("Query") or item.get("query")
+                user_id = item.get("UserId") or item.get("userId")
+
+                if not request_id or not query:
+                    self._logger.warning(
+                        "Batch item %s is missing id or query, skipping", i
+                    )
+                    continue
+
+                self._logger.info("message received: id=%s", request_id)
+                vector = self.encode_query(query)
+                responses.append(
+                    {"Id": request_id, "UserId": user_id, "String": query, "Vector": vector}
+                )
+        else:
+            request_id = payload.get("id") or payload.get("Id")
+            query = payload.get("query") or payload.get("Query")
+
+            if not request_id or not query:
+                self._logger.warning("Request is missing id or query")
+                return
+
+            self._logger.info("message received: id=%s", request_id)
+            vector = self.encode_query(query)
+            responses.append({"Id": request_id, "Vector": vector})
+
+        if not responses:
+            self._logger.warning("No valid request items found in message")
             return
 
-        self._logger.info("message received: id=%s", request_id)
-
-        vector = self.encode_query(query)
-
-        # Отвечаем в том же стиле, что и NoticeEmbeddings/SQL-клиент:
-        # поля с заглавной буквы, чтобы десериализация в C# прошла без настроек
-        response = {"Id": request_id, "Vector": vector}
-        body = json.dumps(response, ensure_ascii=False).encode("utf-8")
-
-        ch = self._channel
-        if ch is None:
-            raise RuntimeError("Channel is not ready")
+        # Отвечаем в стиле QueryVectorBatchResponse (C# десериализация чувствительна к регистру)
+        response_body: Dict[str, Any] = {"Items": responses}
+        if service_id:
+            response_body["ServiceId"] = service_id
 
         ch.basic_publish(
             exchange="",
             routing_key=self._response_queue,
-            body=body,
+            body=json.dumps(response_body, ensure_ascii=False).encode("utf-8"),
             properties=pika.BasicProperties(
                 delivery_mode=2,
                 content_type="application/json",
@@ -141,14 +165,21 @@ class QueryVectorWorker:
                 def callback(ch, method, props, body):
                     self._logger.info("message received")
                     try:
-                        self._process_message(body)
+                        self._process_message(ch, body)
                     except Exception:
-                        self._logger.exception("processing error, message will be skipped")
-                    finally:
+                        self._logger.exception(
+                            "processing error, message will be nacked"
+                        )
                         try:
-                            ch.basic_ack(method.delivery_tag)
+                            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                         except Exception:
-                            self._logger.exception("failed to ack message")
+                            self._logger.exception("failed to nack message")
+                        return
+
+                    try:
+                        ch.basic_ack(method.delivery_tag)
+                    except Exception:
+                        self._logger.exception("failed to ack message")
 
                 ch.basic_consume(self._request_queue, callback)
                 self._logger.info(
