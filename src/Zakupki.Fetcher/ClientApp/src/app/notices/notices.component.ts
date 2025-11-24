@@ -106,6 +106,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.preloadRegions();
+    this.queryVectorService.queryVectors$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(vectors => this.updateQueryVectors(vectors));
+
     this.loadQueryVectors();
     this.authService.user$
       .pipe(takeUntil(this.destroy$))
@@ -164,13 +168,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
         finalize(() => (this.queryVectorsLoading = false))
       )
       .subscribe({
-        next: vectors => {
-          this.queryVectors = vectors;
-
-          if (vectors.length > 0 && !this.favoriteSearchForm.controls.queryVectorId.value) {
-            this.favoriteSearchForm.controls.queryVectorId.setValue(vectors[0].id);
-          }
-        },
         error: () => {
           this.snackBar.open('Не удалось загрузить сохранённые запросы.', 'Закрыть', { duration: 4000 });
         }
@@ -592,6 +589,22 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.favoriteSearchForm.markAsUntouched();
 
     this.clearVectorSearch();
+  }
+
+  private updateQueryVectors(vectors: UserQueryVectorDto[]): void {
+    this.queryVectors = vectors;
+
+    const selectedId = this.favoriteSearchForm.controls.queryVectorId.value;
+    const hasSelected = !!selectedId && vectors.some(vector => vector.id === selectedId);
+
+    if (!hasSelected) {
+      const defaultId = vectors[0]?.id ?? '';
+      this.favoriteSearchForm.controls.queryVectorId.setValue(defaultId, { emitEvent: false });
+    }
+
+    if (this.vectorSearchCriteria && !vectors.some(vector => vector.id === this.vectorSearchCriteria?.queryVectorId)) {
+      this.clearVectorSearch();
+    }
   }
 }
 
