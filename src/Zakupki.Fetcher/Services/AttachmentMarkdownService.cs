@@ -20,6 +20,7 @@ namespace Zakupki.Fetcher.Services
         {
             [".doc"] = "docx",
             [".docx"] = "docx",
+            [".rtf"] = "html",
             [".pdf"] = "html",   // PDF → HTML → Markdown
             [".html"] = "html",
             [".htm"] = "html",
@@ -210,6 +211,7 @@ end
             }
             // PDF / XLS / XLSX → HTML через LibreOffice
             else if (string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(extension, ".rtf", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(extension, ".xls", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
             {
@@ -288,14 +290,19 @@ end
                 }
 
 
-                var unescaped = Regex.Unescape(markdown);
-                var cleaned = RemoveControlChars(unescaped, removeJsonSymbols: true);
+                //var unescaped = Regex.Unescape(markdown);
+                var cleaned = RemoveControlChars(markdown, removeJsonSymbols: true);
 
 
                 
 
                 //var t = markdown.Replace("\\_","_").Replace("\\\"\"","\"");
                 return cleaned;
+            }
+            catch(Exception er)
+            {
+                int a = 0;
+                return ";";
             }
             finally
             {
