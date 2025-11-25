@@ -304,7 +304,7 @@ namespace Zakupki.Fetcher.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
                     Query = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
-                    Vector = table.Column<SqlVector<float>>(type: "vector(768)", nullable: true),
+                    Vector = table.Column<SqlVector<float>>(type: "vector(1024)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
@@ -385,7 +385,7 @@ namespace Zakupki.Fetcher.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     NoticeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Vector = table.Column<SqlVector<float>>(type: "vector(768)", nullable: false),
+                    Vector = table.Column<SqlVector<float>>(type: "vector(1024)", nullable: false),
                     Source = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>

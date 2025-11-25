@@ -16,7 +16,7 @@ import numpy as np
 import pika
 from sentence_transformers import SentenceTransformer
 
-MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+MODEL_NAME = "ai-forever/ru-en-RoSBERTa"
 DEFAULT_CONFIG_PATH = os.environ.get(
     "APPSETTINGS_PATH", "src/Zakupki.Fetcher/appsettings.json"
 )
@@ -194,7 +194,7 @@ class QueryVectorWorker:
                         "Vector": vector,
                     }
                 )
-
+        
         # ---------- Одиночный запрос (старый режим) ----------
         else:
             request_id = payload.get("id") or payload.get("Id")
@@ -225,7 +225,7 @@ class QueryVectorWorker:
                 delivery_mode=2,
                 content_type="application/json",
             ),
-        )
+        ) 
 
     def run(self) -> None:
         while True:

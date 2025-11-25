@@ -11,8 +11,8 @@ namespace Zakupki.Fetcher.Data;
 public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 {
     // ����������� ���������� ��� VECTOR
-    private const int NoticeVectorDimensions = 768;
-    private const int QueryVectorDimensions = 768;
+    private const int NoticeVectorDimensions = 1024;
+    private const int QueryVectorDimensions = 1024;
 
     private static readonly ValueConverter<string?, byte?> RegionConverter = new(
         region => ParseRegion(region),
