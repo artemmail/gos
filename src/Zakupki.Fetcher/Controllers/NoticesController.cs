@@ -121,9 +121,11 @@ public class NoticesController : ControllerBase
         pageSize = Math.Min(pageSize, 100);
 
         var similarityThreshold = Math.Clamp(similarityThresholdPercent, 40, 90) / 100.0;
+        // Приводим процент к косинусной близости через угловую схему, используем её в пороге расстояния
+        var cosineThreshold = ToCosineFromAngularSimilarity(similarityThreshold);
         // VECTOR_DISTANCE('cosine', ...) = 1 - cosine_similarity
-        // similarity >= T  <=>  distance <= 1 - T
-        var distanceThreshold = 1.0 - similarityThreshold;
+        // similarity >= T  <=>  distance <= 1 - cosineThreshold(T)
+        var distanceThreshold = 1.0 - cosineThreshold;
 
         var normalizedCollectingEnd = (collectingEndLimit ?? DateTimeOffset.UtcNow).UtcDateTime;
         var offset = (page - 1) * pageSize;
@@ -219,11 +221,17 @@ public class NoticesController : ControllerBase
 
         // Считаем similarity в памяти: similarity = 1 - distance
         var orderLookup = pageMatches
-            .Select((m, index) => new
+            .Select((m, index) =>
             {
-                m.NoticeId,
-                Index = index,
-                Similarity = (double?)(1.0 - m.Distance)
+                var cosineSimilarity = 1.0 - m.Distance;
+                var similarity = ToAngularSimilarity(cosineSimilarity);
+
+                return new
+                {
+                    m.NoticeId,
+                    Index = index,
+                    Similarity = similarity
+                };
             })
             .ToDictionary(
                 x => x.NoticeId,
@@ -1220,6 +1228,21 @@ public class NoticesController : ControllerBase
                 : query.OrderBy(n => n.PublishDate)
                     .ThenBy(n => n.Id)
         };
+    }
+
+    private static double ToAngularSimilarity(double cosineSimilarity)
+    {
+        var clampedCosine = Math.Clamp(cosineSimilarity, -1.0, 1.0);
+        var similarity = 1.0 - Math.Acos(clampedCosine) / Math.PI;
+        return similarity;
+    }
+
+    private static double ToCosineFromAngularSimilarity(double similarity)
+    {
+        var clampedSimilarity = Math.Clamp(similarity, 0.0, 1.0);
+        var angle = Math.PI * (1.0 - clampedSimilarity);
+        var cosine = Math.Cos(angle);
+        return cosine;
     }
 
     private static string GetContentType(string fileName)
