@@ -83,6 +83,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
         next: notice => {
           this.details = notice;
           this.rawJsonText = notice.rawJson ?? '';
+          debugger
           this.parsedNotice = this.parseNotice(this.rawJsonText);
         },
         error: () => {
