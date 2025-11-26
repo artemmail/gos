@@ -90,7 +90,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
           this.rawJsonText = notice.rawJson ?? '';
           this.parsedNotice = this.parseNotice(this.rawJsonText);
           this.loadAttachments();
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные извещения.';
@@ -115,11 +115,11 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: attachments => {
           this.attachments = attachments;
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.attachments = [];
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         }
       });
   }
