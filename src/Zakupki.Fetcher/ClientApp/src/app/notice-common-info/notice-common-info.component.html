@@ -235,6 +235,15 @@
             <th>Предусмотрена возможность одностороннего отказа от исполнения контракта</th>
             <td>{{ cr.innerContractConditionsInfo?.isOneSideRejectionSt95 ? 'Да' : 'Нет' }}</td>
           </tr>
+          <tr *ngIf="cr.innerContractConditionsInfo?.deliveryPlacesInfo?.items?.length">
+            <th>Место поставки товара, выполнения работы или оказания услуги</th>
+            <td>
+              <div *ngFor="let p of cr.innerContractConditionsInfo?.deliveryPlacesInfo?.items" class="pre-wrap">
+                <div>{{ p.countryInfo?.countryFullName || p.countryInfo?.countryCode }}</div>
+                <div>{{ p.garInfo?.garAddress }}</div>
+              </div>
+            </td>
+          </tr>
           <tr *ngIf="cr.warrantyInfo?.warrantyServiceRequirement">
             <th>Требования к гарантийному обслуживанию</th>
             <td class="pre-wrap">{{ cr.warrantyInfo?.warrantyServiceRequirement }}</td>
