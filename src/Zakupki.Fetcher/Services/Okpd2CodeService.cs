@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ public sealed class Okpd2CodeService
 {
     private static readonly string CacheKey = "okpd2-codes";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(12);
+    private static readonly Regex SingleDotCodePattern = new("^\\d+\\.\\d+$", RegexOptions.Compiled);
 
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
     private readonly IMemoryCache _memoryCache;
@@ -35,6 +37,9 @@ public sealed class Okpd2CodeService
 
         var codes = await dbContext.Okpd2Codes
             .AsNoTracking()
+            .Where(code =>
+                !string.IsNullOrWhiteSpace(code.Code) &&
+                SingleDotCodePattern.IsMatch(code.Code))
             .OrderBy(c => c.Code)
             .ToListAsync(cancellationToken);
 
