@@ -38,10 +38,15 @@ public sealed class Okpd2CodeService
         var codes = await dbContext.Okpd2Codes
             .AsNoTracking()
             .Where(code =>
-                !string.IsNullOrWhiteSpace(code.Code) &&
-                SingleDotCodePattern.IsMatch(code.Code))
+                !string.IsNullOrWhiteSpace(code.Code)
+                // &&                SingleDotCodePattern.IsMatch(code.Code)
+                )
             .OrderBy(c => c.Code)
             .ToListAsync(cancellationToken);
+        codes = codes
+        .Where(code =>
+                !string.IsNullOrWhiteSpace(code.Code) &&
+                SingleDotCodePattern.IsMatch(code.Code)).ToList();
 
         _memoryCache.Set(CacheKey, codes, CacheDuration);
 
