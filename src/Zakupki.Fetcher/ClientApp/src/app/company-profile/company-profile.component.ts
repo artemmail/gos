@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
-import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
@@ -17,16 +18,16 @@ import { QueryVectorDialogComponent } from '../query-vectors/query-vector-dialog
 import { Okpd2CodeOption, Okpd2CodesService } from '../services/okpd2-codes.service';
 
 @Component({
-  selector: 'app-company-profile-dialog',
-  templateUrl: './company-profile-dialog.component.html',
-  styleUrls: ['./company-profile-dialog.component.css']
+  selector: 'app-company-profile',
+  templateUrl: './company-profile.component.html',
+  styleUrls: ['./company-profile.component.css']
 })
-export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
+export class CompanyProfileComponent implements OnInit, OnDestroy {
   form: FormGroup;
   availableRegions: RegionOption[] = [];
   availableOkpd2Codes: Okpd2CodeOption[] = [];
   queryVectors: UserQueryVectorDto[] = [];
-  vectorColumns = ['query', 'vector', 'actions'];
+  vectorColumns = ['query', 'actions'];
   isLoading = false;
   isSaving = false;
   isVectorsLoading = false;
@@ -42,7 +43,7 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
   constructor(
-    private readonly dialogRef: MatDialogRef<CompanyProfileDialogComponent>,
+    private readonly router: Router,
     private readonly fb: FormBuilder,
     private readonly userCompanyService: UserCompanyService,
     private readonly queryVectorService: QueryVectorService,
@@ -83,8 +84,8 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  close(): void {
-    this.dialogRef.close();
+  goBack(): void {
+    this.router.navigate(['/']);
   }
 
   save(): void {
@@ -157,15 +158,6 @@ export class CompanyProfileDialogComponent implements OnInit, OnDestroy {
           this.isVectorActionInProgress = false;
         }
       });
-  }
-
-  vectorPreview(vector?: number[] | null): string {
-    if (!vector || vector.length === 0) {
-      return '—';
-    }
-
-    const preview = vector.slice(0, 5).map(v => v.toFixed(4)).join(', ');
-    return vector.length > 5 ? `${preview} …` : preview;
   }
 
   get canSave(): boolean {

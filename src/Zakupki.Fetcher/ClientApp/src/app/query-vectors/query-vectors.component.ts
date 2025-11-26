@@ -13,7 +13,7 @@ import { QueryVectorDialogComponent } from './query-vector-dialog.component';
   styleUrls: ['./query-vectors.component.css']
 })
 export class QueryVectorsComponent implements OnInit, OnDestroy {
-  displayedColumns = ['id', 'userId', 'query', 'vector', 'actions'];
+  displayedColumns = ['id', 'userId', 'query', 'actions'];
   vectors: UserQueryVectorDto[] = [];
   isLoading = false;
   errorMessage = '';
@@ -71,15 +71,6 @@ export class QueryVectorsComponent implements OnInit, OnDestroy {
           this.errorMessage = 'Не удалось удалить запись.';
         }
       });
-  }
-
-  vectorPreview(vector?: number[] | null): string {
-    if (!vector || vector.length === 0) {
-      return '—';
-    }
-
-    const preview = vector.slice(0, 5).map(v => v.toFixed(4)).join(', ');
-    return vector.length > 5 ? `${preview} …` : preview;
   }
 
   private loadData(): void {

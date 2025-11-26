@@ -13,7 +13,7 @@ import { NoticesComponent } from './notices/notices.component';
 import { AuthCallbackComponent } from './auth-callback/auth-callback.component';
 import { appRoutes } from './app.routes';
 import { authInterceptor } from './services/AuthInterceptor';
-import { CompanyProfileDialogComponent } from './company-profile-dialog/company-profile-dialog.component';
+import { CompanyProfileComponent } from './company-profile/company-profile.component';
 import { NoticeAnalysisDialogComponent } from './notice-analysis-dialog/notice-analysis-dialog.component';
 import { QueryVectorsComponent } from './query-vectors/query-vectors.component';
 import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.component';
@@ -27,7 +27,7 @@ import { NoticeDetailsComponent } from './notice-details/notice-details.componen
     RawJsonDialogComponent,
     NoticesComponent,
     AuthCallbackComponent,
-    CompanyProfileDialogComponent,
+    CompanyProfileComponent,
     NoticeAnalysisDialogComponent,
     QueryVectorsComponent,
     QueryVectorDialogComponent,
