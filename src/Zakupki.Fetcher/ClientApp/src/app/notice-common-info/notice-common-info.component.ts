@@ -52,7 +52,12 @@ export class NoticeCommonInfoComponent {
         cr => !!(cr.warrantyInfo?.warrantyServiceRequirement || cr.warrantyInfo?.warrantyTerm)
       ) ?? false;
 
-    return commonConditionsDefined || customerConditionsDefined || hasWarrantyInfo;
+    const hasDeliveryPlaces =
+      notice.notificationInfo?.customerRequirementsInfo?.items?.some(
+        cr => cr.innerContractConditionsInfo?.deliveryPlacesInfo?.items?.length
+      ) ?? false;
+
+    return commonConditionsDefined || customerConditionsDefined || hasWarrantyInfo || hasDeliveryPlaces;
   }
 
   /** "2025-11-24+03:00" -> "24.11.2025" */
