@@ -2,6 +2,10 @@ namespace Zakupki.Fetcher.Options;
 
 public sealed class EventBusOptions
 {
+    private const string NoticeAnalysisRequestQueueSuffix = ".analysis";
+
+    private const string NoticeAnalysisResultQueueSuffix = ".analysis.result";
+
     public bool Enabled { get; set; }
 
     public string Broker { get; set; } = string.Empty;
@@ -24,6 +28,28 @@ public sealed class EventBusOptions
 
     public string ResolveCommandQueueName() =>
         string.IsNullOrWhiteSpace(CommandQueueName) ? QueueName : CommandQueueName;
+
+    public string ResolveNoticeAnalysisRequestQueueName()
+    {
+        var baseQueue = ResolveCommandQueueName();
+        if (string.IsNullOrWhiteSpace(baseQueue))
+        {
+            return string.Empty;
+        }
+
+        return string.Concat(baseQueue, NoticeAnalysisRequestQueueSuffix);
+    }
+
+    public string ResolveNoticeAnalysisResultQueueName()
+    {
+        var baseQueue = ResolveCommandQueueName();
+        if (string.IsNullOrWhiteSpace(baseQueue))
+        {
+            return string.Empty;
+        }
+
+        return string.Concat(baseQueue, NoticeAnalysisResultQueueSuffix);
+    }
 
     public sealed class BusAccessOptions
     {
