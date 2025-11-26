@@ -17,6 +17,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using Serilog;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
@@ -29,6 +30,14 @@ builder.Host.UseDefaultServiceProvider((context, options) =>
 {
     options.ValidateScopes = context.HostingEnvironment.IsDevelopment();
     options.ValidateOnBuild = true;
+});
+
+builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+{
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext();
 });
 
 builder.Configuration
