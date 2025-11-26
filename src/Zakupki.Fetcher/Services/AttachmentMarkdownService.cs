@@ -362,17 +362,39 @@ end
 
             try
             {
-              //  if (!File.Exists(path))
-                {
-                    // UTF-8 без BOM
-                    File.WriteAllText(path, LuaFilterContent, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                    _logger.LogInformation("Lua filter for Pandoc created at {Path}", path);
-                }
+                path = EnsureLuaFilter(path);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to create Lua filter file {Path}", path);
-                throw new InvalidOperationException("Не удалось подготовить Lua-фильтр для Pandoc.", ex);
+                _logger.LogWarning(ex, "Failed to create Lua filter in app directory {Path}. Using temporary directory instead.", path);
+
+                try
+                {
+                    var fallbackDirectory = Path.Combine(Path.GetTempPath(), "pandoc-lua-filter");
+                    Directory.CreateDirectory(fallbackDirectory);
+                    var fallbackPath = Path.Combine(fallbackDirectory, LuaFilterFileName);
+
+                    path = EnsureLuaFilter(fallbackPath);
+                    _logger.LogInformation(
+                        "Lua filter could not be created in app directory, fallback path used: {Path}",
+                        fallbackPath);
+                }
+                catch (Exception fallbackEx)
+                {
+                    _logger.LogWarning(fallbackEx, "Failed to create Lua filter file {Path}", path);
+                    throw new InvalidOperationException("Не удалось подготовить Lua-фильтр для Pandoc.", fallbackEx);
+                }
+            }
+
+            return path;
+        }
+
+        private string EnsureLuaFilter(string path)
+        {
+            if (!File.Exists(path))
+            {
+                File.WriteAllText(path, LuaFilterContent, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                _logger.LogInformation("Lua filter for Pandoc created at {Path}", path);
             }
 
             return path;
