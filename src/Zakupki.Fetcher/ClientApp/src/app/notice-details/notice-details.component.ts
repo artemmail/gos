@@ -1,5 +1,5 @@
 import { Location } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute } from '@angular/router';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -34,7 +34,8 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     private readonly noticesService: NoticesService,
     private readonly attachmentsService: AttachmentsService,
     private readonly dialog: MatDialog,
-    private readonly location: Location
+    private readonly location: Location,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -89,6 +90,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
           this.rawJsonText = notice.rawJson ?? '';
           this.parsedNotice = this.parseNotice(this.rawJsonText);
           this.loadAttachments();
+          this.cdr.markForCheck();
         },
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные извещения.';
@@ -96,6 +98,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
           this.parsedNotice = null;
           this.rawJsonText = '';
           this.attachments = [];
+          this.cdr.markForCheck();
         }
       });
   }
@@ -110,8 +113,14 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .getAttachments(this.noticeId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: attachments => (this.attachments = attachments),
-        error: () => (this.attachments = [])
+        next: attachments => {
+          this.attachments = attachments;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.attachments = [];
+          this.cdr.markForCheck();
+        }
       });
   }
 
