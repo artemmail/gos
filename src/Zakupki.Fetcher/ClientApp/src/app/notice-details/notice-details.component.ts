@@ -77,6 +77,8 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.errorMessage = '';
     this.parseError = '';
+    this.attachments = [];
+    this.cdr.markForCheck();
 
     this.noticesService
       .getNotice(this.noticeId)
@@ -114,7 +116,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: attachments => {
-          this.attachments = attachments;
+          this.attachments = [...attachments];
           this.cdr.markForCheck();
         },
         error: () => {
