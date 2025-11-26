@@ -62,6 +62,7 @@ export interface NoticeCommonInfo {
   id: string;
   externalId: string;
   versionNumber: number;
+  maxPrice?: number | null;
   commonInfo: {
     purchaseNumber: string;
     docNumber: string;
