@@ -214,6 +214,40 @@
     </table>
   </div>
 
+  <!-- УСЛОВИЯ КОНТРАКТА -->
+  <div class="section" *ngIf="hasContractConditions(n)">
+    <div class="section-title">Условия контракта</div>
+
+    <table class="info-table" *ngIf="n.notificationInfo?.contractConditionsInfo as cc">
+      <tbody>
+        <tr *ngIf="cc.isOneSideRejectionSt95 !== undefined">
+          <th>Предусмотрена возможность одностороннего отказа от исполнения контракта</th>
+          <td>{{ cc.isOneSideRejectionSt95 ? 'Да' : 'Нет' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ng-container *ngFor="let cr of n.notificationInfo?.customerRequirementsInfo?.items; let i = index">
+      <div class="subsection-title" *ngIf="cr.customer?.fullName">Заказчик {{ i + 1 }}: {{ cr.customer?.fullName }}</div>
+      <table class="info-table" *ngIf="cr.innerContractConditionsInfo || cr.warrantyInfo">
+        <tbody>
+          <tr *ngIf="cr.innerContractConditionsInfo?.isOneSideRejectionSt95 !== undefined">
+            <th>Предусмотрена возможность одностороннего отказа от исполнения контракта</th>
+            <td>{{ cr.innerContractConditionsInfo?.isOneSideRejectionSt95 ? 'Да' : 'Нет' }}</td>
+          </tr>
+          <tr *ngIf="cr.warrantyInfo?.warrantyServiceRequirement">
+            <th>Требования к гарантийному обслуживанию</th>
+            <td class="pre-wrap">{{ cr.warrantyInfo?.warrantyServiceRequirement }}</td>
+          </tr>
+          <tr *ngIf="cr.warrantyInfo?.warrantyTerm">
+            <th>Гарантийные сроки</th>
+            <td class="pre-wrap">{{ cr.warrantyInfo?.warrantyTerm }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+
   <!-- ОБЕСПЕЧЕНИЕ ЗАЯВОК / КОНТРАКТА (по первому customerRequirements) -->
   <div class="section" *ngIf="n.notificationInfo?.customerRequirementsInfo?.items?.length">
     <div class="section-title">Обеспечение заявки и исполнения контракта</div>
@@ -306,7 +340,7 @@
 
   <!-- МЕСТО ОКАЗАНИЯ УСЛУГ -->
   <div class="section" *ngIf="n.notificationInfo?.customerRequirementsInfo?.items?.length">
-    <div class="section-title">Место оказания услуг</div>
+    <div class="section-title">Место поставки товара, выполнения работы или оказания услуги</div>
     <ng-container *ngFor="let cr of n.notificationInfo?.customerRequirementsInfo?.items">
       <ng-container *ngIf="cr.innerContractConditionsInfo?.deliveryPlacesInfo?.items as places">
         <div *ngFor="let p of places" class="place-row">

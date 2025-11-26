@@ -186,6 +186,11 @@ export interface NoticeCommonInfo {
               };
             }>;
           };
+          isOneSideRejectionSt95?: boolean;
+        };
+        warrantyInfo?: {
+          warrantyServiceRequirement?: string;
+          warrantyTerm?: string;
         };
         addInfo?: string;
       }>;
