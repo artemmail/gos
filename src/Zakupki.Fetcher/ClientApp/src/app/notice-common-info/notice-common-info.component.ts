@@ -38,6 +38,23 @@ export class NoticeCommonInfoComponent {
     return null;
   }
 
+  hasContractConditions(notice: NoticeCommonInfo): boolean {
+    const commonConditionsDefined =
+      notice.notificationInfo?.contractConditionsInfo?.isOneSideRejectionSt95 !== undefined;
+
+    const customerConditionsDefined =
+      notice.notificationInfo?.customerRequirementsInfo?.items?.some(
+        cr => cr.innerContractConditionsInfo?.isOneSideRejectionSt95 !== undefined
+      ) ?? false;
+
+    const hasWarrantyInfo =
+      notice.notificationInfo?.customerRequirementsInfo?.items?.some(
+        cr => !!(cr.warrantyInfo?.warrantyServiceRequirement || cr.warrantyInfo?.warrantyTerm)
+      ) ?? false;
+
+    return commonConditionsDefined || customerConditionsDefined || hasWarrantyInfo;
+  }
+
   /** "2025-11-24+03:00" -> "24.11.2025" */
   formatRawDate(raw?: string | null): string | null {
     if (!raw) {
