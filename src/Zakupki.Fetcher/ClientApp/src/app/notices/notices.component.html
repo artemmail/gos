@@ -99,7 +99,10 @@
                 <mat-select
                   formControlName="queryVectorId"
                   [disabled]="queryVectorsLoading"
-                  [displayWith]="displayVectorQuery">
+                  >
+                  <mat-select-trigger>
+                    {{ displayVectorQuery(favoriteSearchForm.controls.queryVectorId.value) }}
+                  </mat-select-trigger>
                   <mat-option *ngIf="queryVectorsLoading" value="" disabled>Загрузка…</mat-option>
                   <mat-option *ngIf="!queryVectorsLoading && queryVectors.length === 0" value="" disabled>
                     Нет сохранённых запросов
