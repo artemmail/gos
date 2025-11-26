@@ -303,11 +303,19 @@ public class NoticesController : ControllerBase
         var notice = await context.Notices
             .AsNoTracking()
             .Where(n => n.Id == noticeId)
-            .Select(n => new NoticeDetailsDto(
-                n.Id,
-                n.PurchaseNumber,
-                n.PurchaseObjectInfo,
-                n.RawJson))
+            .Select(n => new
+            {
+                Notice = n,
+                ActiveVersionRawJson = n.Versions
+                    .Where(v => v.IsActive)
+                    .Select(v => v.RawJson)
+                    .FirstOrDefault()
+            })
+            .Select(x => new NoticeDetailsDto(
+                x.Notice.Id,
+                x.Notice.PurchaseNumber,
+                x.Notice.PurchaseObjectInfo,
+                x.Notice.RawJson ?? x.ActiveVersionRawJson))
             .FirstOrDefaultAsync();
 
         if (notice is null)
