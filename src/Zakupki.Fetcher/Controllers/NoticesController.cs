@@ -179,7 +179,7 @@ public class NoticesController : ControllerBase
         var matchesQuery =
             from n in noticesQuery
             where n.Vector != null
-            let distance = EF.Functions.VectorDistance("cosine",  n.Vector.Value, queryVector)
+            let distance = EF.Functions.VectorDistance("cosine", n.Vector.Value, queryVector)
             where distance <= distanceThreshold
             orderby distance, n.Id
             select new
@@ -303,19 +303,11 @@ public class NoticesController : ControllerBase
         var notice = await context.Notices
             .AsNoTracking()
             .Where(n => n.Id == noticeId)
-            .Select(n => new
-            {
-                Notice = n,
-                ActiveVersionRawJson = n.Versions
-                    .Where(v => v.IsActive)
-                    .Select(v => v.RawJson)
-                    .FirstOrDefault()
-            })
-            .Select(x => new NoticeDetailsDto(
-                x.Notice.Id,
-                x.Notice.PurchaseNumber,
-                x.Notice.PurchaseObjectInfo,
-                x.Notice.RawJson ?? x.ActiveVersionRawJson))
+            .Select(n => new NoticeDetailsDto(
+                n.Id,
+                n.PurchaseNumber,
+                n.PurchaseObjectInfo,
+                n.RawJson))
             .FirstOrDefaultAsync();
 
         if (notice is null)
