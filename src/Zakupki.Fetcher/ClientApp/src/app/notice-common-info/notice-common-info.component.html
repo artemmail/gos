@@ -13,13 +13,13 @@
     </div>
 
     <div class="notice-header-aside">
-      <div class="price-block" *ngIf="n.notificationInfo?.contractConditionsInfo?.maxPriceInfo as priceInfo">
+      <div class="price-block" *ngIf="getMaxPriceInfo(n) as priceInfo">
         <div class="label">Начальная (максимальная) цена</div>
         <div class="price-value">
-          {{ priceInfo.maxPrice | number:'1.2-2':'ru-RU' }}
+          {{ priceInfo.maxPrice | number: '1.2-2' }}
         </div>
-        <div class="price-currency">
-          {{ priceInfo.currency?.name || priceInfo.currency?.code }}
+        <div class="price-currency" *ngIf="priceInfo.currency">
+          {{ priceInfo.currency }}
         </div>
       </div>
 
