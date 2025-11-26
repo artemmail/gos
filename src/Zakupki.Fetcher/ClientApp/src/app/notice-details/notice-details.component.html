@@ -43,7 +43,11 @@
       </div>
 
       <ng-container *ngIf="!isLoading && !errorMessage">
-        <app-notice-common-info *ngIf="parsedNotice; else parseErrorTpl" [notice]="parsedNotice"></app-notice-common-info>
+        <app-notice-common-info
+          *ngIf="parsedNotice; else parseErrorTpl"
+          [notice]="parsedNotice"
+          [attachments]="attachments"
+        ></app-notice-common-info>
       </ng-container>
 
       <ng-template #parseErrorTpl>

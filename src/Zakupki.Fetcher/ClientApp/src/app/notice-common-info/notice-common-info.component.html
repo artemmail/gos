@@ -409,7 +409,7 @@
   </div>
 
   <!-- ВЛОЖЕНИЯ -->
-  <div class="section" *ngIf="n.attachmentsInfo?.items?.length">
+  <div class="section" *ngIf="displayAttachments.length">
     <div class="section-title">Документы закупки</div>
 
     <table class="attachments-table">
@@ -424,9 +424,9 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let a of n.attachmentsInfo?.items; let i = index">
+        <tr *ngFor="let a of displayAttachments; let i = index">
           <td>{{ i + 1 }}</td>
-          <td>{{ a.docKindInfo?.name }}</td>
+          <td>{{ a.docKindName }}</td>
           <td>{{ a.docDescription }}</td>
           <td>
             <a
