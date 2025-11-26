@@ -1,5 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { NestedTreeControl } from '@angular/cdk/tree';
 import { MatTreeNestedDataSource } from '@angular/material/tree';
 
@@ -20,6 +21,7 @@ export class RawJsonDialogComponent implements OnInit {
 
   constructor(
     private readonly dialogRef: MatDialogRef<RawJsonDialogComponent>,
+    private readonly snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) public readonly data: RawJsonDialogData
   ) {}
 
@@ -40,6 +42,23 @@ export class RawJsonDialogComponent implements OnInit {
     } else {
       this.dialogRef.removePanelClass(this.fullscreenPanelClass);
       this.dialogRef.updatePosition();
+    }
+  }
+
+  async copyRawJson(): Promise<void> {
+    if (!this.data.rawJson) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(this.data.rawJson);
+      const sanitized = this.cloneWithCryptoSignsNull(parsed);
+      const text = JSON.stringify(sanitized, null, 2);
+
+      await navigator.clipboard.writeText(text);
+      this.snackBar.open('JSON скопирован в буфер обмена.', 'Закрыть', { duration: 3000 });
+    } catch {
+      this.snackBar.open('Не удалось скопировать JSON.', 'Закрыть', { duration: 4000 });
     }
   }
 
@@ -115,5 +134,23 @@ export class RawJsonDialogComponent implements OnInit {
     }
 
     return String(value);
+  }
+
+  private cloneWithCryptoSignsNull(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map(item => this.cloneWithCryptoSignsNull(item));
+    }
+
+    if (this.isObject(value)) {
+      const result: Record<string, unknown> = {};
+
+      for (const [key, childValue] of Object.entries(value)) {
+        result[key] = key === 'cryptoSigns' ? null : this.cloneWithCryptoSignsNull(childValue);
+      }
+
+      return result;
+    }
+
+    return value;
   }
 }
