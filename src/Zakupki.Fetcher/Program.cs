@@ -92,6 +92,7 @@ builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
 builder.Services.AddScoped<INoticeEmbeddingService, NoticeEmbeddingService>();
 builder.Services.AddHostedService<QueryVectorResultListener>();
 builder.Services.AddHostedService<NoticeEmbeddingVectorizer>();
+builder.Services.AddHostedService<NoticeAnalysisQueueWorker>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {

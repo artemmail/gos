@@ -92,6 +92,77 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
         return Task.CompletedTask;
     }
 
+    public Task PublishNoticeAnalysisAsync(NoticeAnalysisQueueMessage message, CancellationToken cancellationToken)
+    {
+        var queueName = _options.ResolveNoticeAnalysisRequestQueueName();
+
+        if (!_options.Enabled || string.IsNullOrWhiteSpace(queueName))
+        {
+            throw new InvalidOperationException("Очередь для задач анализа не настроена");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var channel = EnsureChannel();
+        var payload = JsonSerializer.Serialize(message);
+        var body = Encoding.UTF8.GetBytes(payload);
+
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+
+        channel.BasicPublish(
+            exchange: string.Empty,
+            routingKey: queueName,
+            mandatory: false,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogDebug(
+            "Notice analysis task published for notice {NoticeId} and user {UserId} (AnalysisId={AnalysisId})",
+            message.NoticeId,
+            message.UserId,
+            message.AnalysisId);
+
+        return Task.CompletedTask;
+    }
+
+    public Task PublishNoticeAnalysisResultAsync(NoticeAnalysisResultMessage message, CancellationToken cancellationToken)
+    {
+        var queueName = _options.ResolveNoticeAnalysisResultQueueName();
+
+        if (!_options.Enabled || string.IsNullOrWhiteSpace(queueName))
+        {
+            _logger.LogWarning("Очередь для результатов анализа не настроена, сообщение будет пропущено");
+            return Task.CompletedTask;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var channel = EnsureChannel();
+        var payload = JsonSerializer.Serialize(message);
+        var body = Encoding.UTF8.GetBytes(payload);
+
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+
+        channel.BasicPublish(
+            exchange: string.Empty,
+            routingKey: queueName,
+            mandatory: false,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogDebug(
+            "Notice analysis result published for notice {NoticeId} and user {UserId} (Status={Status})",
+            message.NoticeId,
+            message.UserId,
+            message.Status);
+
+        return Task.CompletedTask;
+    }
+
     private IModel EnsureChannel()
     {
         if (_channel is { IsOpen: true })
@@ -156,6 +227,28 @@ public sealed class RabbitMqEventBusPublisher : IEventBusPublisher, IDisposable
             exclusive: false,
             autoDelete: false,
             arguments: null);
+
+        var analysisRequestQueue = _options.ResolveNoticeAnalysisRequestQueueName();
+        if (!string.IsNullOrWhiteSpace(analysisRequestQueue))
+        {
+            channel.QueueDeclare(
+                queue: analysisRequestQueue,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+        }
+
+        var analysisResultQueue = _options.ResolveNoticeAnalysisResultQueueName();
+        if (!string.IsNullOrWhiteSpace(analysisResultQueue))
+        {
+            channel.QueueDeclare(
+                queue: analysisResultQueue,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+        }
 
         if (!string.IsNullOrWhiteSpace(_options.QueryVectorRequestQueueName))
         {

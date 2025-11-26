@@ -96,6 +96,8 @@ public sealed class NoticeAnalysisService
     private readonly AttachmentContentExtractor _attachmentContentExtractor;
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
     private readonly OpenAiOptions _options;
+    private readonly EventBusOptions _eventBusOptions;
+    private readonly IEventBusPublisher _eventBusPublisher;
     private readonly ILogger<NoticeAnalysisService> _logger;
 
     public NoticeAnalysisService(
@@ -105,6 +107,8 @@ public sealed class NoticeAnalysisService
         AttachmentContentExtractor attachmentContentExtractor,
         AttachmentMarkdownService attachmentMarkdownService,
         IOptions<OpenAiOptions> options,
+        IOptions<EventBusOptions> eventBusOptions,
+        IEventBusPublisher eventBusPublisher,
         ILogger<NoticeAnalysisService> logger)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -113,6 +117,8 @@ public sealed class NoticeAnalysisService
         _attachmentContentExtractor = attachmentContentExtractor ?? throw new ArgumentNullException(nameof(attachmentContentExtractor));
         _attachmentMarkdownService = attachmentMarkdownService ?? throw new ArgumentNullException(nameof(attachmentMarkdownService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _eventBusOptions = eventBusOptions?.Value ?? throw new ArgumentNullException(nameof(eventBusOptions));
+        _eventBusPublisher = eventBusPublisher ?? throw new ArgumentNullException(nameof(eventBusPublisher));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         if (_httpClient.BaseAddress is null &&
@@ -138,6 +144,14 @@ public sealed class NoticeAnalysisService
         {
             throw new NoticeAnalysisException(
                 "API-ключ OpenAI не настроен. Обратитесь к администратору системы.",
+                true);
+        }
+
+        var requestQueueName = _eventBusOptions.ResolveNoticeAnalysisRequestQueueName();
+        if (!_eventBusOptions.Enabled || string.IsNullOrWhiteSpace(requestQueueName))
+        {
+            throw new NoticeAnalysisException(
+                "Очередь для анализа не настроена. Обратитесь к администратору системы.",
                 true);
         }
 
@@ -177,16 +191,6 @@ public sealed class NoticeAnalysisService
         {
             throw new NoticeAnalysisException(
                 "Сначала скачайте вложения для закупки и конвертируйте их в Markdown.",
-                true);
-        }
-
-        await EnsureAttachmentsDownloadedAsync(context, attachments, cancellationToken);
-        await EnsureAttachmentsConvertedToMarkdownAsync(context, attachments, cancellationToken);
-
-        if (!attachments.Any(a => !string.IsNullOrWhiteSpace(a.MarkdownContent)))
-        {
-            throw new NoticeAnalysisException(
-                "Не удалось подготовить вложения для анализа. Попробуйте выполнить конвертацию вручную и повторите попытку.",
                 true);
         }
 
@@ -232,36 +236,18 @@ public sealed class NoticeAnalysisService
 
         try
         {
-            var regions = user.Regions
-                .Select(r => UserCompanyService.ResolveRegionName(r.Region))
-                .Where(r => !string.IsNullOrWhiteSpace(r))
-                .Select(r => r.Trim())
-                .Where(r => r.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var queueMessage = new NoticeAnalysisQueueMessage
+            {
+                AnalysisId = analysis.Id,
+                NoticeId = noticeId,
+                UserId = userId,
+                CreatedAt = now,
+                Force = force
+            };
 
-            var prompt = BuildPrompt(
-                notice,
-                user.CompanyInfo!,
-                regions,
-                attachments,
-                activeVersion.ProcedureWindow,
-                out var attachmentContents);
+            await _eventBusPublisher.PublishNoticeAnalysisAsync(queueMessage, cancellationToken);
 
-            var answer = await RequestAnalysisAsync(prompt, attachmentContents, cancellationToken);
-            var structuredResult = DeserializeTenderAnalysisResult(answer);
-            var serializedResult = JsonSerializer.Serialize(structuredResult, SerializerOptions);
-
-            analysis.Status = NoticeAnalysisStatus.Completed;
-            analysis.Result = serializedResult;
-            analysis.DecisionScore = structuredResult.DecisionScore;
-            analysis.Recommended = structuredResult.Recommended;
-            analysis.CompletedAt = DateTime.UtcNow;
-            analysis.UpdatedAt = analysis.CompletedAt.Value;
-
-            await context.SaveChangesAsync(cancellationToken);
-
-            return ToResponse(analysis, prompt, structuredResult);
+            return ToResponse(analysis);
         }
         catch (NoticeAnalysisException)
         {
@@ -269,7 +255,7 @@ public sealed class NoticeAnalysisService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to analyze notice {NoticeId}", noticeId);
+            _logger.LogError(ex, "Failed to enqueue analysis for notice {NoticeId}", noticeId);
 
             analysis.Status = NoticeAnalysisStatus.Failed;
             analysis.Error = ex.Message;
@@ -278,7 +264,7 @@ public sealed class NoticeAnalysisService
             await context.SaveChangesAsync(cancellationToken);
 
             throw new NoticeAnalysisException(
-                "Не удалось выполнить анализ закупки. Попробуйте повторить позже.",
+                "Не удалось поставить задачу на анализ. Попробуйте повторить позже.",
                 false,
                 ex);
         }
@@ -312,6 +298,187 @@ public sealed class NoticeAnalysisService
         }
 
         return ToResponse(analysis);
+    }
+
+    public async Task ProcessQueueMessageAsync(NoticeAnalysisQueueMessage message, CancellationToken cancellationToken)
+    {
+        if (message.AnalysisId == Guid.Empty || message.NoticeId == Guid.Empty || string.IsNullOrWhiteSpace(message.UserId))
+        {
+            _logger.LogWarning("Получено сообщение анализа с неполными данными: {@Message}", message);
+            return;
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var analysis = await context.NoticeAnalyses
+            .FirstOrDefaultAsync(a => a.Id == message.AnalysisId, cancellationToken);
+
+        if (analysis is null)
+        {
+            _logger.LogWarning("Анализ {AnalysisId} для закупки {NoticeId} не найден в базе", message.AnalysisId, message.NoticeId);
+            return;
+        }
+
+        try
+        {
+            var user = await context.Users
+                .Include(u => u.Regions)
+                .FirstOrDefaultAsync(u => u.Id == analysis.UserId, cancellationToken)
+                ?? throw new NoticeAnalysisException("Пользователь не найден.", true);
+
+            if (string.IsNullOrWhiteSpace(user.CompanyInfo))
+            {
+                throw new NoticeAnalysisException("Заполните описание компании в профиле пользователя.", true);
+            }
+
+            if (user.Regions.Count == 0)
+            {
+                throw new NoticeAnalysisException("Укажите хотя бы один регион в профиле пользователя.", true);
+            }
+
+            var notice = await context.Notices
+                .Include(n => n.Versions.Where(v => v.IsActive))
+                    .ThenInclude(v => v.Attachments)
+                .Include(n => n.Versions.Where(v => v.IsActive))
+                    .ThenInclude(v => v.ProcedureWindow)
+                .FirstOrDefaultAsync(n => n.Id == analysis.NoticeId, cancellationToken)
+                ?? throw new NoticeAnalysisException("Закупка не найдена.", true);
+
+            var activeVersion = notice.Versions.FirstOrDefault(v => v.IsActive)
+                ?? throw new NoticeAnalysisException("Для закупки отсутствует активная версия.", true);
+
+            var attachments = activeVersion.Attachments
+                .OrderBy(a => a.FileName)
+                .ToList();
+
+            if (attachments.Count == 0)
+            {
+                throw new NoticeAnalysisException(
+                    "Сначала скачайте вложения для закупки и конвертируйте их в Markdown.",
+                    true);
+            }
+
+            await EnsureAttachmentsDownloadedAsync(context, attachments, cancellationToken);
+            await EnsureAttachmentsConvertedToMarkdownAsync(context, attachments, cancellationToken);
+
+            if (!attachments.Any(a => !string.IsNullOrWhiteSpace(a.MarkdownContent)))
+            {
+                throw new NoticeAnalysisException(
+                    "Не удалось подготовить вложения для анализа. Попробуйте выполнить конвертацию вручную и повторите попытку.",
+                    true);
+            }
+
+            var regions = user.Regions
+                .Select(r => UserCompanyService.ResolveRegionName(r.Region))
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .Select(r => r.Trim())
+                .Where(r => r.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var prompt = BuildPrompt(
+                notice,
+                user.CompanyInfo!,
+                regions,
+                attachments,
+                activeVersion.ProcedureWindow,
+                out var attachmentContents);
+
+            var answer = await RequestAnalysisAsync(prompt, attachmentContents, cancellationToken);
+            var structuredResult = DeserializeTenderAnalysisResult(answer);
+            var serializedResult = JsonSerializer.Serialize(structuredResult, SerializerOptions);
+
+            analysis.Status = NoticeAnalysisStatus.Completed;
+            analysis.Result = serializedResult;
+            analysis.DecisionScore = structuredResult.DecisionScore;
+            analysis.Recommended = structuredResult.Recommended;
+            analysis.CompletedAt = DateTime.UtcNow;
+            analysis.UpdatedAt = analysis.CompletedAt.Value;
+            analysis.Error = null;
+
+            await context.SaveChangesAsync(cancellationToken);
+            await PublishAnalysisResultAsync(analysis, cancellationToken);
+        }
+        catch (NoticeAnalysisException ex)
+        {
+            await MarkAnalysisFailedAsync(context, analysis, ex.Message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process analysis {AnalysisId} from queue", message.AnalysisId);
+            await MarkAnalysisFailedAsync(context, analysis, ex.Message, cancellationToken);
+        }
+    }
+
+    public async Task<int> ResetStuckAnalysesAsync(CancellationToken cancellationToken)
+    {
+        var threshold = DateTime.UtcNow.AddMinutes(-5);
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var stuckAnalyses = await context.NoticeAnalyses
+            .Where(a => a.Status == NoticeAnalysisStatus.InProgress && a.UpdatedAt < threshold)
+            .ToListAsync(cancellationToken);
+
+        if (stuckAnalyses.Count == 0)
+        {
+            return 0;
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var analysis in stuckAnalyses)
+        {
+            analysis.Status = NoticeAnalysisStatus.Failed;
+            analysis.Error = "Задача анализа сброшена: очередь пуста или обработчик недоступен.";
+            analysis.UpdatedAt = now;
+            analysis.CompletedAt = null;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        foreach (var analysis in stuckAnalyses)
+        {
+            try
+            {
+                await PublishAnalysisResultAsync(analysis, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось отправить результат сброса для анализа {AnalysisId}", analysis.Id);
+            }
+        }
+
+        return stuckAnalyses.Count;
+    }
+
+    private async Task PublishAnalysisResultAsync(NoticeAnalysis analysis, CancellationToken cancellationToken)
+    {
+        var message = new NoticeAnalysisResultMessage
+        {
+            AnalysisId = analysis.Id,
+            NoticeId = analysis.NoticeId,
+            UserId = analysis.UserId,
+            Status = analysis.Status,
+            HasResult = analysis.Status == NoticeAnalysisStatus.Completed && !string.IsNullOrWhiteSpace(analysis.Result),
+            Error = analysis.Error,
+            UpdatedAt = analysis.UpdatedAt
+        };
+
+        await _eventBusPublisher.PublishNoticeAnalysisResultAsync(message, cancellationToken);
+    }
+
+    private async Task MarkAnalysisFailedAsync(
+        NoticeDbContext context,
+        NoticeAnalysis analysis,
+        string errorMessage,
+        CancellationToken cancellationToken)
+    {
+        analysis.Status = NoticeAnalysisStatus.Failed;
+        analysis.Error = errorMessage;
+        analysis.UpdatedAt = DateTime.UtcNow;
+        analysis.CompletedAt = null;
+
+        await context.SaveChangesAsync(cancellationToken);
+        await PublishAnalysisResultAsync(analysis, cancellationToken);
     }
 
     private async Task EnsureAttachmentsDownloadedAsync(
