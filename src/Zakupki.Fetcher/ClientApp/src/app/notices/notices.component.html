@@ -96,7 +96,10 @@
             <div class="form-grid">
               <mat-form-field appearance="outline" class="form-field">
                 <mat-label>Сохранённый запрос</mat-label>
-                <mat-select formControlName="queryVectorId" [disabled]="queryVectorsLoading">
+                <mat-select
+                  formControlName="queryVectorId"
+                  [disabled]="queryVectorsLoading"
+                  [displayWith]="displayVectorQuery">
                   <mat-option *ngIf="queryVectorsLoading" value="" disabled>Загрузка…</mat-option>
                   <mat-option *ngIf="!queryVectorsLoading && queryVectors.length === 0" value="" disabled>
                     Нет сохранённых запросов
