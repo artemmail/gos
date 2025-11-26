@@ -168,7 +168,11 @@
             </ng-container>
             <ng-container matColumnDef="purchaseNumber">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseNumber">Номер закупки</th>
-              <td mat-cell *matCellDef="let element">{{ element.purchaseNumber }}</td>
+              <td mat-cell *matCellDef="let element">
+                <a [routerLink]="['/notices', element.id]" class="purchase-link">
+                  {{ element.purchaseNumber }}
+                </a>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="similarity">

@@ -17,6 +17,8 @@ import { CompanyProfileDialogComponent } from './company-profile-dialog/company-
 import { NoticeAnalysisDialogComponent } from './notice-analysis-dialog/notice-analysis-dialog.component';
 import { QueryVectorsComponent } from './query-vectors/query-vectors.component';
 import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.component';
+import { NoticeCommonInfoComponent } from './notice-common-info/notice-common-info.component';
+import { NoticeDetailsComponent } from './notice-details/notice-details.component';
 
 @NgModule({
   declarations: [
@@ -28,7 +30,9 @@ import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.
     CompanyProfileDialogComponent,
     NoticeAnalysisDialogComponent,
     QueryVectorsComponent,
-    QueryVectorDialogComponent
+    QueryVectorDialogComponent,
+    NoticeCommonInfoComponent,
+    NoticeDetailsComponent
   ],
   imports: [
     BrowserModule,

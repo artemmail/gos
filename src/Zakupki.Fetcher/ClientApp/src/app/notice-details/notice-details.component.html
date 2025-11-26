@@ -1,0 +1,66 @@
+<div class="notice-details-page">
+  <div class="content-container">
+    <mat-card>
+      <div class="page-header">
+        <button mat-button type="button" (click)="goBack()" class="back-button">
+          <mat-icon fontIcon="arrow_back"></mat-icon>
+          <span>Назад</span>
+        </button>
+
+        <div class="page-header-text">
+          <div class="notice-number">Закупка {{ details?.purchaseNumber }}</div>
+          <div class="notice-title">{{ title }}</div>
+        </div>
+
+        <div class="header-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="loadNotice()" [disabled]="isLoading">
+            <mat-icon fontIcon="refresh"></mat-icon>
+            <span>Обновить</span>
+          </button>
+          <button
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="openRawJson()"
+            [disabled]="!details?.rawJson"
+          >
+            <mat-icon fontIcon="code"></mat-icon>
+            <span>Открыть JSON</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="loading-block" *ngIf="isLoading">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+
+      <div class="error-block" *ngIf="!isLoading && errorMessage">
+        <mat-icon fontIcon="error_outline"></mat-icon>
+        <p>{{ errorMessage }}</p>
+        <button mat-raised-button color="primary" type="button" (click)="loadNotice()">
+          Повторить
+        </button>
+      </div>
+
+      <ng-container *ngIf="!isLoading && !errorMessage">
+        <app-notice-common-info *ngIf="parsedNotice; else parseErrorTpl" [notice]="parsedNotice"></app-notice-common-info>
+      </ng-container>
+
+      <ng-template #parseErrorTpl>
+        <div class="error-block">
+          <mat-icon fontIcon="warning"></mat-icon>
+          <p>{{ parseError }}</p>
+          <button
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="openRawJson()"
+            [disabled]="!details?.rawJson"
+          >
+            Смотреть JSON
+          </button>
+        </div>
+      </ng-template>
+    </mat-card>
+  </div>
+</div>

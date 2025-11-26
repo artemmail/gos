@@ -1,0 +1,280 @@
+.notice-common-info {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: #222;
+}
+
+.notice-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.notice-header-main {
+  flex: 1 1 auto;
+}
+
+.notice-number .label {
+  font-size: 12px;
+  color: #777;
+  display: block;
+}
+
+.notice-number .value {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.notice-title {
+  margin: 8px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.notice-header-aside {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.price-block {
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.price-block .label {
+  font-size: 12px;
+  color: #777;
+}
+
+.price-block .price-value {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.price-block .price-currency {
+  font-size: 12px;
+  color: #555;
+}
+
+.etp-block {
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.etp-block .label {
+  font-size: 12px;
+  color: #777;
+}
+
+.etp-name a {
+  text-decoration: none;
+  color: #0054a6;
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #0054a6;
+  font-size: 15px;
+}
+
+.subsection-title {
+  font-weight: 600;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.info-table th,
+.info-table td {
+  border: 1px solid #e0e0e0;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.info-table th {
+  width: 260px;
+  background: #fafafa;
+  font-weight: 500;
+}
+
+.info-table td {
+  background: #fff;
+}
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.section-grid > .section {
+  margin-bottom: 0;
+}
+
+.muted {
+  color: #888;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.badge-success {
+  background: #e0f5e4;
+  color: #247a2f;
+}
+
+.badge-warning {
+  background: #fff4d8;
+  color: #8c6a00;
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+}
+
+/* Таблица объектов закупки */
+
+.objects-table,
+.attachments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.objects-table th,
+.objects-table td,
+.attachments-table th,
+.attachments-table td {
+  border: 1px solid #e0e0e0;
+  padding: 4px 6px;
+  vertical-align: top;
+}
+
+.objects-table thead th,
+.attachments-table thead th {
+  background: #f0f0f0;
+  font-weight: 600;
+}
+
+.objects-table tfoot td {
+  font-weight: 600;
+  background: #fafafa;
+}
+
+.obj-name {
+  font-weight: 500;
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* Место оказания услуг */
+
+.place-row {
+  padding: 4px 0;
+}
+
+.place-country {
+  font-size: 12px;
+  color: #777;
+}
+
+.place-address {
+  font-weight: 500;
+}
+
+/* Требования / преимущества */
+
+.simple-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.requirements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.requirement {
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.requirement-header {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.requirement-add-item {
+  margin-top: 6px;
+}
+
+.requirement-add-title {
+  font-weight: 500;
+}
+
+/* Вложения */
+
+.btn-print-form {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #0054a6;
+  color: #0054a6;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.btn-print-form:hover {
+  background: #0054a6;
+  color: #fff;
+}
+
+/* Адаптив */
+
+@media (max-width: 768px) {
+  .notice-header {
+    flex-direction: column;
+  }
+
+  .notice-header-aside {
+    flex: 1 1 auto;
+  }
+
+  .info-table th {
+    width: 40%;
+  }
+}

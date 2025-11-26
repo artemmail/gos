@@ -1,0 +1,418 @@
+<div class="notice-common-info" *ngIf="notice as n">
+  <!-- Шапка закупки -->
+  <div class="notice-header">
+    <div class="notice-header-main">
+      <div class="notice-number">
+        <span class="label">Номер извещения</span>
+        <span class="value">{{ n.commonInfo?.docNumber || n.commonInfo?.purchaseNumber }}</span>
+      </div>
+
+      <h1 class="notice-title">
+        {{ n.commonInfo?.purchaseObjectInfo }}
+      </h1>
+    </div>
+
+    <div class="notice-header-aside">
+      <div class="price-block" *ngIf="n.notificationInfo?.contractConditionsInfo?.maxPriceInfo as priceInfo">
+        <div class="label">Начальная (максимальная) цена</div>
+        <div class="price-value">
+          {{ priceInfo.maxPrice | number:'1.2-2':'ru-RU' }}
+        </div>
+        <div class="price-currency">
+          {{ priceInfo.currency?.name || priceInfo.currency?.code }}
+        </div>
+      </div>
+
+      <div class="etp-block" *ngIf="n.commonInfo?.etp as etp">
+        <div class="label">Электронная площадка</div>
+        <div class="etp-name">
+          <a *ngIf="etp.url" [href]="etp.url" target="_blank" rel="noopener">
+            {{ etp.name }}
+          </a>
+          <span *ngIf="!etp.url">{{ etp.name }}</span>
+        </div>
+        <div class="etp-code" *ngIf="etp.code">Код: {{ etp.code }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ОБЩИЕ СВЕДЕНИЯ -->
+  <div class="section">
+    <div class="section-title">Общие сведения</div>
+    <table class="info-table">
+      <tbody>
+        <tr *ngIf="n.commonInfo?.placingWay as pw">
+          <th>Способ определения поставщика</th>
+          <td>{{ pw.name }} <span class="muted" *ngIf="pw.code">({{ pw.code }})</span></td>
+        </tr>
+
+        <tr *ngIf="n.commonInfo?.plannedPublishDateRaw">
+          <th>Планируемая дата публикации</th>
+          <td>{{ formatRawDate(n.commonInfo?.plannedPublishDateRaw) }}</td>
+        </tr>
+
+        <tr *ngIf="n.commonInfo?.publishDtInEis">
+          <th>Дата и время размещения в ЕИС</th>
+          <td>{{ formatDateTime(n.commonInfo?.publishDtInEis) }}</td>
+        </tr>
+
+        <tr *ngIf="n.commonInfo?.href">
+          <th>Ссылка на карточку в ЕИС</th>
+          <td>
+            <a [href]="n.commonInfo?.href" target="_blank" rel="noopener">
+              {{ n.commonInfo?.href }}
+            </a>
+          </td>
+        </tr>
+
+        <tr>
+          <th>Статус публикации</th>
+          <td>
+            <span *ngIf="n.commonInfo?.notPublishedOnEis" class="badge badge-warning">
+              Не опубликовано в ЕИС
+            </span>
+            <span *ngIf="!n.commonInfo?.notPublishedOnEis" class="badge badge-success">
+              Опубликовано
+            </span>
+          </td>
+        </tr>
+
+        <tr *ngIf="n.commonInfo?.contractConclusionOnSt83Ch2 !== undefined">
+          <th>Заключение контракта по п. 2 ч. 1 ст. 83</th>
+          <td>
+            <span *ngIf="n.commonInfo?.contractConclusionOnSt83Ch2">Да</span>
+            <span *ngIf="!n.commonInfo?.contractConclusionOnSt83Ch2">Нет</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ОРГАНИЗАЦИЯ / СПЕЦОРГАНИЗАЦИЯ / КОНТАКТЫ -->
+  <div class="section section-grid">
+    <div class="section">
+      <div class="section-title">Организация, осуществляющая закупку</div>
+      <table class="info-table" *ngIf="n.purchaseResponsibleInfo?.responsibleOrgInfo as org">
+        <tbody>
+          <tr *ngIf="org.fullName">
+            <th>Полное наименование</th>
+            <td>{{ org.fullName }}</td>
+          </tr>
+          <tr *ngIf="org.shortName">
+            <th>Сокращённое наименование</th>
+            <td>{{ org.shortName }}</td>
+          </tr>
+          <tr *ngIf="org.postAddress">
+            <th>Почтовый адрес</th>
+            <td>{{ org.postAddress }}</td>
+          </tr>
+          <tr *ngIf="org.factAddress">
+            <th>Фактический адрес</th>
+            <td>{{ org.factAddress }}</td>
+          </tr>
+          <tr *ngIf="org.inn || org.kpp">
+            <th>ИНН / КПП</th>
+            <td>
+              <span *ngIf="org.inn">ИНН {{ org.inn }}</span>
+              <span *ngIf="org.kpp"> / КПП {{ org.kpp }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Специализированная организация</div>
+      <table class="info-table" *ngIf="n.purchaseResponsibleInfo?.specializedOrgInfo as sp">
+        <tbody>
+          <tr *ngIf="sp.fullName">
+            <th>Полное наименование</th>
+            <td>{{ sp.fullName }}</td>
+          </tr>
+          <tr *ngIf="sp.shortName">
+            <th>Сокращённое наименование</th>
+            <td>{{ sp.shortName }}</td>
+          </tr>
+          <tr *ngIf="sp.postAddress">
+            <th>Почтовый адрес</th>
+            <td>{{ sp.postAddress }}</td>
+          </tr>
+          <tr *ngIf="sp.factAddress">
+            <th>Фактический адрес</th>
+            <td>{{ sp.factAddress }}</td>
+          </tr>
+          <tr *ngIf="sp.inn || sp.kpp">
+            <th>ИНН / КПП</th>
+            <td>
+              <span *ngIf="sp.inn">ИНН {{ sp.inn }}</span>
+              <span *ngIf="sp.kpp"> / КПП {{ sp.kpp }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Контактная информация</div>
+      <table class="info-table" *ngIf="n.purchaseResponsibleInfo?.responsibleInfo as r">
+        <tbody>
+          <tr *ngIf="r.contactPersonInfo">
+            <th>Ответственное лицо</th>
+            <td>
+              {{
+                (r.contactPersonInfo.lastName || '') +
+                ' ' +
+                (r.contactPersonInfo.firstName || '') +
+                ' ' +
+                (r.contactPersonInfo.middleName || '')
+              }}
+            </td>
+          </tr>
+          <tr *ngIf="r.contactPhone">
+            <th>Телефон</th>
+            <td>{{ r.contactPhone }}</td>
+          </tr>
+          <tr *ngIf="r.contactEmail">
+            <th>E-mail</th>
+            <td>
+              <a [href]="'mailto:' + r.contactEmail">{{ r.contactEmail }}</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ПРОЦЕДУРА -->
+  <div class="section">
+    <div class="section-title">Информация о процедуре</div>
+    <table class="info-table">
+      <tbody>
+        <tr *ngIf="n.notificationInfo?.procedureInfo?.collectingInfo as ci">
+          <th>Сроки подачи заявок</th>
+          <td>
+            с {{ formatDateTime(ci.startDt) }}<br />
+            по {{ formatDateTime(ci.endDt) }}
+          </td>
+        </tr>
+
+        <tr *ngIf="n.notificationInfo?.procedureInfo?.biddingDateRaw">
+          <th>Дата проведения аукциона</th>
+          <td>{{ formatRawDate(n.notificationInfo?.procedureInfo?.biddingDateRaw) }}</td>
+        </tr>
+
+        <tr *ngIf="n.notificationInfo?.procedureInfo?.summarizingDateRaw">
+          <th>Дата подведения итогов</th>
+          <td>{{ formatRawDate(n.notificationInfo?.procedureInfo?.summarizingDateRaw) }}</td>
+        </tr>
+
+        <tr *ngIf="n.notificationInfo?.contractConditionsInfo?.standardContractNumber">
+          <th>Типовой номер контракта</th>
+          <td>{{ n.notificationInfo?.contractConditionsInfo?.standardContractNumber }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ОБЕСПЕЧЕНИЕ ЗАЯВОК / КОНТРАКТА (по первому customerRequirements) -->
+  <div class="section" *ngIf="n.notificationInfo?.customerRequirementsInfo?.items?.length">
+    <div class="section-title">Обеспечение заявки и исполнения контракта</div>
+    <ng-container *ngFor="let cr of n.notificationInfo?.customerRequirementsInfo?.items; let i = index">
+      <div class="subsection-title" *ngIf="cr.customer?.fullName">
+        Заказчик {{ i + 1 }}: {{ cr.customer?.fullName }}
+      </div>
+      <table class="info-table">
+        <tbody>
+          <tr *ngIf="cr.applicationGuarantee?.amount != null">
+            <th>Обеспечение заявки</th>
+            <td>
+              {{ cr.applicationGuarantee?.amount | number:'1.2-2':'ru-RU' }} руб.
+            </td>
+          </tr>
+
+          <tr *ngIf="cr.applicationGuarantee?.procedureInfo">
+            <th>Порядок внесения обеспечения заявки</th>
+            <td class="pre-wrap">
+              {{ cr.applicationGuarantee?.procedureInfo }}
+            </td>
+          </tr>
+
+          <tr *ngIf="cr.contractGuarantee?.procedureInfo">
+            <th>Обеспечение исполнения контракта</th>
+            <td class="pre-wrap">
+              {{ cr.contractGuarantee?.procedureInfo }}
+            </td>
+          </tr>
+
+          <tr *ngIf="cr.addInfo">
+            <th>Дополнительная информация</th>
+            <td class="pre-wrap">{{ cr.addInfo }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+
+  <!-- ОБЪЕКТ ЗАКУПКИ -->
+  <div class="section" *ngIf="n.notificationInfo?.purchaseObjectsInfo?.notDrugPurchaseObjectsInfo as po">
+    <div class="section-title">Объект закупки</div>
+
+    <table class="objects-table">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Код КТРУ</th>
+          <th>Наименование товара, работы, услуги</th>
+          <th>Код ОКПД2</th>
+          <th>Ед. изм.</th>
+          <th>Кол-во</th>
+          <th>Цена за ед., руб.</th>
+          <th>Стоимость, руб.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of po.items; let i = index">
+          <td>{{ i + 1 }}</td>
+          <td>{{ item.ktru?.code }}</td>
+          <td>
+            <div class="obj-name">{{ item.name || item.ktru?.name }}</div>
+            <div class="muted" *ngIf="item.ktru?.name && item.ktru?.name !== item.name">
+              {{ item.ktru?.name }}
+            </div>
+          </td>
+          <td>
+            <div>{{ item.ktru?.okpd2?.code }}</div>
+            <div class="muted">{{ item.ktru?.okpd2?.name }}</div>
+          </td>
+          <td>
+            <div>{{ item.okei?.name }}</div>
+            <div class="muted" *ngIf="item.okei?.nationalCode">
+              ({{ item.okei?.nationalCode }})
+            </div>
+          </td>
+          <td>{{ item.quantity?.value || item.customerQuantities?.[0]?.quantity }}</td>
+          <td>{{ item.price | number:'1.2-2':'ru-RU' }}</td>
+          <td>{{ item.sum | number:'1.2-2':'ru-RU' }}</td>
+        </tr>
+      </tbody>
+      <tfoot *ngIf="po.totalSum != null">
+        <tr>
+          <td colspan="7" class="text-right">Итого:</td>
+          <td>{{ po.totalSum | number:'1.2-2':'ru-RU' }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- МЕСТО ОКАЗАНИЯ УСЛУГ -->
+  <div class="section" *ngIf="n.notificationInfo?.customerRequirementsInfo?.items?.length">
+    <div class="section-title">Место оказания услуг</div>
+    <ng-container *ngFor="let cr of n.notificationInfo?.customerRequirementsInfo?.items">
+      <ng-container *ngIf="cr.innerContractConditionsInfo?.deliveryPlacesInfo?.items as places">
+        <div *ngFor="let p of places" class="place-row">
+          <div class="place-country">
+            {{ p.countryInfo?.countryFullName || p.countryInfo?.countryCode }}
+          </div>
+          <div class="place-address">
+            {{ p.garInfo?.garAddress }}
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+  </div>
+
+  <!-- ПРЕИМУЩЕСТВА -->
+  <div class="section" *ngIf="n.notificationInfo?.preferensesInfo?.items?.length">
+    <div class="section-title">Преимущества</div>
+    <ul class="simple-list">
+      <li *ngFor="let p of n.notificationInfo?.preferensesInfo?.items">
+        <strong *ngIf="p.preferenseRequirementInfo?.shortName">
+          {{ p.preferenseRequirementInfo?.shortName }}:
+        </strong>
+        {{ p.preferenseRequirementInfo?.name }}
+      </li>
+    </ul>
+  </div>
+
+  <!-- ТРЕБОВАНИЯ -->
+  <div class="section" *ngIf="n.notificationInfo?.requirementsInfo?.items?.length">
+    <div class="section-title">Требования к участникам</div>
+    <div class="requirements-list">
+      <div class="requirement" *ngFor="let r of n.notificationInfo?.requirementsInfo?.items">
+        <div class="requirement-header">
+          <strong *ngIf="r.preferenseRequirementInfo?.shortName">
+            {{ r.preferenseRequirementInfo?.shortName }}:
+          </strong>
+          {{ r.preferenseRequirementInfo?.name }}
+        </div>
+        <div class="requirement-body pre-wrap" *ngIf="r.content">
+          {{ r.content }}
+        </div>
+        <div class="requirement-add" *ngIf="r.addRequirements?.items?.length">
+          <div
+            class="requirement-add-item"
+            *ngFor="let ar of r.addRequirements?.items"
+          >
+            <div class="requirement-add-title">
+              <strong *ngIf="ar.shortName">{{ ar.shortName }}: </strong>{{ ar.name }}
+            </div>
+            <div class="requirement-add-body pre-wrap" *ngIf="ar.content">
+              {{ ar.content }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВЛОЖЕНИЯ -->
+  <div class="section" *ngIf="n.attachmentsInfo?.items?.length">
+    <div class="section-title">Документы закупки</div>
+
+    <table class="attachments-table">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Тип документа</th>
+          <th>Описание</th>
+          <th>Файл</th>
+          <th>Дата</th>
+          <th>Размер</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of n.attachmentsInfo?.items; let i = index">
+          <td>{{ i + 1 }}</td>
+          <td>{{ a.docKindInfo?.name }}</td>
+          <td>{{ a.docDescription }}</td>
+          <td>
+            <a
+              *ngIf="a.url"
+              [href]="a.url"
+              target="_blank"
+              rel="noopener"
+            >
+              {{ a.fileName }}
+            </a>
+            <span *ngIf="!a.url">{{ a.fileName }}</span>
+          </td>
+          <td>{{ formatDateTime(a.docDate) }}</td>
+          <td>{{ formatFileSize(a.fileSize) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ПЕЧАТНАЯ ФОРМА -->
+  <div class="section" *ngIf="n.printFormInfo?.url">
+    <div class="section-title">Печатная форма извещения</div>
+    <a
+      class="btn-print-form"
+      [href]="n.printFormInfo?.url"
+      target="_blank"
+      rel="noopener"
+    >
+      Открыть печатную форму
+    </a>
+  </div>
+</div>
