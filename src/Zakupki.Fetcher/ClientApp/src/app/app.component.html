@@ -16,7 +16,7 @@
     </nav>
     <span class="spacer"></span>
     <span class="user-name">{{ user.displayName || user.email }}</span>
-    <button mat-button (click)="openCompanyProfileDialog()">Данные компании</button>
+    <a mat-button routerLink="/company-profile" routerLinkActive="active-link">Данные компании</a>
     <button mat-button (click)="onLogout()">Выйти</button>
   </ng-container>
   <ng-template #loginLink>

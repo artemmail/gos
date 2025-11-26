@@ -5,6 +5,7 @@ import { AuthCallbackComponent } from './auth-callback/auth-callback.component';
 import { NoticesComponent } from './notices/notices.component';
 import { AuthGuard } from './services/auth.guard';
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
+import { CompanyProfileComponent } from './company-profile/company-profile.component';
 
 export const appRoutes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -12,6 +13,11 @@ export const appRoutes: Routes = [
   {
     path: '',
     component: NoticesComponent,
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'company-profile',
+    component: CompanyProfileComponent,
     canActivate: [AuthGuard]
   },
   {
