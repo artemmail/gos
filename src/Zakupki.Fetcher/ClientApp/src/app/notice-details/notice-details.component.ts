@@ -6,9 +6,11 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 
 import { NoticeCommonInfo, NoticeDetails } from '../models/notice.models';
+import { NoticeAttachment } from '../models/attachment.models';
 import { RawJsonDialogComponent } from '../raw-json-dialog/raw-json-dialog.component';
 import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticesService } from '../services/notices.service';
+import { AttachmentsService } from '../services/attachments.service';
 
 @Component({
   selector: 'app-notice-details',
@@ -23,12 +25,14 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
   details: NoticeDetails | null = null;
   parsedNotice: NoticeCommonInfo | null = null;
   rawJsonText = '';
+  attachments: NoticeAttachment[] = [];
 
   private readonly destroy$ = new Subject<void>();
 
   constructor(
     private readonly route: ActivatedRoute,
     private readonly noticesService: NoticesService,
+    private readonly attachmentsService: AttachmentsService,
     private readonly dialog: MatDialog,
     private readonly location: Location
   ) {}
@@ -83,15 +87,31 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
         next: notice => {
           this.details = notice;
           this.rawJsonText = notice.rawJson ?? '';
-          debugger
           this.parsedNotice = this.parseNotice(this.rawJsonText);
+          this.loadAttachments();
         },
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные извещения.';
           this.details = null;
           this.parsedNotice = null;
           this.rawJsonText = '';
+          this.attachments = [];
         }
+      });
+  }
+
+  private loadAttachments(): void {
+    if (!this.noticeId) {
+      this.attachments = [];
+      return;
+    }
+
+    this.attachmentsService
+      .getAttachments(this.noticeId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: attachments => (this.attachments = attachments),
+        error: () => (this.attachments = [])
       });
   }
 

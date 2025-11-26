@@ -1,5 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 
+import { NoticeAttachment } from '../models/attachment.models';
 import { NoticeCommonInfo } from '../models/notice.models';
 
 @Component({
@@ -10,6 +11,38 @@ import { NoticeCommonInfo } from '../models/notice.models';
 })
 export class NoticeCommonInfoComponent {
   @Input() notice!: NoticeCommonInfo;
+  @Input() attachments: NoticeAttachment[] | null = null;
+
+  get displayAttachments(): Array<{
+    fileName: string;
+    url: string | null;
+    docKindName: string | null;
+    docDescription: string | null;
+    docDate: string | null;
+    fileSize: number | null;
+  }> {
+    const fromNotice = this.notice?.attachmentsInfo?.items?.map(item => ({
+      fileName: item.fileName,
+      url: item.url ?? null,
+      docKindName: item.docKindInfo?.name ?? null,
+      docDescription: item.docDescription ?? null,
+      docDate: item.docDate ?? null,
+      fileSize: item.fileSize ?? null
+    })) ?? [];
+
+    if (fromNotice.length > 0) {
+      return fromNotice;
+    }
+
+    return (this.attachments ?? []).map(att => ({
+      fileName: att.fileName,
+      url: att.url,
+      docKindName: att.documentKindName,
+      docDescription: att.description,
+      docDate: att.documentDate,
+      fileSize: att.fileSize ?? null
+    }));
+  }
 
   getMaxPriceInfo(notice: NoticeCommonInfo): { maxPrice: number; currency?: string | null } | null {
     const contractPrice = notice.notificationInfo?.contractConditionsInfo?.maxPriceInfo;
