@@ -22,6 +22,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
   parseError = '';
   details: NoticeDetails | null = null;
   parsedNotice: NoticeCommonInfo | null = null;
+  rawJsonText = '';
 
   private readonly destroy$ = new Subject<void>();
 
@@ -81,25 +82,27 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: notice => {
           this.details = notice;
-          this.parsedNotice = this.parseNotice(notice.rawJson);
+          this.rawJsonText = notice.rawJson ?? '';
+          this.parsedNotice = this.parseNotice(this.rawJsonText);
         },
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные извещения.';
           this.details = null;
           this.parsedNotice = null;
+          this.rawJsonText = '';
         }
       });
   }
 
   openRawJson(): void {
-    if (!this.details?.rawJson) {
+    if (!this.rawJsonText) {
       return;
     }
 
     const data: RawJsonDialogData = {
       purchaseNumber: this.details.purchaseNumber,
       title: this.title,
-      rawJson: this.details.rawJson
+      rawJson: this.rawJsonText
     };
 
     this.dialog.open(RawJsonDialogComponent, {
