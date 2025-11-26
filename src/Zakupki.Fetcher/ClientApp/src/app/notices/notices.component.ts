@@ -587,6 +587,12 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clearVectorSearch();
   }
 
+  displayVectorQuery = (id: string): string => {
+    const vector = this.queryVectors.find(item => item.id === id);
+
+    return vector?.query ?? '';
+  };
+
   private updateQueryVectors(vectors: UserQueryVectorDto[]): void {
     this.queryVectors = vectors;
 
