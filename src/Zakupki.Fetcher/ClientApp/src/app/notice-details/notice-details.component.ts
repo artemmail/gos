@@ -95,7 +95,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
   }
 
   openRawJson(): void {
-    if (!this.rawJsonText) {
+    if (!this.rawJsonText || !this.details) {
       return;
     }
 
