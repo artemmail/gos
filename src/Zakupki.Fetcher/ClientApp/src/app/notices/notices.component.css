@@ -247,3 +247,13 @@ mat-table {
 .favorite-button.favorite-active mat-icon {
   color: #e53935;
 }
+
+.purchase-link {
+  color: #1e88e5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.purchase-link:hover {
+  text-decoration: underline;
+}

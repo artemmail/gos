@@ -295,6 +295,30 @@ public class NoticesController : ControllerBase
     }
 
 
+    [HttpGet("{noticeId:guid}")]
+    public async Task<ActionResult<NoticeDetailsDto>> GetNotice(Guid noticeId)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+        var notice = await context.Notices
+            .AsNoTracking()
+            .Where(n => n.Id == noticeId)
+            .Select(n => new NoticeDetailsDto(
+                n.Id,
+                n.PurchaseNumber,
+                n.PurchaseObjectInfo,
+                n.RawJson))
+            .FirstOrDefaultAsync();
+
+        if (notice is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(notice);
+    }
+
+
     [HttpGet]
     public async Task<ActionResult<PagedResult<NoticeListItemDto>>> GetNotices(
         [FromQuery] string? search,
@@ -1232,6 +1256,12 @@ public class NoticesController : ControllerBase
         return "application/octet-stream";
     }
 }
+
+public record NoticeDetailsDto(
+    Guid Id,
+    string PurchaseNumber,
+    string? PurchaseObjectInfo,
+    string? RawJson);
 
 public record NoticeListItemDto(
     Guid Id,

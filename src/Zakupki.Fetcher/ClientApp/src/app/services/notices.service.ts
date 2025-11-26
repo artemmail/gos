@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { NoticeListResponse, NoticeQuery, NoticeVectorQuery } from '../models/notice.models';
+import { NoticeDetails, NoticeListResponse, NoticeQuery, NoticeVectorQuery } from '../models/notice.models';
 
 @Injectable({
   providedIn: 'root'
@@ -63,5 +63,9 @@ export class NoticesService {
     }
 
     return this.http.get<NoticeListResponse>(`${this.baseUrl}/vector-search`, { params });
+  }
+
+  getNotice(noticeId: string): Observable<NoticeDetails> {
+    return this.http.get<NoticeDetails>(`${this.baseUrl}/${noticeId}`);
   }
 }
