@@ -76,12 +76,14 @@ if (string.IsNullOrWhiteSpace(connectionString))
 }
 
 builder.Services.AddDbContext<NoticeDbContext>(
-    options => options.UseSqlServer(connectionString),
+    options => options.UseSqlServer(connectionString, sql =>
+        sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)),
     contextLifetime: ServiceLifetime.Scoped,
     optionsLifetime: ServiceLifetime.Singleton);
 
 builder.Services.AddDbContextFactory<NoticeDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sql =>
+        sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
 
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options =>
