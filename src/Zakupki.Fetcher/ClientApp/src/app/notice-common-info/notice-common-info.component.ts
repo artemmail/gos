@@ -11,6 +11,29 @@ import { NoticeCommonInfo } from '../models/notice.models';
 export class NoticeCommonInfoComponent {
   @Input() notice!: NoticeCommonInfo;
 
+  getMaxPriceInfo(notice: NoticeCommonInfo): { maxPrice: number; currency?: string | null } | null {
+    const contractPrice = notice.notificationInfo?.contractConditionsInfo?.maxPriceInfo;
+    if (contractPrice?.maxPrice != null) {
+      return {
+        maxPrice: contractPrice.maxPrice,
+        currency: contractPrice.currency?.name || contractPrice.currency?.code || null
+      };
+    }
+
+    const customerRequirementPrice = notice.notificationInfo?.customerRequirementsInfo?.items
+      ?.find(item => item.innerContractConditionsInfo?.maxPriceInfo?.maxPrice != null)
+      ?.innerContractConditionsInfo?.maxPriceInfo;
+
+    if (customerRequirementPrice?.maxPrice != null) {
+      return {
+        maxPrice: customerRequirementPrice.maxPrice,
+        currency: null
+      };
+    }
+
+    return null;
+  }
+
   /** "2025-11-24+03:00" -> "24.11.2025" */
   formatRawDate(raw?: string | null): string | null {
     if (!raw) {
