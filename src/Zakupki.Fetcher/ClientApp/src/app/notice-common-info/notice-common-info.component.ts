@@ -20,6 +20,10 @@ export class NoticeCommonInfoComponent {
       };
     }
 
+    if (notice.maxPrice != null) {
+      return { maxPrice: notice.maxPrice, currency: null };
+    }
+
     const customerRequirementPrice = notice.notificationInfo?.customerRequirementsInfo?.items
       ?.find(item => item.innerContractConditionsInfo?.maxPriceInfo?.maxPrice != null)
       ?.innerContractConditionsInfo?.maxPriceInfo;
