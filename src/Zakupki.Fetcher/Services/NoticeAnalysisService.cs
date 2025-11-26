@@ -17,6 +17,7 @@ using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Utilities;
+using Zakupki.EF2020;
 
 namespace Zakupki.Fetcher.Services;
 
@@ -244,9 +245,10 @@ public sealed class NoticeAnalysisService
                 user.CompanyInfo!,
                 regions,
                 attachments,
-                activeVersion.ProcedureWindow);
+                activeVersion.ProcedureWindow,
+                out var attachmentContents);
 
-            var answer = await RequestAnalysisAsync(prompt, cancellationToken);
+            var answer = await RequestAnalysisAsync(prompt, attachmentContents, cancellationToken);
             var structuredResult = DeserializeTenderAnalysisResult(answer);
             var serializedResult = JsonSerializer.Serialize(structuredResult, SerializerOptions);
 
@@ -477,9 +479,28 @@ public sealed class NoticeAnalysisService
 
     private async Task<string> RequestAnalysisAsync(
         string prompt,
+        IReadOnlyCollection<string> attachmentContents,
         CancellationToken cancellationToken)
     {
         var instructions = StructuredResponseInstructions;
+
+        var content = new List<object>
+        {
+            new
+            {
+                type = "input_text",
+                text = prompt
+            }
+        };
+
+        foreach (var attachmentContent in attachmentContents)
+        {
+            content.Add(new
+            {
+                type = "input_text",
+                text = attachmentContent
+            });
+        }
 
         var requestBody = new
         {
@@ -490,14 +511,7 @@ public sealed class NoticeAnalysisService
                 new
                 {
                     role = "user",
-                    content = new object[]
-                    {
-                        new
-                        {
-                            type = "input_text",
-                            text = prompt
-                        }
-                    }
+                    content
                 }
             },
             temperature = 0.2,
@@ -726,14 +740,16 @@ public sealed class NoticeAnalysisService
         result.Scores.Risk ??= new ScoreSection();
     }
 
-    private static string BuildPrompt(
+    private string BuildPrompt(
         Notice notice,
         string companyInfo,
         IReadOnlyCollection<string> regions,
         IReadOnlyCollection<NoticeAttachment> attachments,
-        ProcedureWindow? procedureWindow)
+        ProcedureWindow? procedureWindow,
+        out List<string> attachmentContents)
     {
         var builder = new StringBuilder();
+        attachmentContents = BuildAttachmentContents(attachments);
 
         builder.AppendLine("ПРОФИЛЬ КОМПАНИИ:");
         builder.AppendLine(companyInfo.Trim());
@@ -747,7 +763,7 @@ public sealed class NoticeAnalysisService
         builder.AppendLine($"Номер закупки: {notice.PurchaseNumber}");
         builder.AppendLine($"Предмет закупки: {notice.PurchaseObjectInfo ?? "не указан"}");
 
-        var noticeRegion = UserCompanyService.ResolveRegionName(notice.Region) ?? 
+        var noticeRegion = UserCompanyService.ResolveRegionName(notice.Region) ??
              "не указан";
         builder.AppendLine($"Регион: {noticeRegion}");
         builder.AppendLine($"Площадка: {notice.EtpName ?? "не указана"}");
@@ -790,28 +806,49 @@ public sealed class NoticeAnalysisService
         }
 
         builder.AppendLine();
-        builder.AppendLine("ФРАГМЕНТЫ ВЛОЖЕНИЙ (Markdown):");
+        builder.AppendLine("ТРЕБОВАНИЯ К УЧАСТНИКАМ:");
+        builder.AppendLine(BuildRequirementsSection(notice));
 
-        var totalCharacters = 0;
+        builder.AppendLine();
+        builder.AppendLine("ДОКУМЕНТЫ ЗАКУПКИ:");
+        builder.AppendLine("Перечислены файлы из карточки закупки (тип, описание, имя, дата, размер). Полное содержимое приложено отдельными входами ниже.");
+
         var index = 0;
-
         foreach (var attachment in OrderAttachmentsForPrompt(attachments))
         {
             index++;
+            builder.AppendLine($"- #{index}: {FormatAttachmentSummary(attachment)}");
+        }
 
+        builder.AppendLine();
+        builder.AppendLine(PromptSuffix);
+
+        return builder.ToString();
+    }
+
+    private List<string> BuildAttachmentContents(IReadOnlyCollection<NoticeAttachment> attachments)
+    {
+        var result = new List<string>();
+        var totalCharacters = 0;
+        var index = 0;
+        var limitNoticeAdded = false;
+
+        foreach (var attachment in OrderAttachmentsForPrompt(attachments))
+        {
             if (string.IsNullOrWhiteSpace(attachment.MarkdownContent))
             {
                 continue;
             }
 
-            builder.AppendLine($"### Вложение {index}: {attachment.FileName}");
+            index++;
 
             var sanitized = attachment.MarkdownContent.Replace("\r", string.Empty);
             var maxLength = Math.Min(MaxAttachmentCharacters, MaxTotalAttachmentCharacters - totalCharacters);
 
             if (maxLength <= 0)
             {
-                builder.AppendLine("[Дальнейшее содержимое опущено из-за ограничения размера.]");
+                result.Add("[Дальнейшее содержимое опущено из-за ограничения размера.]");
+                limitNoticeAdded = true;
                 break;
             }
 
@@ -819,22 +856,169 @@ public sealed class NoticeAnalysisService
                 ? sanitized[..maxLength] + " …"
                 : sanitized;
 
-            builder.AppendLine(excerpt.Trim());
-            builder.AppendLine();
+            result.Add($"### Вложение {index}: {attachment.FileName ?? "без имени"}\n{excerpt.Trim()}");
 
             totalCharacters += Math.Min(sanitized.Length, maxLength);
 
             if (totalCharacters >= MaxTotalAttachmentCharacters)
             {
-                builder.AppendLine("[Остальные вложения не включены, чтобы сохранить размер запроса.]");
+                result.Add("[Остальные вложения не включены, чтобы сохранить размер запроса.]");
+                limitNoticeAdded = true;
                 break;
             }
         }
 
-        builder.AppendLine();
-        builder.AppendLine(PromptSuffix);
+        if (result.Count == 0 && !limitNoticeAdded)
+        {
+            result.Add("[Содержимое вложений не подготовлено.]");
+        }
 
-        return builder.ToString();
+        return result;
+    }
+
+    private string BuildRequirementsSection(Notice notice)
+    {
+        if (string.IsNullOrWhiteSpace(notice.RawJson))
+        {
+            return "Нет данных о требованиях к участникам.";
+        }
+
+        try
+        {
+            var notification = JsonSerializer.Deserialize<EpNotificationEf2020>(notice.RawJson, SerializerOptions);
+            var requirements = notification?.NotificationInfo?.RequirementsInfo?.Items;
+
+            if (requirements is null || requirements.Count == 0)
+            {
+                return "Требования к участникам в карточке не указаны.";
+            }
+
+            var builder = new StringBuilder();
+            var index = 0;
+
+            foreach (var requirement in requirements)
+            {
+                index++;
+
+                var titleParts = new List<string>();
+
+                if (!string.IsNullOrWhiteSpace(requirement.PreferenseRequirementInfo?.ShortName))
+                {
+                    titleParts.Add(requirement.PreferenseRequirementInfo.ShortName!);
+                }
+
+                if (!string.IsNullOrWhiteSpace(requirement.PreferenseRequirementInfo?.Name))
+                {
+                    titleParts.Add(requirement.PreferenseRequirementInfo.Name!);
+                }
+
+                var header = titleParts.Count > 0
+                    ? string.Join(" — ", titleParts)
+                    : $"Требование {index}";
+
+                builder.AppendLine($"- {header}");
+
+                if (requirement.ReqValue is not null)
+                {
+                    builder.AppendLine($"  Значение/размер: {requirement.ReqValue.Value}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(requirement.Content))
+                {
+                    builder.AppendLine($"  Описание: {requirement.Content.Trim()}");
+                }
+
+                if (requirement.AddRequirements?.Items is { Count: > 0 })
+                {
+                    foreach (var addRequirement in requirement.AddRequirements.Items)
+                    {
+                        var addTitleParts = new List<string>();
+
+                        if (!string.IsNullOrWhiteSpace(addRequirement.ShortName))
+                        {
+                            addTitleParts.Add(addRequirement.ShortName!);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(addRequirement.Name))
+                        {
+                            addTitleParts.Add(addRequirement.Name!);
+                        }
+
+                        var addHeader = addTitleParts.Count > 0
+                            ? string.Join(" — ", addTitleParts)
+                            : "Дополнительное требование";
+
+                        if (!string.IsNullOrWhiteSpace(addRequirement.Content))
+                        {
+                            builder.AppendLine($"  {addHeader}: {addRequirement.Content.Trim()}");
+                        }
+                        else
+                        {
+                            builder.AppendLine($"  {addHeader}");
+                        }
+                    }
+                }
+            }
+
+            return builder.ToString().Trim();
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse requirements for notice {NoticeId}", notice.Id);
+            return "Не удалось разобрать требования к участникам из карточки.";
+        }
+    }
+
+    private static string FormatAttachmentSummary(NoticeAttachment attachment)
+    {
+        var parts = new List<string>();
+
+        var type = FirstNonEmpty(
+            attachment.DocumentKindName,
+            attachment.DocumentKindCode,
+            "не указан");
+        parts.Add($"Тип: {type}");
+
+        if (!string.IsNullOrWhiteSpace(attachment.Description))
+        {
+            parts.Add($"Описание: {attachment.Description.Trim()}");
+        }
+
+        parts.Add($"Файл: {attachment.FileName ?? "не указан"}");
+
+        if (attachment.DocumentDate is not null)
+        {
+            parts.Add($"Дата: {attachment.DocumentDate:yyyy-MM-dd}");
+        }
+
+        parts.Add($"Размер: {FormatFileSize(attachment.FileSize)}");
+
+        return string.Join("; ", parts);
+    }
+
+    private static string FormatFileSize(long? size)
+    {
+        if (size is null)
+        {
+            return "неизвестен";
+        }
+
+        var value = (double)size.Value;
+        var units = new[] { "Б", "КБ", "МБ", "ГБ" };
+        var unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{value:0.##} {units[unitIndex]}";
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        return values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
     }
 
     private static IEnumerable<NoticeAttachment> OrderAttachmentsForPrompt(IEnumerable<NoticeAttachment> attachments)
