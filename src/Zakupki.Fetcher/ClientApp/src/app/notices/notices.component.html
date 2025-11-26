@@ -198,16 +198,6 @@
               <td mat-cell *matCellDef="let element" class="entry-name">{{ element.okpd2Name || '—' }}</td>
             </ng-container>
 
-            <ng-container matColumnDef="kvrCode">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="kvrCode">КВР (код)</th>
-              <td mat-cell *matCellDef="let element">{{ element.kvrCode || '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="kvrName">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="kvrName">КВР (наименование)</th>
-              <td mat-cell *matCellDef="let element" class="entry-name">{{ element.kvrName || '—' }}</td>
-            </ng-container>
-
             <ng-container matColumnDef="maxPrice">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="maxPrice">Начальная цена</th>
               <td mat-cell *matCellDef="let element">
@@ -236,16 +226,6 @@
               >
                 {{ element.collectingEnd ? (element.collectingEnd | date: 'short') : '—' }}
               </td>
-            </ng-container>
-
-            <ng-container matColumnDef="submissionProcedureDateRaw">
-              <th mat-header-cell *matHeaderCellDef>Дата процедуры подачи</th>
-              <td mat-cell *matCellDef="let element">{{ element.submissionProcedureDateRaw || '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="etpName">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="etpName">Площадка</th>
-              <td mat-cell *matCellDef="let element">{{ element.etpName || '—' }}</td>
             </ng-container>
 
             <ng-container matColumnDef="analysisStatus">
