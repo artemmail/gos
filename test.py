@@ -13,6 +13,7 @@ from pathlib import Path
 import zipfile
 
 import requests
+import urllib3
 
 
 def build_args() -> argparse.Namespace:
@@ -37,6 +38,11 @@ def build_args() -> argparse.Namespace:
         default=600,
         help="Таймаут HTTP-запроса в секундах",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Проверять TLS-сертификат (по умолчанию отключено)",
+    )
     return parser.parse_args()
 
 
@@ -58,9 +64,17 @@ def zip_folder(src: Path) -> tuple[str, bytes]:
     return fname, buffer.getvalue()
 
 
-def upload_zip(url: str, filename: str, payload: bytes, timeout: int) -> None:
+def upload_zip(url: str, filename: str, payload: bytes, timeout: int, verify: bool) -> None:
     print(f"[HTTP] Отправка {filename} на {url}")
-    resp = requests.post(url, files={"file": (filename, payload, "application/zip")}, timeout=timeout)
+    if not verify:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    resp = requests.post(
+        url,
+        files={"file": (filename, payload, "application/zip")},
+        timeout=timeout,
+        verify=verify,
+    )
     print(f"[HTTP] Статус: {resp.status_code}")
     resp.raise_for_status()
     print("[HTTP] Отправлено успешно")
@@ -80,7 +94,7 @@ def main() -> int:
 
     try:
         fname, payload = zip_folder(day_dir)
-        upload_zip(args.upload_url, fname, payload, args.timeout)
+        upload_zip(args.upload_url, fname, payload, args.timeout, args.verify)
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] {exc}")
         return 1
