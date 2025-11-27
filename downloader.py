@@ -256,6 +256,7 @@ def main():
     ap.add_argument("--sleep", type=float, default=0.4, help="пауза между запросами, сек")
     ap.add_argument("--limit", type=int, default=0, help="0 = без лимита по числу найденных закупок")
     ap.add_argument("--fetch-by-purchase", action="store_true", help="дотягивать «пакет по номеру закупки» (XML)")
+    ap.add_argument("--upload-url", help="куда отправлять zip-архив с выгрузкой (POST)")
     args = ap.parse_args()
 
     regs = REGIONS_ALL if not args.regions else [int(x) for x in args.regions.split(",") if x.strip()]
@@ -338,7 +339,7 @@ def main():
                     total_rows += 1
 
                     print(f"  • [{region:02d}] {date_str} {num} | {det['placingName'] or '—'} | {det['maxPrice'] or '—'} | {det['name'] or '—'}")
-                    folder = out_root / num
+                    folder = out_root / date_str / num
                     (folder / "files").mkdir(parents=True, exist_ok=True)
 
                     notice_fname = f"notice_{dt_code}_{date_str}_{sanitize_name(os.path.basename(name))}"
@@ -408,6 +409,32 @@ def main():
         print("\nИтог: совпадений не найдено.")
     else:
         print(f"\nИтог: обработано закупок: {total_rows}. Смотри папку: {out_root.resolve()}")
+
+        if args.upload_url:
+            files_added = list(out_root.rglob("*"))
+            if not any(p.is_file() for p in files_added):
+                print("[UPLOAD] Нет файлов для отправки")
+                return
+
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
+                for path in files_added:
+                    if not path.is_file():
+                        continue
+                    zip_out.write(path, path.relative_to(out_root).as_posix())
+
+            zip_buf.seek(0)
+            fname = f"notices_{fmt_date(now)}.zip"
+            try:
+                resp = requests.post(
+                    args.upload_url,
+                    files={"file": (fname, zip_buf.getvalue(), "application/zip")},
+                    timeout=600,
+                )
+                print(f"[UPLOAD] HTTP {resp.status_code}")
+                resp.raise_for_status()
+            except Exception as exc:
+                print(f"[UPLOAD] Ошибка отправки: {exc}")
 
 if __name__ == "__main__":
     main()

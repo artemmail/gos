@@ -34,6 +34,7 @@ public class NoticesController : ControllerBase
     private readonly ILogger<NoticesController> _logger;
     private readonly IFavoriteSearchQueueService _favoriteSearchQueueService;
     private readonly UserCompanyService _userCompanyService;
+    private readonly IXmlImportQueue _xmlImportQueue;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
 
@@ -46,7 +47,8 @@ public class NoticesController : ControllerBase
         NoticeAnalysisReportService noticeAnalysisReportService,
         IFavoriteSearchQueueService favoriteSearchQueueService,
         ILogger<NoticesController> logger,
-        UserCompanyService userCompanyService)
+        UserCompanyService userCompanyService,
+        IXmlImportQueue xmlImportQueue)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
@@ -57,6 +59,21 @@ public class NoticesController : ControllerBase
         _favoriteSearchQueueService = favoriteSearchQueueService;
         _logger = logger;
         _userCompanyService = userCompanyService;
+        _xmlImportQueue = xmlImportQueue;
+    }
+
+    [HttpPost("xml-import")]
+    public async Task<IActionResult> EnqueueXmlImport([FromForm] IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { message = "Не передан архив для импорта" });
+        }
+
+        await using var stream = file.OpenReadStream();
+        await _xmlImportQueue.EnqueueAsync(stream, file.FileName, cancellationToken);
+
+        return Accepted(new { message = "Архив поставлен в очередь импорта" });
     }
 
     [HttpPost("favorite-search")]
