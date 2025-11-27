@@ -192,7 +192,9 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
           expiredOnly: vectorCriteria.expiredOnly,
           collectingEndLimit: vectorCriteria.collectingEndLimit,
           filterByUserRegions: vectorCriteria.filterByUserRegions,
-          filterByUserOkpd2Codes: vectorCriteria.filterByUserOkpd2Codes
+          filterByUserOkpd2Codes: vectorCriteria.filterByUserOkpd2Codes,
+          sortField,
+          sortDirection
         })
       : this.isFavoritesPage
         ? this.favoritesService.getFavorites({
