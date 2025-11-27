@@ -165,6 +165,7 @@ public class NoticesController : ControllerBase
         };
     }
 
+    
     [HttpGet("vector-search")]
     [Authorize]
     public async Task<ActionResult<PagedResult<NoticeListItemDto>>> VectorSearch(
@@ -174,6 +175,8 @@ public class NoticesController : ControllerBase
         [FromQuery] bool filterByUserRegions = false,
         [FromQuery] bool filterByUserOkpd2Codes = false,
         [FromQuery] DateTimeOffset? collectingEndLimit = null,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortDirection = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -200,6 +203,14 @@ public class NoticesController : ControllerBase
 
         var normalizedCollectingEnd = (collectingEndLimit ?? DateTimeOffset.UtcNow).UtcDateTime;
         var offset = (page - 1) * pageSize;
+
+        var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
+            ? "similarity"
+            : sortField.Trim().ToLowerInvariant();
+
+        var normalizedSortDirection = string.IsNullOrWhiteSpace(sortDirection)
+            ? "desc"
+            : sortDirection.Trim().ToLowerInvariant();
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -249,27 +260,27 @@ public class NoticesController : ControllerBase
             noticesQuery = ApplyOkpd2Filter(noticesQuery, userOkpd2Codes);
         }
 
-        var matchesQuery =
-            from n in noticesQuery
-            where n.Vector != null
-            let distance = EF.Functions.VectorDistance("cosine", n.Vector.Value, queryVector)
-            where distance <= distanceThreshold
-            orderby distance, n.Id
-            select new
+        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
+
+        var matchesQuery = noticesQuery
+            .Where(n => n.Vector != null)
+            .Select(n => new NoticeVectorMatch
             {
-                NoticeId = n.Id,
-                Distance = distance,
-                n.CollectingEnd
-            };
+                Notice = n,
+                Distance = EF.Functions.VectorDistance("cosine", n.Vector.Value, queryVector)
+            })
+            .Where(m => m.Distance <= distanceThreshold);
 
         if (!expiredOnly)
         {
             matchesQuery = matchesQuery
-                .Where(m => m.CollectingEnd == null || m.CollectingEnd > normalizedCollectingEnd);
+                .Where(m => m.Notice.CollectingEnd == null || m.Notice.CollectingEnd > normalizedCollectingEnd);
         }
 
+        var sortedMatches = ApplyVectorSorting(matchesQuery, normalizedSortField, normalizedSortDirection);
+
         // 3. Общее количество
-        var totalCount = await matchesQuery.LongCountAsync(cancellationToken);
+        var totalCount = await sortedMatches.LongCountAsync(cancellationToken);
 
         if (totalCount == 0)
         {
@@ -280,45 +291,21 @@ public class NoticesController : ControllerBase
                 pageSize));
         }
 
-        // 4. Пагинация + выборка нужных NoticeId и distance
-        var pageMatches = await matchesQuery
+        // 4. Пагинация + выборка нужных данных
+        var rows = await sortedMatches
             .Skip(offset)
             .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        var noticeIds = pageMatches
-            .Select(m => m.NoticeId)
-            .ToList();
-
-        // Считаем similarity в памяти: similarity = 1 - distance
-        var orderLookup = pageMatches
-            .Select((m, index) => new
+            .Select(m => new
             {
-                m.NoticeId,
-                Index = index,
-                Similarity = (double?)(1.0 - m.Distance)
-            })
-            .ToDictionary(
-                x => x.NoticeId,
-                x => (x.Index, x.Similarity)
-            );
-
-        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
-
-        // 5. Дотягиваем все остальные поля Notice и аналитику, как у тебя было
-        var noticeRows = await context.Notices
-            .AsNoTracking()
-            .Where(n => noticeIds.Contains(n.Id))
-            .Select(n => new
-            {
-                Notice = n,
-                ProcedureSubmissionDate = n.Versions
+                Notice = m.Notice,
+                m.Distance,
+                ProcedureSubmissionDate = m.Notice.Versions
                     .Where(v => v.IsActive)
                     .Select(v => v.ProcedureWindow != null
                         ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
                         : null)
                     .FirstOrDefault(),
-                Analysis = n.Analyses
+                Analysis = m.Notice.Analyses
                     .Where(a => currentUserId != null && a.UserId == currentUserId)
                     .OrderByDescending(a => a.UpdatedAt)
                     .Select(a => new
@@ -326,15 +313,15 @@ public class NoticesController : ControllerBase
                         a.Status,
                         a.UpdatedAt,
                         a.CompletedAt,
-                        HasResult = a.Result != null && a.Result != ""
+                        HasResult = a.Result != null && a.Result != "",
                     })
                     .FirstOrDefault(),
-                IsFavorite = includeFavorites && n.Favorites.Any(f => f.UserId == currentUserId)
+                IsFavorite = includeFavorites && m.Notice.Favorites.Any(f => f.UserId == currentUserId)
             })
             .ToListAsync(cancellationToken);
 
-        // 6. Собираем DTO и восстанавливаем порядок по индексу из orderLookup
-        var items = noticeRows
+        // 5. Собираем DTO и используем similarity = 1 - distance
+        var items = rows
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
@@ -356,9 +343,8 @@ public class NoticesController : ControllerBase
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
                 x.IsFavorite,
-                orderLookup.TryGetValue(x.Notice.Id, out var ordering) ? ordering.Similarity : null
+                1.0 - x.Distance
             ))
-            .OrderBy(item => orderLookup[item.Id].Item1)
             .ToList();
 
         var total = (int)Math.Min(int.MaxValue, totalCount);
@@ -367,6 +353,59 @@ public class NoticesController : ControllerBase
         return Ok(result);
     }
 
+    private static IOrderedQueryable<NoticeVectorMatch> ApplyVectorSorting(
+        IQueryable<NoticeVectorMatch> query,
+        string sortField,
+        string sortDirection)
+    {
+        var descending = sortDirection == "desc";
+
+        return sortField switch
+        {
+            "similarity" => descending
+                ? query.OrderBy(m => m.Distance).ThenByDescending(m => m.Notice.Id)
+                : query.OrderByDescending(m => m.Distance).ThenByDescending(m => m.Notice.Id),
+            "purchasenumber" => descending
+                ? query.OrderByDescending(m => m.Notice.PurchaseNumber).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.PurchaseNumber).ThenBy(m => m.Distance),
+            "etpname" => descending
+                ? query.OrderByDescending(m => m.Notice.EtpName).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.EtpName).ThenBy(m => m.Distance),
+            "region" => descending
+                ? query.OrderByDescending(m => m.Notice.Region).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.Region).ThenBy(m => m.Distance),
+            "purchaseobjectinfo" => descending
+                ? query.OrderByDescending(m => m.Notice.PurchaseObjectInfo).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.PurchaseObjectInfo).ThenBy(m => m.Distance),
+            "okpd2code" => descending
+                ? query.OrderByDescending(m => m.Notice.Okpd2Code).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.Okpd2Code).ThenBy(m => m.Distance),
+            "okpd2name" => descending
+                ? query.OrderByDescending(m => m.Notice.Okpd2Name).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.Okpd2Name).ThenBy(m => m.Distance),
+            "kvrcode" => descending
+                ? query.OrderByDescending(m => m.Notice.KvrCode).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.KvrCode).ThenBy(m => m.Distance),
+            "kvrname" => descending
+                ? query.OrderByDescending(m => m.Notice.KvrName).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.KvrName).ThenBy(m => m.Distance),
+            "maxprice" => descending
+                ? query.OrderByDescending(m => m.Notice.MaxPrice).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.MaxPrice).ThenBy(m => m.Distance),
+            "collectingend" => descending
+                ? query.OrderByDescending(m => m.Notice.CollectingEnd).ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Notice.CollectingEnd).ThenBy(m => m.Distance),
+            _ => descending
+                ? query.OrderByDescending(m => m.Notice.PublishDate).ThenByDescending(m => m.Notice.Id)
+                : query.OrderBy(m => m.Notice.PublishDate).ThenBy(m => m.Notice.Id)
+        };
+    }
+
+    private sealed class NoticeVectorMatch
+    {
+        public Notice Notice { get; init; } = null!;
+        public double Distance { get; init; }
+    }
 
     [HttpGet("{noticeId:guid}")]
     public async Task<ActionResult<NoticeDetailsDto>> GetNotice(Guid noticeId)

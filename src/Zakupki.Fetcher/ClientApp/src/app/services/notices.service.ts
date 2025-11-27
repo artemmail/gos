@@ -62,6 +62,14 @@ export class NoticesService {
       params = params.set('filterByUserOkpd2Codes', 'true');
     }
 
+    if (query.sortField) {
+      params = params.set('sortField', query.sortField);
+    }
+
+    if (query.sortDirection) {
+      params = params.set('sortDirection', query.sortDirection);
+    }
+
     return this.http.get<NoticeListResponse>(`${this.baseUrl}/vector-search`, { params });
   }
 

@@ -48,6 +48,8 @@ export interface NoticeVectorQuery {
   collectingEndLimit: string;
   filterByUserRegions?: boolean;
   filterByUserOkpd2Codes?: boolean;
+  sortField?: string;
+  sortDirection?: string;
 }
 
 export interface NoticeDetails {
