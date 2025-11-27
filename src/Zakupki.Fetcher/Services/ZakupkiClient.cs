@@ -15,7 +15,11 @@ namespace Zakupki.Fetcher.Services;
 
 public class ZakupkiClient
 {
-    private const string ServiceUrl = "https://int44.zakupki.gov.ru/eis-integration/services/getDocsIP";
+    private static readonly string[] ServiceUrls =
+    {
+        "https://zakupki.gov.ru/eis-integration/services/getDocsIP",
+        "https://int44.zakupki.gov.ru/eis-integration/services/getDocsIP"
+    };
     private static readonly XNamespace SoapNs = "http://schemas.xmlsoap.org/soap/envelope/";
 
     private readonly HttpClient _httpClient;
@@ -69,10 +73,25 @@ public class ZakupkiClient
 
     private async Task<byte[]> PostSoapAsync(string requestXml, CancellationToken cancellationToken)
     {
-        using var content = new StringContent(requestXml, Encoding.UTF8, "text/xml");
-        using var response = await _httpClient.PostAsync(ServiceUrl, content, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        HttpRequestException? lastHttpError = null;
+
+        foreach (var url in ServiceUrls)
+        {
+            try
+            {
+                using var content = new StringContent(requestXml, Encoding.UTF8, "text/xml");
+                using var response = await _httpClient.PostAsync(url, content, cancellationToken);
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            }
+            catch (HttpRequestException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                lastHttpError = ex;
+                _logger.LogWarning(ex, "Failed to send SOAP request to {ServiceUrl}, trying next endpoint", url);
+            }
+        }
+
+        throw lastHttpError ?? new HttpRequestException("Failed to send SOAP request to Zakupki service");
     }
 
     private async Task<IReadOnlyList<NoticeDocument>> DownloadArchiveAsync(string archiveUrl, string documentType, byte region, DateTime period, CancellationToken cancellationToken)
