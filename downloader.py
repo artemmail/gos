@@ -257,6 +257,7 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="0 = без лимита по числу найденных закупок")
     ap.add_argument("--fetch-by-purchase", action="store_true", help="дотягивать «пакет по номеру закупки» (XML)")
     ap.add_argument("--upload-url", help="куда отправлять zip-архив с выгрузкой (POST)")
+    ap.add_argument("--missing-check-url", help="endpoint для проверки существующих закупок (POST)")
     args = ap.parse_args()
 
     regs = REGIONS_ALL if not args.regions else [int(x) for x in args.regions.split(",") if x.strip()]
@@ -265,6 +266,27 @@ def main():
 
     sess = requests.Session()
     sess.trust_env = False
+
+    def filter_missing_numbers(region: int, purchase_numbers: list[str]) -> set[str]:
+        if not args.missing_check_url or not purchase_numbers:
+            return set(purchase_numbers)
+
+        payload = {
+            "region": f"{region:02d}",
+            "purchaseNumbers": purchase_numbers,
+        }
+
+        try:
+            resp = sess.post(args.missing_check_url, json=payload, timeout=120)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                return {str(x) for x in data}
+            print(f"[SKIP] Некорректный ответ от {args.missing_check_url}, продолжаем без фильтрации")
+        except Exception as exc:
+            print(f"[SKIP] Ошибка при проверке существующих закупок: {exc}")
+
+        return set(purchase_numbers)
 
     # sanity check
     rx = sess.get(URL + "?xsd=getDocsIP-ws-api.xsd", timeout=20)
@@ -327,6 +349,8 @@ def main():
                 continue
 
             with zipfile.ZipFile(io.BytesIO(zbytes)) as zf:
+                batch = []
+                batch_numbers = set()
                 for name in zf.namelist():
                     if not name.lower().endswith(".xml"):
                         continue
@@ -334,9 +358,25 @@ def main():
 
                     det = extract_details_and_links(xb)
                     num = (det["purchaseNumber"] or "").strip()
-                    if not num or num in seen_numbers:
+                    if not num or num in seen_numbers or num in batch_numbers:
                         continue
+
+                    batch_numbers.add(num)
+                    batch.append((num, name, xb, det))
+
+                if not batch:
+                    continue
+
+                missing_numbers = filter_missing_numbers(region, list(batch_numbers))
+                missing_set = set(missing_numbers)
+
+                for num in batch_numbers:
                     seen_numbers.add(num)
+
+                for num, name, xb, det in batch:
+                    if num not in missing_set:
+                        continue
+
                     total_rows += 1
 
                     print(f"  • [{region:02d}] {date_str} {num} | {det['placingName'] or '—'} | {det['maxPrice'] or '—'} | {det['name'] or '—'}")
