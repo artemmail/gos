@@ -84,7 +84,10 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .getNotice(this.noticeId)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => (this.isLoading = false))
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        })
       )
       .subscribe({
         next: notice => {
@@ -117,11 +120,11 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: attachments => {
           this.attachments = [...attachments];
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.attachments = [];
-          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         }
       });
   }
