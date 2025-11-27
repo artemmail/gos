@@ -93,6 +93,33 @@ export class NoticeCommonInfoComponent {
     return commonConditionsDefined || customerConditionsDefined || hasWarrantyInfo || hasDeliveryPlaces;
   }
 
+  getMaxPriceInfo(notice: NoticeCommonInfo): { maxPrice: number; currency?: string | null } | null {
+    const contractPrice = notice.notificationInfo?.contractConditionsInfo?.maxPriceInfo;
+    if (contractPrice?.maxPrice != null) {
+      return {
+        maxPrice: contractPrice.maxPrice,
+        currency: contractPrice.currency?.name || contractPrice.currency?.code || null
+      };
+    }
+
+    if (notice.maxPrice != null) {
+      return { maxPrice: notice.maxPrice, currency: null };
+    }
+
+    const customerRequirementPrice = notice.notificationInfo?.customerRequirementsInfo?.items
+      ?.find(item => item.innerContractConditionsInfo?.maxPriceInfo?.maxPrice != null)
+      ?.innerContractConditionsInfo?.maxPriceInfo;
+
+    if (customerRequirementPrice?.maxPrice != null) {
+      return {
+        maxPrice: customerRequirementPrice.maxPrice,
+        currency: null
+      };
+    }
+
+    return null;
+  }
+
   /** "2025-11-24+03:00" -> "24.11.2025" */
   formatRawDate(raw?: string | null): string | null {
     if (!raw) {
