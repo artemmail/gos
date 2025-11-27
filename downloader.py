@@ -275,7 +275,7 @@ def main():
     seen_numbers = set()
     total_rows = 0
 
-    def save_manifest_row(folder: Path, data: dict, file_rows: list[dict]):
+    def save_manifest_row(folder: Path, data: dict, file_rows: list[dict]) -> Path:
         manifest = folder / "manifest.tsv"
         hdr1 = ["purchaseNumber","docKind","placingCode","placingName","customerName","customerINN","customerKPP",
                 "maxPrice","currency","publishDate","appStart","appEnd","platform","okpd2","name"]
@@ -292,6 +292,7 @@ def main():
                     f.write("\t".join(hdr2) + "\n")
                 for r in file_rows:
                     f.write("\t".join([str(r.get(k, "") or "") for k in hdr2]) + "\n")
+        return manifest
 
     def planned_name(base: str, ordinal: str | int, prefix: str = "") -> str:
         base = sanitize_name(base) or "file"
@@ -299,7 +300,7 @@ def main():
             return f"{prefix}{ordinal:03d}__{base}" if isinstance(ordinal, int) else f"{prefix}{ordinal}__{base}"
         return f"{int(ordinal):03d}__{base}" if isinstance(ordinal, int) else f"{ordinal}__{base}"
 
-    def scan_day(region: int, date_str: str, subsystem: str, doc_types: list[str]):
+    def scan_day(region: int, date_str: str, subsystem: str, doc_types: list[str], region_files: set[Path]):
         nonlocal total_rows
         for dt_code in doc_types:
             xml = build_getDocsByOrgRegion(args.token, region, subsystem, dt_code, date_str)
@@ -339,11 +340,13 @@ def main():
                     total_rows += 1
 
                     print(f"  • [{region:02d}] {date_str} {num} | {det['placingName'] or '—'} | {det['maxPrice'] or '—'} | {det['name'] or '—'}")
-                    folder = out_root / date_str / num
+                    folder = out_root / f"{date_str}_{region:02d}" / num
                     (folder / "files").mkdir(parents=True, exist_ok=True)
 
                     notice_fname = f"notice_{dt_code}_{date_str}_{sanitize_name(os.path.basename(name))}"
-                    (folder / notice_fname).write_bytes(xb)
+                    notice_path = folder / notice_fname
+                    notice_path.write_bytes(xb)
+                    region_files.add(notice_path)
 
                     file_rows = []
                     # вместо скачивания: фиксируем плановые имена
@@ -371,7 +374,9 @@ def main():
                                             continue
                                         xb2 = z2.read(nm)
                                         k += 1
-                                        (folder / f"package_{date_str}_{k:03d}.xml").write_bytes(xb2)
+                                        pkg_path = folder / f"package_{date_str}_{k:03d}.xml"
+                                        pkg_path.write_bytes(xb2)
+                                        region_files.add(pkg_path)
                                         det2 = extract_details_and_links(xb2)
                                         for j, lnk in enumerate(det2.get("links", []), start=1):
                                             url_j = lnk["url"]
@@ -384,7 +389,8 @@ def main():
                         except Exception:
                             pass
 
-                    save_manifest_row(folder, det, file_rows)
+                    manifest_path = save_manifest_row(folder, det, file_rows)
+                    region_files.add(manifest_path)
 
                     if args.limit > 0 and total_rows >= args.limit:
                         return "stop"
@@ -392,49 +398,47 @@ def main():
 
     for r in regs:
         print(f"\n=== Регион {str(r).zfill(2)} ===")
+        region_files: set[Path] = set()
         day = start
         while day.date() <= now.date():
             d = fmt_date(day)
-            res = scan_day(r, d, "PRIZ", DOC_TYPES_44)
+            res = scan_day(r, d, "PRIZ", DOC_TYPES_44, region_files)
             if res == "stop": break
             if args.include223:
-                res = scan_day(r, d, "RI223", DOC_TYPES_223)
+                res = scan_day(r, d, "RI223", DOC_TYPES_223, region_files)
                 if res == "stop": break
             if args.limit > 0 and total_rows >= args.limit: break
             day += dt.timedelta(days=1)
             time.sleep(args.sleep)
         if args.limit > 0 and total_rows >= args.limit: break
 
+        if args.upload_url:
+            region_files = {p for p in region_files if p.exists() and p.is_file()}
+            if not region_files:
+                print(f"[UPLOAD] Регион {r:02d}: нет файлов для отправки")
+            else:
+                zip_buf = io.BytesIO()
+                with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
+                    for path in sorted(region_files):
+                        zip_out.write(path, path.relative_to(out_root).as_posix())
+
+                zip_buf.seek(0)
+                fname = f"notices_{fmt_date(now)}_{r:02d}.zip"
+                try:
+                    resp = requests.post(
+                        args.upload_url,
+                        files={"file": (fname, zip_buf.getvalue(), "application/zip")},
+                        timeout=600,
+                    )
+                    print(f"[UPLOAD] Регион {r:02d} HTTP {resp.status_code}")
+                    resp.raise_for_status()
+                except Exception as exc:
+                    print(f"[UPLOAD] Регион {r:02d} ошибка отправки: {exc}")
+
     if total_rows == 0:
         print("\nИтог: совпадений не найдено.")
     else:
         print(f"\nИтог: обработано закупок: {total_rows}. Смотри папку: {out_root.resolve()}")
-
-        if args.upload_url:
-            files_added = list(out_root.rglob("*"))
-            if not any(p.is_file() for p in files_added):
-                print("[UPLOAD] Нет файлов для отправки")
-                return
-
-            zip_buf = io.BytesIO()
-            with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
-                for path in files_added:
-                    if not path.is_file():
-                        continue
-                    zip_out.write(path, path.relative_to(out_root).as_posix())
-
-            zip_buf.seek(0)
-            fname = f"notices_{fmt_date(now)}.zip"
-            try:
-                resp = requests.post(
-                    args.upload_url,
-                    files={"file": (fname, zip_buf.getvalue(), "application/zip")},
-                    timeout=600,
-                )
-                print(f"[UPLOAD] HTTP {resp.status_code}")
-                resp.raise_for_status()
-            except Exception as exc:
-                print(f"[UPLOAD] Ошибка отправки: {exc}")
 
 if __name__ == "__main__":
     main()
