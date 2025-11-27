@@ -1,9 +1,11 @@
-import { NgModule } from '@angular/core';
+import { LOCALE_ID, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientModule, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { registerLocaleData } from '@angular/common';
+import localeRu from '@angular/common/locales/ru';
 
 import { AppComponent } from './app.component';
 import { MaterialModule } from './material.module';
@@ -19,6 +21,8 @@ import { QueryVectorsComponent } from './query-vectors/query-vectors.component';
 import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.component';
 import { NoticeCommonInfoComponent } from './notice-common-info/notice-common-info.component';
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
+
+registerLocaleData(localeRu);
 
 @NgModule({
   declarations: [
@@ -43,7 +47,8 @@ import { NoticeDetailsComponent } from './notice-details/notice-details.componen
     RouterModule.forRoot(appRoutes)
   ],
   providers: [
-    provideHttpClient(withInterceptors([authInterceptor]))
+    provideHttpClient(withInterceptors([authInterceptor])),
+    { provide: LOCALE_ID, useValue: 'ru-RU' }
   ],
   bootstrap: [AppComponent]
 })
