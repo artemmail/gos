@@ -182,7 +182,7 @@
             </ng-container>
 
             <ng-container matColumnDef="similarity">
-              <th mat-header-cell *matHeaderCellDef>Схожесть</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="similarity">Схожесть</th>
               <td mat-cell *matCellDef="let element">
                 {{ element.similarity !== null && element.similarity !== undefined ? (element.similarity | percent:'1.0-0') : '—' }}
               </td>
@@ -227,7 +227,7 @@
             </ng-container>
 
             <ng-container matColumnDef="collectingEnd">
-              <th mat-header-cell *matHeaderCellDef>Окончание подачи заявок</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="collectingEnd">Окончание подачи заявок</th>
               <td
                 mat-cell
                 *matCellDef="let element"
@@ -239,7 +239,7 @@
             </ng-container>
 
             <ng-container matColumnDef="analysisStatus">
-              <th mat-header-cell *matHeaderCellDef>Статус анализа</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="analysisStatus">Статус анализа</th>
               <td mat-cell *matCellDef="let element">
                 <span [ngClass]="getAnalysisStatusClass(element)">
                   {{ getAnalysisStatusLabel(element) }}

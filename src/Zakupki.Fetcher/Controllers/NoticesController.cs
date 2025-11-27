@@ -267,7 +267,19 @@ public class NoticesController : ControllerBase
             .Select(n => new NoticeVectorMatch
             {
                 Notice = n,
-                Distance = EF.Functions.VectorDistance("cosine", n.Vector.Value, queryVector)
+                Distance = EF.Functions.VectorDistance("cosine", n.Vector.Value, queryVector),
+                Analysis = currentUserId != null
+                    ? n.Analyses
+                        .Where(a => a.UserId == currentUserId)
+                        .OrderByDescending(a => a.UpdatedAt)
+                        .Select(a => new NoticeAnalysisSummary
+                        {
+                            Status = a.Status,
+                            UpdatedAt = a.UpdatedAt,
+                            HasResult = a.Result != null && a.Result != ""
+                        })
+                        .FirstOrDefault()
+                    : null
             })
             .Where(m => m.Distance <= distanceThreshold);
 
@@ -299,22 +311,12 @@ public class NoticesController : ControllerBase
             {
                 Notice = m.Notice,
                 m.Distance,
+                m.Analysis,
                 ProcedureSubmissionDate = m.Notice.Versions
                     .Where(v => v.IsActive)
                     .Select(v => v.ProcedureWindow != null
                         ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
                         : null)
-                    .FirstOrDefault(),
-                Analysis = m.Notice.Analyses
-                    .Where(a => currentUserId != null && a.UserId == currentUserId)
-                    .OrderByDescending(a => a.UpdatedAt)
-                    .Select(a => new
-                    {
-                        a.Status,
-                        a.UpdatedAt,
-                        a.CompletedAt,
-                        HasResult = a.Result != null && a.Result != "",
-                    })
                     .FirstOrDefault(),
                 IsFavorite = includeFavorites && m.Notice.Favorites.Any(f => f.UserId == currentUserId)
             })
@@ -395,6 +397,13 @@ public class NoticesController : ControllerBase
             "collectingend" => descending
                 ? query.OrderByDescending(m => m.Notice.CollectingEnd).ThenBy(m => m.Distance)
                 : query.OrderBy(m => m.Notice.CollectingEnd).ThenBy(m => m.Distance),
+            "analysisstatus" => descending
+                ? query.OrderByDescending(m => m.Analysis != null ? m.Analysis.Status : null)
+                    .ThenByDescending(m => m.Analysis != null ? m.Analysis.UpdatedAt : null)
+                    .ThenBy(m => m.Distance)
+                : query.OrderBy(m => m.Analysis != null ? m.Analysis.Status : null)
+                    .ThenBy(m => m.Analysis != null ? m.Analysis.UpdatedAt : null)
+                    .ThenBy(m => m.Distance),
             _ => descending
                 ? query.OrderByDescending(m => m.Notice.PublishDate).ThenByDescending(m => m.Notice.Id)
                 : query.OrderBy(m => m.Notice.PublishDate).ThenBy(m => m.Notice.Id)
@@ -405,6 +414,21 @@ public class NoticesController : ControllerBase
     {
         public Notice Notice { get; init; } = null!;
         public double Distance { get; init; }
+        public NoticeAnalysisSummary? Analysis { get; init; }
+    }
+
+    private sealed class NoticeWithAnalysis
+    {
+        public Notice Notice { get; init; } = null!;
+        public NoticeAnalysisSummary? Analysis { get; init; }
+        public bool IsFavorite { get; init; }
+    }
+
+    private sealed class NoticeAnalysisSummary
+    {
+        public string? Status { get; init; }
+        public DateTime? UpdatedAt { get; init; }
+        public bool HasResult { get; init; }
     }
 
     [HttpGet("{noticeId:guid}")]
@@ -542,35 +566,43 @@ public class NoticesController : ControllerBase
             ? "desc"
             : sortDirection.Trim().ToLowerInvariant();
 
-        query = ApplySorting(query, normalizedSortField, normalizedSortDirection);
+        var queryWithAnalysis = query.Select(n => new NoticeWithAnalysis
+        {
+            Notice = n,
+            Analysis = currentUserId != null
+                ? n.Analyses
+                    .Where(a => a.UserId == currentUserId)
+                    .OrderByDescending(a => a.UpdatedAt)
+                    .Select(a => new NoticeAnalysisSummary
+                    {
+                        Status = a.Status,
+                        UpdatedAt = a.UpdatedAt,
+                        HasResult = a.Result != null && a.Result != ""
+                    })
+                    .FirstOrDefault()
+                : null,
+            IsFavorite = includeFavorites && n.Favorites.Any(f => f.UserId == currentUserId)
+        });
 
-        var totalCount = await query.CountAsync();
+        var sortedQuery = ApplySorting(queryWithAnalysis, normalizedSortField, normalizedSortDirection);
+
+        var totalCount = await sortedQuery.CountAsync();
         var skip = (page - 1) * pageSize;
 
-        var rows = await query
+        var rows = await sortedQuery
             .Skip(skip)
             .Take(pageSize)
-            .Select(n => new
+            .Select(x => new
             {
-                Notice = n,
-                ProcedureSubmissionDate = n.Versions
+                x.Notice,
+                x.Analysis,
+                x.IsFavorite,
+                ProcedureSubmissionDate = x.Notice.Versions
                     .Where(v => v.IsActive)
                     .Select(v => v.ProcedureWindow != null
                         ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
                         : null)
-                    .FirstOrDefault(),
-                Analysis = n.Analyses
-                    .Where(a => currentUserId != null && a.UserId == currentUserId)
-                    .OrderByDescending(a => a.UpdatedAt)
-                    .Select(a => new
-                    {
-                        a.Status,
-                        a.UpdatedAt,
-                        a.CompletedAt,
-                        HasResult = a.Result != null && a.Result != ""
-                    })
-                    .FirstOrDefault(),
-                IsFavorite = includeFavorites && n.Favorites.Any(f => f.UserId == currentUserId)
+                    .FirstOrDefault()
             })
             .ToListAsync();
 
@@ -709,33 +741,39 @@ public class NoticesController : ControllerBase
             ? "desc"
             : sortDirection.Trim().ToLowerInvariant();
 
-        query = ApplySorting(query, normalizedSortField, normalizedSortDirection);
+        var queryWithAnalysis = query.Select(n => new NoticeWithAnalysis
+        {
+            Notice = n,
+            Analysis = n.Analyses
+                .Where(a => a.UserId == currentUserId)
+                .OrderByDescending(a => a.UpdatedAt)
+                .Select(a => new NoticeAnalysisSummary
+                {
+                    Status = a.Status,
+                    UpdatedAt = a.UpdatedAt,
+                    HasResult = a.Result != null && a.Result != ""
+                })
+                .FirstOrDefault(),
+            IsFavorite = true
+        });
 
-        var totalCount = await query.CountAsync();
+        var sortedQuery = ApplySorting(queryWithAnalysis, normalizedSortField, normalizedSortDirection);
+
+        var totalCount = await sortedQuery.CountAsync();
         var skip = (page - 1) * pageSize;
 
-        var rows = await query
+        var rows = await sortedQuery
             .Skip(skip)
             .Take(pageSize)
-            .Select(n => new
+            .Select(x => new
             {
-                Notice = n,
-                ProcedureSubmissionDate = n.Versions
+                x.Notice,
+                x.Analysis,
+                ProcedureSubmissionDate = x.Notice.Versions
                     .Where(v => v.IsActive)
                     .Select(v => v.ProcedureWindow != null
                         ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
                         : null)
-                    .FirstOrDefault(),
-                Analysis = n.Analyses
-                    .Where(a => a.UserId == currentUserId)
-                    .OrderByDescending(a => a.UpdatedAt)
-                    .Select(a => new
-                    {
-                        a.Status,
-                        a.UpdatedAt,
-                        a.CompletedAt,
-                        HasResult = a.Result != null && a.Result != ""
-                    })
                     .FirstOrDefault()
             })
             .ToListAsync();
@@ -1314,47 +1352,57 @@ public class NoticesController : ControllerBase
         }
     }
 
-    private static IQueryable<Notice> ApplySorting(IQueryable<Notice> query, string sortField, string sortDirection)
+    private static IQueryable<NoticeWithAnalysis> ApplySorting(
+        IQueryable<NoticeWithAnalysis> query,
+        string sortField,
+        string sortDirection)
     {
         var descending = sortDirection == "desc";
 
         return sortField switch
         {
             "purchasenumber" => descending
-                ? query.OrderByDescending(n => n.PurchaseNumber)
-                : query.OrderBy(n => n.PurchaseNumber),
+                ? query.OrderByDescending(n => n.Notice.PurchaseNumber).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.PurchaseNumber).ThenByDescending(n => n.Notice.Id),
             "etpname" => descending
-                ? query.OrderByDescending(n => n.EtpName)
-                : query.OrderBy(n => n.EtpName),
+                ? query.OrderByDescending(n => n.Notice.EtpName).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.EtpName).ThenByDescending(n => n.Notice.Id),
             "region" => descending
-                ? query.OrderByDescending(n => n.Region)
-                : query.OrderBy(n => n.Region),
+                ? query.OrderByDescending(n => n.Notice.Region).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.Region).ThenByDescending(n => n.Notice.Id),
             "purchaseobjectinfo" => descending
-                ? query.OrderByDescending(n => n.PurchaseObjectInfo)
-                : query.OrderBy(n => n.PurchaseObjectInfo),
+                ? query.OrderByDescending(n => n.Notice.PurchaseObjectInfo).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.PurchaseObjectInfo).ThenByDescending(n => n.Notice.Id),
             "okpd2code" => descending
-                ? query.OrderByDescending(n => n.Okpd2Code)
-                : query.OrderBy(n => n.Okpd2Code),
+                ? query.OrderByDescending(n => n.Notice.Okpd2Code).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.Okpd2Code).ThenByDescending(n => n.Notice.Id),
             "okpd2name" => descending
-                ? query.OrderByDescending(n => n.Okpd2Name)
-                : query.OrderBy(n => n.Okpd2Name),
+                ? query.OrderByDescending(n => n.Notice.Okpd2Name).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.Okpd2Name).ThenByDescending(n => n.Notice.Id),
             "kvrcode" => descending
-                ? query.OrderByDescending(n => n.KvrCode)
-                : query.OrderBy(n => n.KvrCode),
+                ? query.OrderByDescending(n => n.Notice.KvrCode).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.KvrCode).ThenByDescending(n => n.Notice.Id),
             "kvrname" => descending
-                ? query.OrderByDescending(n => n.KvrName)
-                : query.OrderBy(n => n.KvrName),
+                ? query.OrderByDescending(n => n.Notice.KvrName).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.KvrName).ThenByDescending(n => n.Notice.Id),
             "maxprice" => descending
-                ? query.OrderByDescending(n => n.MaxPrice)
-                : query.OrderBy(n => n.MaxPrice),
+                ? query.OrderByDescending(n => n.Notice.MaxPrice).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.MaxPrice).ThenByDescending(n => n.Notice.Id),
             "collectingend" => descending
-                ? query.OrderByDescending(n => n.CollectingEnd)
-                : query.OrderBy(n => n.CollectingEnd),
+                ? query.OrderByDescending(n => n.Notice.CollectingEnd).ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.CollectingEnd).ThenByDescending(n => n.Notice.Id),
+            "analysisstatus" => descending
+                ? query.OrderByDescending(n => n.Analysis != null ? n.Analysis.Status : null)
+                    .ThenByDescending(n => n.Analysis != null ? n.Analysis.UpdatedAt : null)
+                    .ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Analysis != null ? n.Analysis.Status : null)
+                    .ThenBy(n => n.Analysis != null ? n.Analysis.UpdatedAt : null)
+                    .ThenByDescending(n => n.Notice.Id),
             _ => descending
-                ? query.OrderByDescending(n => n.PublishDate)
-                    .ThenByDescending(n => n.Id)
-                : query.OrderBy(n => n.PublishDate)
-                    .ThenBy(n => n.Id)
+                ? query.OrderByDescending(n => n.Notice.PublishDate)
+                    .ThenByDescending(n => n.Notice.Id)
+                : query.OrderBy(n => n.Notice.PublishDate)
+                    .ThenBy(n => n.Notice.Id)
         };
     }
 
