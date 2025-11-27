@@ -10,10 +10,6 @@ import { finalize, takeUntil } from 'rxjs/operators';
 
 import { NoticesService } from '../services/notices.service';
 import { NoticeListItem, NoticeListResponse } from '../models/notice.models';
-import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-dialog.component';
-import { AttachmentDialogData } from '../models/attachment.models';
-import { RawJsonDialogComponent } from '../raw-json-dialog/raw-json-dialog.component';
-import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
 import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 import { NoticeAnalysisDialogData } from '../notice-analysis-dialog/notice-analysis-dialog.models';
@@ -43,9 +39,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     'publishDate',
     'collectingEnd',
     'analysisStatus',
-    'analysis',
-    'rawJson',
-    'attachments'
+    'analysis'
   ];
 
   notices: NoticeListItem[] = [];
@@ -244,39 +238,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
           this.errorMessage = error?.error?.message ?? 'Не удалось загрузить данные. Попробуйте позже.';
         }
       });
-  }
-
-  openAttachments(notice: NoticeListItem): void {
-    const data: AttachmentDialogData = {
-      noticeId: notice.id,
-      purchaseNumber: notice.purchaseNumber,
-      title: this.getNoticeTitle(notice)
-    };
-
-    this.dialog.open(AttachmentsDialogComponent, {
-      width: '900px',
-      data
-    });
-  }
-
-  openRawJson(notice: NoticeListItem): void {
-    const rawJson = notice.rawJson;
-
-    if (!rawJson) {
-      return;
-    }
-
-    const data: RawJsonDialogData = {
-      purchaseNumber: notice.purchaseNumber,
-      title: this.getNoticeTitle(notice),
-      rawJson
-    };
-
-    this.dialog.open(RawJsonDialogComponent, {
-      width: '800px',
-      maxWidth: '95vw',
-      data
-    });
   }
 
   runAnalysis(notice: NoticeListItem, force = false): void {

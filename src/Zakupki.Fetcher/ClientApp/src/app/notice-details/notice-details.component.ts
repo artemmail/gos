@@ -6,11 +6,12 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 
 import { NoticeCommonInfo, NoticeDetails } from '../models/notice.models';
-import { NoticeAttachment } from '../models/attachment.models';
+import { AttachmentDialogData, NoticeAttachment } from '../models/attachment.models';
 import { RawJsonDialogComponent } from '../raw-json-dialog/raw-json-dialog.component';
 import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticesService } from '../services/notices.service';
 import { AttachmentsService } from '../services/attachments.service';
+import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-dialog.component';
 
 @Component({
   selector: 'app-notice-details',
@@ -143,6 +144,23 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     this.dialog.open(RawJsonDialogComponent, {
       width: '800px',
       maxWidth: '95vw',
+      data
+    });
+  }
+
+  openAttachments(): void {
+    if (!this.noticeId || !this.details) {
+      return;
+    }
+
+    const data: AttachmentDialogData = {
+      noticeId: this.noticeId,
+      purchaseNumber: this.details.purchaseNumber,
+      title: this.title
+    };
+
+    this.dialog.open(AttachmentsDialogComponent, {
+      width: '900px',
       data
     });
   }
