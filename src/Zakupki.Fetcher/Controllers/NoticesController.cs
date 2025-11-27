@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -334,6 +335,58 @@ public class NoticesController : ControllerBase
         }
 
         return Ok(notice);
+    }
+
+
+    [HttpPost("missing-purchase-numbers")]
+    public async Task<ActionResult<IReadOnlyCollection<string>>> GetMissingPurchaseNumbers(
+        [FromBody] MissingPurchaseNumbersRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest(new { message = "Тело запроса пустое." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Region))
+        {
+            return BadRequest(new { message = "Не указан регион." });
+        }
+
+        if (!byte.TryParse(request.Region, out var regionCode))
+        {
+            return BadRequest(new { message = "Некорректный код региона." });
+        }
+
+        if (request.PurchaseNumbers is null || request.PurchaseNumbers.Count == 0)
+        {
+            return Ok(Array.Empty<string>());
+        }
+
+        var normalizedNumbers = request.PurchaseNumbers
+            .Where(number => !string.IsNullOrWhiteSpace(number))
+            .Select(number => number.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (normalizedNumbers.Length == 0)
+        {
+            return Ok(Array.Empty<string>());
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var existingNumbers = await context.Notices
+            .AsNoTracking()
+            .Where(n => n.Region == regionCode && normalizedNumbers.Contains(n.PurchaseNumber))
+            .Select(n => n.PurchaseNumber)
+            .ToListAsync(cancellationToken);
+
+        var missingNumbers = normalizedNumbers
+            .Except(existingNumbers, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return Ok(missingNumbers);
     }
 
 
@@ -1273,6 +1326,13 @@ public class NoticesController : ControllerBase
 
         return "application/octet-stream";
     }
+}
+
+public class MissingPurchaseNumbersRequest
+{
+    public string? Region { get; set; }
+
+    public List<string> PurchaseNumbers { get; set; } = new();
 }
 
 public record NoticeDetailsDto(
