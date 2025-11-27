@@ -63,6 +63,7 @@ public class NoticesController : ControllerBase
     }
 
     [HttpPost("xml-import")]
+    [HttpPost("/api/xml-import")]
     public async Task<IActionResult> EnqueueXmlImport([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
