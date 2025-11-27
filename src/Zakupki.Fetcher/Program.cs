@@ -99,11 +99,13 @@ builder.Services.AddScoped<NoticeAnalysisReportService>();
 builder.Services.AddSingleton<Okpd2ImportService>();
 builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();
 builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueService>();
+builder.Services.AddSingleton<IXmlImportQueue, XmlImportQueue>();
 builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
 builder.Services.AddScoped<INoticeEmbeddingService, NoticeEmbeddingService>();
 builder.Services.AddHostedService<QueryVectorResultListener>();
 builder.Services.AddHostedService<NoticeEmbeddingVectorizer>();
 builder.Services.AddHostedService<NoticeAnalysisQueueWorker>();
+builder.Services.AddHostedService<XmlImportWorker>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {
