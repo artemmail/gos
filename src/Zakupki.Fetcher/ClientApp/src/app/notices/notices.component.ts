@@ -27,6 +27,7 @@ import { AuthService } from '../services/AuthService.service';
 })
 export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly defaultSearchMode: SearchMode = 'direct';
+  private readonly filtersStorageKey = 'notices-filters-v1';
   displayedColumns: string[] = [
     'favorite',
     'purchaseNumber',
@@ -95,6 +96,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.restoreFiltersFromCache();
+    this.setupFilterPersistence();
     this.preloadRegions();
     this.queryVectorService.queryVectors$
       .pipe(takeUntil(this.destroy$))
@@ -303,6 +306,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   applyFilters(): void {
     this.resetVectorCriteria();
 
+    this.saveFiltersToCache();
+
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
       return;
@@ -318,6 +323,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.filtersForm.markAsPristine();
     this.filtersForm.markAsUntouched();
+
+    this.saveFiltersToCache();
 
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
@@ -469,6 +476,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.vectorSearchInProgress = true;
+    this.saveFiltersToCache();
 
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
@@ -480,6 +488,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   clearVectorSearch(): void {
     this.resetVectorCriteria();
+    this.saveFiltersToCache();
 
     if (this.paginator && this.paginator.pageIndex !== 0) {
       this.paginator.firstPage();
@@ -505,6 +514,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   onSearchModeChange(mode: SearchMode): void {
     const previousMode = this.searchModeControl.value;
     this.searchModeControl.setValue(mode);
+    this.saveFiltersToCache();
 
     if (previousMode === 'semantic' && mode === 'direct' && this.vectorSearchCriteria) {
       this.clearVectorSearch();
@@ -527,6 +537,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   onResetSearch(): void {
     this.expiredOnlyControl.setValue(false);
     this.profileRegionsControl.setValue(false);
+    this.saveFiltersToCache();
 
     if (this.isDirectSearch) {
       this.resetFilters();
@@ -548,6 +559,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.favoriteSearchForm.markAsUntouched();
 
     this.clearVectorSearch();
+    this.saveFiltersToCache();
   }
 
   displayVectorQuery = (id: string): string => {
@@ -571,6 +583,90 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearVectorSearch();
     }
   }
+
+  private get storageKey(): string {
+    return `${this.filtersStorageKey}${this.isFavoritesPage ? '-favorites' : ''}`;
+  }
+
+  private setupFilterPersistence(): void {
+    this.filtersForm.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.saveFiltersToCache());
+    this.expiredOnlyControl.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.saveFiltersToCache());
+    this.profileRegionsControl.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.saveFiltersToCache());
+    this.profileOkpd2Control.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.saveFiltersToCache());
+    this.searchModeControl.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.saveFiltersToCache());
+    this.favoriteSearchForm.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.saveFiltersToCache());
+  }
+
+  private saveFiltersToCache(): void {
+    const state: FilterState = {
+      search: this.filtersForm.controls.search.value,
+      purchaseNumber: this.filtersForm.controls.purchaseNumber.value,
+      expiredOnly: this.expiredOnlyControl.value,
+      profileRegions: this.profileRegionsControl.value,
+      profileOkpd2: this.profileOkpd2Control.value,
+      searchMode: this.searchModeControl.value,
+      favoriteQueryVectorId: this.favoriteSearchForm.controls.queryVectorId.value,
+      favoriteSimilarityThreshold: this.favoriteSearchForm.controls.similarityThreshold.value,
+      vectorCriteria: this.vectorSearchCriteria
+    };
+
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(state));
+    } catch (error) {
+      console.error('Не удалось сохранить параметры фильтрации в кеш.', error);
+    }
+  }
+
+  private restoreFiltersFromCache(): void {
+    try {
+      const rawState = localStorage.getItem(this.storageKey);
+
+      if (!rawState) {
+        return;
+      }
+
+      const state = JSON.parse(rawState) as Partial<FilterState>;
+
+      this.searchModeControl.setValue(state.searchMode ?? this.defaultSearchMode, { emitEvent: false });
+      this.expiredOnlyControl.setValue(state.expiredOnly ?? false, { emitEvent: false });
+      this.profileRegionsControl.setValue(state.profileRegions ?? false, { emitEvent: false });
+      this.profileOkpd2Control.setValue(state.profileOkpd2 ?? false, { emitEvent: false });
+
+      this.filtersForm.setValue(
+        {
+          search: state.search ?? '',
+          purchaseNumber: state.purchaseNumber ?? ''
+        },
+        { emitEvent: false }
+      );
+
+      const cachedQueryId = state.favoriteQueryVectorId ?? '';
+      const cachedSimilarity = state.favoriteSimilarityThreshold ?? 60;
+      this.favoriteSearchForm.setValue(
+        {
+          queryVectorId: cachedQueryId,
+          similarityThreshold: cachedSimilarity
+        },
+        { emitEvent: false }
+      );
+
+      this.vectorSearchCriteria = state.vectorCriteria ?? null;
+    } catch (error) {
+      console.error('Не удалось восстановить параметры фильтрации из кеша.', error);
+    }
+  }
 }
 
 type SearchMode = 'direct' | 'semantic';
+
+type FilterState = {
+  search: string;
+  purchaseNumber: string;
+  expiredOnly: boolean;
+  profileRegions: boolean;
+  profileOkpd2: boolean;
+  searchMode: SearchMode;
+  favoriteQueryVectorId: string;
+  favoriteSimilarityThreshold: number;
+  vectorCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null;
+};
