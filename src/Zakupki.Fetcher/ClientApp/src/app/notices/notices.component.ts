@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatSort, SortDirection } from '@angular/material/sort';
+import { MatSort, MatSortable, SortDirection } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
@@ -677,8 +677,17 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.sort.active = this.cachedSortState.active;
-    this.sort.direction = this.cachedSortState.direction;
+    const sortable = this.sort.sortables.get(this.cachedSortState.active) as MatSortable | undefined;
+
+    if (!sortable) {
+      return;
+    }
+
+    this.sort.sort({
+      id: this.cachedSortState.active,
+      start: this.cachedSortState.direction,
+      disableClear: sortable.disableClear
+    });
   }
 }
 
