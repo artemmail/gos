@@ -19,6 +19,7 @@ import { UserQueryVectorDto } from '../models/query-vector.models';
 import { NoticeVectorQuery } from '../models/notice.models';
 import { RegionsService } from '../services/regions.service';
 import { AuthService } from '../services/AuthService.service';
+import { NoticeAnalysisNotificationsService } from '../services/notice-analysis-notifications.service';
 
 @Component({
   selector: 'app-notices',
@@ -91,7 +92,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly queryVectorService: QueryVectorService,
     private readonly route: ActivatedRoute,
     private readonly regionsService: RegionsService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly analysisNotifications: NoticeAnalysisNotificationsService
   ) {
     this.isFavoritesPage = this.route.snapshot.data?.['favorites'] === true;
   }
@@ -100,6 +102,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.restoreFiltersFromCache();
     this.setupFilterPersistence();
     this.preloadRegions();
+    this.analysisNotifications.analysisUpdates$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(response => this.handleAnalysisUpdate(response));
+
     this.queryVectorService.queryVectors$
       .pipe(takeUntil(this.destroy$))
       .subscribe(vectors => this.updateQueryVectors(vectors));
@@ -109,6 +115,11 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(user => {
         this.isAuthenticated = !!user;
+        if (this.isAuthenticated) {
+          this.analysisNotifications.connect();
+        } else {
+          this.analysisNotifications.disconnect();
+        }
 
         if (!this.isAuthenticated && this.profileRegionsControl.value) {
           this.profileRegionsControl.setValue(false, { emitEvent: false });
@@ -152,6 +163,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.analysisNotifications.disconnect();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -349,6 +361,16 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private getNoticeTitle(notice: NoticeListItem): string {
     return notice.purchaseObjectInfo || `Закупка ${notice.purchaseNumber}`;
+  }
+
+  private handleAnalysisUpdate(response: NoticeAnalysisResponse): void {
+    const notice = this.notices.find(item => item.id === response.noticeId);
+
+    if (!notice) {
+      return;
+    }
+
+    this.updateNoticeAnalysis(notice, response);
   }
 
   private updateNoticeAnalysis(notice: NoticeListItem, response: NoticeAnalysisResponse): void {
