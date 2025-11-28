@@ -362,7 +362,8 @@ app.MapHub<NoticeAnalysisHub>("/hubs/notice-analysis");
 
 app.MapWhen(context =>
         !context.Request.Path.StartsWithSegments("/api") &&
-        !context.Request.Path.StartsWithSegments("/swagger"),
+        !context.Request.Path.StartsWithSegments("/swagger") &&
+        !context.Request.Path.StartsWithSegments("/hubs"),
     builder =>
     {
         builder.UseSpa(spa =>
