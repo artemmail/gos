@@ -276,7 +276,9 @@ public class NoticesController : ControllerBase
                         {
                             Status = a.Status,
                             UpdatedAt = a.UpdatedAt,
-                            HasResult = a.Result != null && a.Result != ""
+                            HasResult = a.Result != null && a.Result != "",
+                            Recommended = a.Recommended,
+                            DecisionScore = a.DecisionScore
                         })
                         .FirstOrDefault()
                     : null
@@ -431,6 +433,8 @@ public class NoticesController : ControllerBase
         public string? Status { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public bool HasResult { get; init; }
+        public bool? Recommended { get; init; }
+        public double? DecisionScore { get; init; }
     }
 
     [HttpGet("{noticeId:guid}")]
@@ -579,7 +583,9 @@ public class NoticesController : ControllerBase
                     {
                         Status = a.Status,
                         UpdatedAt = a.UpdatedAt,
-                        HasResult = a.Result != null && a.Result != ""
+                        HasResult = a.Result != null && a.Result != "",
+                        Recommended = a.Recommended,
+                        DecisionScore = a.DecisionScore
                     })
                     .FirstOrDefault()
                 : null,
@@ -755,7 +761,9 @@ public class NoticesController : ControllerBase
                 {
                     Status = a.Status,
                     UpdatedAt = a.UpdatedAt,
-                    HasResult = a.Result != null && a.Result != ""
+                    HasResult = a.Result != null && a.Result != "",
+                    Recommended = a.Recommended,
+                    DecisionScore = a.DecisionScore
                 })
                 .FirstOrDefault(),
             IsFavorite = true
