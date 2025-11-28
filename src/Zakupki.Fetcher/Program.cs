@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.IO;
@@ -21,6 +22,7 @@ using Serilog;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
+using Zakupki.Fetcher.Hubs;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
 
@@ -156,6 +158,22 @@ authBuilder.AddJwtBearer(options =>
         ValidAudience = jwtAudience,
         ClockSkew = TimeSpan.Zero
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrWhiteSpace(accessToken) && path.StartsWithSegments("/hubs/notice-analysis"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
@@ -253,13 +271,15 @@ builder.Services.AddSingleton<NoticeProcessor>();
 builder.Services.AddScoped<XmlFolderImporter>();
 builder.Services.AddHostedService<Worker>();
 builder.Services.AddSingleton<AttachmentMarkdownService>();
+builder.Services.AddHostedService<NoticeAnalysisResultListener>();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ClientApp", policy =>
         policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 builder.Services.AddControllers();
@@ -277,6 +297,13 @@ builder.Services.AddSpaStaticFiles(configuration =>
 {
     configuration.RootPath = "wwwroot";
 });
+
+builder.Services
+    .AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
 var app = builder.Build();
 
@@ -331,6 +358,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NoticeAnalysisHub>("/hubs/notice-analysis");
 
 app.MapWhen(context =>
         !context.Request.Path.StartsWithSegments("/api") &&
