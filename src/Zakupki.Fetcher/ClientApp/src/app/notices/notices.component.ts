@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
+import { MatSort, SortDirection } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
@@ -75,6 +75,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   queryVectorsLoading = false;
   vectorSearchCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null = null;
   isAuthenticated = false;
+  cachedSortState: SortState | null = null;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -124,8 +125,11 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         this.paginator.firstPage();
+        this.saveFiltersToCache();
         this.loadNotices();
       });
+
+    this.applyCachedSort();
 
     this.paginator.page
       .pipe(takeUntil(this.destroy$))
@@ -598,6 +602,9 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private saveFiltersToCache(): void {
+    const sortField = this.sort?.active ?? 'publishDate';
+    const sortDirection = (this.sort?.direction as SortDirection | '') || 'desc';
+
     const state: FilterState = {
       search: this.filtersForm.controls.search.value,
       purchaseNumber: this.filtersForm.controls.purchaseNumber.value,
@@ -607,7 +614,9 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       searchMode: this.searchModeControl.value,
       favoriteQueryVectorId: this.favoriteSearchForm.controls.queryVectorId.value,
       favoriteSimilarityThreshold: this.favoriteSearchForm.controls.similarityThreshold.value,
-      vectorCriteria: this.vectorSearchCriteria
+      vectorCriteria: this.vectorSearchCriteria,
+      sortField,
+      sortDirection
     };
 
     try {
@@ -651,9 +660,25 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       );
 
       this.vectorSearchCriteria = state.vectorCriteria ?? null;
+
+      if (state.sortField && state.sortDirection) {
+        this.cachedSortState = {
+          active: state.sortField,
+          direction: state.sortDirection
+        };
+      }
     } catch (error) {
       console.error('Не удалось восстановить параметры фильтрации из кеша.', error);
     }
+  }
+
+  private applyCachedSort(): void {
+    if (!this.cachedSortState || !this.sort) {
+      return;
+    }
+
+    this.sort.active = this.cachedSortState.active;
+    this.sort.direction = this.cachedSortState.direction;
   }
 }
 
@@ -669,4 +694,11 @@ type FilterState = {
   favoriteQueryVectorId: string;
   favoriteSimilarityThreshold: number;
   vectorCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null;
+  sortField: string;
+  sortDirection: SortDirection;
+};
+
+type SortState = {
+  active: string;
+  direction: SortDirection;
 };
