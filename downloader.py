@@ -53,12 +53,6 @@ REGIONS_ALL = [
  58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,83,86,87,89,90,91,92
 ]
 
-KEYWORDS = [
-    r"разработ", r"доработ", r"модерниз", r"создан", r"внедрени",
-    r"программ", r"\bПО\b", r"\bИС\b", r"software",
-    r"информационн", r"автоматизац", r"портал", r"веб[- ]?разработ", r"сайт", r"мобильн"
-]
-
 ATT_LOCALNAMES = {"url", "href", "docurl", "documenturl", "fileurl", "downloadurl"}
 
 # ---------- utils ----------
@@ -84,10 +78,6 @@ def guess_filename_from_url(u: str) -> str:
                     fname = unquote(v)
                     break
     return sanitize_name(fname)
-
-def any_kw(txt: str) -> bool:
-    low = txt.lower()
-    return any(re.search(p, low) for p in KEYWORDS)
 
 def xml_text(xb: bytes) -> str:
     return xb.decode("utf-8", "ignore")
