@@ -77,6 +77,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   vectorSearchCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null = null;
   isAuthenticated = false;
   cachedSortState: SortState | null = null;
+  readonly starIcons = Array.from({ length: 5 });
 
   private readonly destroy$ = new Subject<void>();
 
@@ -355,6 +356,19 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     const clamped = Math.min(Math.max(score, 0), 1);
     const scaled = Math.round(clamped * 1000) / 10;
     return scaled.toFixed(1);
+  }
+
+  hasDecisionScore(notice: NoticeListItem): boolean {
+    return this.isAnalysisCompleted(notice) && notice.decisionScore !== null && notice.decisionScore !== undefined;
+  }
+
+  getDecisionScoreFillPercentage(notice: NoticeListItem): number {
+    if (!this.hasDecisionScore(notice) || Number.isNaN(notice.decisionScore!)) {
+      return 0;
+    }
+
+    const clamped = Math.min(Math.max(notice.decisionScore ?? 0, 0), 1);
+    return clamped * 100;
   }
 
   applyFilters(): void {
