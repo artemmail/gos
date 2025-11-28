@@ -241,9 +241,23 @@
             <ng-container matColumnDef="analysisStatus">
               <th mat-header-cell *matHeaderCellDef mat-sort-header="analysisStatus">Статус анализа</th>
               <td mat-cell *matCellDef="let element">
-                <span [ngClass]="getAnalysisStatusClass(element)">
-                  {{ getAnalysisStatusLabel(element) }}
-                </span>
+                <ng-container *ngIf="isAnalysisNegative(element); else positiveOrOther">
+                  <span [ngClass]="getAnalysisStatusClass(element)" class="analysis-status-icon">
+                    <mat-icon fontIcon="block"></mat-icon>
+                  </span>
+                </ng-container>
+                <ng-template #positiveOrOther>
+                  <ng-container *ngIf="isAnalysisPositive(element); else regularStatus">
+                    <span [ngClass]="getAnalysisStatusClass(element)">
+                      {{ formatDecisionScore(element.decisionScore) }}
+                    </span>
+                  </ng-container>
+                </ng-template>
+                <ng-template #regularStatus>
+                  <span [ngClass]="getAnalysisStatusClass(element)">
+                    {{ getAnalysisStatusLabel(element) }}
+                  </span>
+                </ng-template>
               </td>
             </ng-container>
 

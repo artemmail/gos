@@ -16,6 +16,8 @@ export interface NoticeListItem {
   hasAnalysisAnswer: boolean;
   analysisStatus: string | null;
   analysisUpdatedAt: string | null;
+  recommended: boolean | null;
+  decisionScore: number | null;
   isFavorite: boolean;
   similarity: number | null;
 }
