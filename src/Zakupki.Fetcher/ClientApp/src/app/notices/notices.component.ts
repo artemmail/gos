@@ -319,7 +319,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       if (notice.recommended === true) {
-        return 'analysis-status analysis-ready analysis-score';
+        return this.hasDecisionScore(notice) ? 'analysis-status analysis-score' : 'analysis-status analysis-ready';
       }
 
       return 'analysis-status analysis-ready';
