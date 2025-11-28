@@ -304,12 +304,6 @@ mat-table {
   color: #ffb300;
 }
 
-.analysis-score-label {
-  font-weight: 700;
-  font-size: 13px;
-  color: inherit;
-}
-
 .analysis-status-text {
   font-size: 12px;
   letter-spacing: 0.4px;

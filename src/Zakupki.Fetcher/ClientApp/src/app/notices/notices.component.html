@@ -242,25 +242,23 @@
               <th mat-header-cell *matHeaderCellDef mat-sort-header="analysisStatus">Статус анализа</th>
               <td mat-cell *matCellDef="let element">
                 <div [ngClass]="getAnalysisStatusClass(element)" class="analysis-status-wrapper">
-                  <ng-container *ngIf="hasDecisionScore(element); else statusTemplate">
-                    <div class="star-rating" [attr.aria-label]="'Оценка: ' + formatDecisionScore(element.decisionScore)">
-                      <div class="star-rating-base">
-                        <span *ngFor="let star of starIcons">&#9733;</span>
-                      </div>
-                      <div class="star-rating-fill" [style.width.%]="getDecisionScoreFillPercentage(element)">
-                        <span *ngFor="let star of starIcons">&#9733;</span>
-                      </div>
-                    </div>
-                    <span class="analysis-score-label">{{ formatDecisionScore(element.decisionScore) }}</span>
-                    <span class="analysis-status-text" *ngIf="isAnalysisNegative(element)">{{ getAnalysisStatusLabel(element) }}</span>
+                  <ng-container *ngIf="isAnalysisNegative(element); else nonNegativeStatus">
+                    <span class="analysis-status-icon">
+                      <mat-icon fontIcon="block"></mat-icon>
+                    </span>
                   </ng-container>
-                  <ng-template #statusTemplate>
-                    <ng-container *ngIf="isAnalysisNegative(element); else positiveOrOther">
-                      <span class="analysis-status-icon">
-                        <mat-icon fontIcon="block"></mat-icon>
-                      </span>
+                  <ng-template #nonNegativeStatus>
+                    <ng-container *ngIf="hasDecisionScore(element); else statusTemplate">
+                      <div class="star-rating" [attr.aria-label]="'Оценка: ' + formatDecisionScore(element.decisionScore)">
+                        <div class="star-rating-base">
+                          <span *ngFor="let star of starIcons">&#9733;</span>
+                        </div>
+                        <div class="star-rating-fill" [style.width.%]="getDecisionScoreFillPercentage(element)">
+                          <span *ngFor="let star of starIcons">&#9733;</span>
+                        </div>
+                      </div>
                     </ng-container>
-                    <ng-template #positiveOrOther>
+                    <ng-template #statusTemplate>
                       <span class="analysis-status-text">{{ getAnalysisStatusLabel(element) }}</span>
                     </ng-template>
                   </ng-template>
