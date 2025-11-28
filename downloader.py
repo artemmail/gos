@@ -60,6 +60,24 @@ def fmt_iso(d: dt.datetime) -> str: return d.strftime("%Y-%m-%dT%H:%M:%S")
 def fmt_date(d: dt.datetime) -> str: return d.strftime("%Y-%m-%d")
 def localname(tag: str) -> str: return tag.split("}")[-1] if "}" in tag else tag
 
+def parse_datetime(value: str) -> dt.datetime | None:
+    if not value:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return dt.datetime.strptime(value.replace("Z", ""), fmt)
+        except ValueError:
+            continue
+
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", ""))
+    except ValueError:
+        return None
+
 def sanitize_name(name: str, maxlen: int = 180) -> str:
     name = re.sub(r'[/\\?%*:|"<>\r\n\t]', "_", name)
     name = re.sub(r"\s+", " ", name).strip()
@@ -248,11 +266,10 @@ def main():
     ap.add_argument("--fetch-by-purchase", action="store_true", help="дотягивать «пакет по номеру закупки» (XML)")
     ap.add_argument("--upload-url", help="куда отправлять zip-архив с выгрузкой (POST)")
     ap.add_argument("--missing-check-url", help="endpoint для проверки существующих закупок (POST)")
+    ap.add_argument("--restart-hours", type=float, help="если указано — не завершать работу, а перезапускать через указанное число часов")
     args = ap.parse_args()
 
     regs = REGIONS_ALL if not args.regions else [int(x) for x in args.regions.split(",") if x.strip()]
-    now = dt.datetime.now()
-    start = now - dt.timedelta(days=args.days)
 
     sess = requests.Session()
     sess.trust_env = False
@@ -286,6 +303,7 @@ def main():
     out_root = Path("out"); out_root.mkdir(exist_ok=True)
     seen_numbers = set()
     total_rows = 0
+    region_last_seen: dict[int, dt.datetime] = {}
 
     def save_manifest_row(folder: Path, data: dict, file_rows: list[dict]) -> Path:
         manifest = folder / "manifest.tsv"
@@ -369,6 +387,12 @@ def main():
 
                     total_rows += 1
 
+                    publish_dt = parse_datetime(det.get("publishDate", ""))
+                    if publish_dt:
+                        prev = region_last_seen.get(region)
+                        if not prev or publish_dt > prev:
+                            region_last_seen[region] = publish_dt
+
                     print(f"  • [{region:02d}] {date_str} {num} | {det['placingName'] or '—'} | {det['maxPrice'] or '—'} | {det['name'] or '—'}")
                     folder = out_root / f"{date_str}_{region:02d}" / num
                     (folder / "files").mkdir(parents=True, exist_ok=True)
@@ -426,44 +450,64 @@ def main():
                         return "stop"
         return "ok"
 
-    for r in regs:
-        print(f"\n=== Регион {str(r).zfill(2)} ===")
-        region_files: set[Path] = set()
-        day = start
-        while day.date() <= now.date():
-            d = fmt_date(day)
-            res = scan_day(r, d, "PRIZ", DOC_TYPES_44, region_files)
-            if res == "stop": break
-            if args.include223:
-                res = scan_day(r, d, "RI223", DOC_TYPES_223, region_files)
+    stop_all = False
+    while True:
+        now = dt.datetime.now()
+        start = now - dt.timedelta(days=args.days)
+
+        for r in regs:
+            print(f"\n=== Регион {str(r).zfill(2)} ===")
+            region_files: set[Path] = set()
+
+            region_start = region_last_seen.get(r, start)
+            if r in region_last_seen:
+                region_start = region_start - dt.timedelta(hours=1)
+
+            day = region_start
+            while day.date() <= now.date():
+                d = fmt_date(day)
+                res = scan_day(r, d, "PRIZ", DOC_TYPES_44, region_files)
                 if res == "stop": break
-            if args.limit > 0 and total_rows >= args.limit: break
-            day += dt.timedelta(days=1)
-            time.sleep(args.sleep)
-        if args.limit > 0 and total_rows >= args.limit: break
+                if args.include223:
+                    res = scan_day(r, d, "RI223", DOC_TYPES_223, region_files)
+                    if res == "stop": break
+                if args.limit > 0 and total_rows >= args.limit:
+                    stop_all = True
+                    break
+                day += dt.timedelta(days=1)
+                time.sleep(args.sleep)
+            if stop_all or (args.limit > 0 and total_rows >= args.limit):
+                break
 
-        if args.upload_url:
-            region_files = {p for p in region_files if p.exists() and p.is_file()}
-            if not region_files:
-                print(f"[UPLOAD] Регион {r:02d}: нет файлов для отправки")
-            else:
-                zip_buf = io.BytesIO()
-                with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
-                    for path in sorted(region_files):
-                        zip_out.write(path, path.relative_to(out_root).as_posix())
+            if args.upload_url:
+                region_files = {p for p in region_files if p.exists() and p.is_file()}
+                if not region_files:
+                    print(f"[UPLOAD] Регион {r:02d}: нет файлов для отправки")
+                else:
+                    zip_buf = io.BytesIO()
+                    with zipfile.ZipFile(zip_buf, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
+                        for path in sorted(region_files):
+                            zip_out.write(path, path.relative_to(out_root).as_posix())
 
-                zip_buf.seek(0)
-                fname = f"notices_{fmt_date(now)}_{r:02d}.zip"
-                try:
-                    resp = requests.post(
-                        args.upload_url,
-                        files={"file": (fname, zip_buf.getvalue(), "application/zip")},
-                        timeout=600,
-                    )
-                    print(f"[UPLOAD] Регион {r:02d} HTTP {resp.status_code}")
-                    resp.raise_for_status()
-                except Exception as exc:
-                    print(f"[UPLOAD] Регион {r:02d} ошибка отправки: {exc}")
+                    zip_buf.seek(0)
+                    fname = f"notices_{fmt_date(now)}_{r:02d}.zip"
+                    try:
+                        resp = requests.post(
+                            args.upload_url,
+                            files={"file": (fname, zip_buf.getvalue(), "application/zip")},
+                            timeout=600,
+                        )
+                        print(f"[UPLOAD] Регион {r:02d} HTTP {resp.status_code}")
+                        resp.raise_for_status()
+                    except Exception as exc:
+                        print(f"[UPLOAD] Регион {r:02d} ошибка отправки: {exc}")
+
+        if stop_all or not args.restart_hours or args.restart_hours <= 0:
+            break
+
+        sleep_seconds = int(args.restart_hours * 3600)
+        print(f"[RESTART] Засыпаю на {args.restart_hours} ч. перед повторным запуском...")
+        time.sleep(sleep_seconds)
 
     if total_rows == 0:
         print("\nИтог: совпадений не найдено.")
