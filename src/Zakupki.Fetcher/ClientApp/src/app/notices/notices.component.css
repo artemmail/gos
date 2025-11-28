@@ -211,6 +211,14 @@ mat-table {
   letter-spacing: 0.4px;
 }
 
+.analysis-status-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 16px;
+}
+
 .analysis-ready {
   background-color: #e8f5e9;
   color: #1b5e20;
@@ -272,4 +280,37 @@ mat-table {
 
 .purchase-link:hover {
   text-decoration: underline;
+}
+
+.star-rating {
+  position: relative;
+  display: inline-block;
+  font-size: 18px;
+  line-height: 1;
+  color: #e0e0e0;
+}
+
+.star-rating-base,
+.star-rating-fill {
+  display: flex;
+}
+
+.star-rating-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #ffb300;
+}
+
+.analysis-score-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: inherit;
+}
+
+.analysis-status-text {
+  font-size: 12px;
+  letter-spacing: 0.4px;
 }
