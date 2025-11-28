@@ -344,6 +344,8 @@ public class NoticesController : ControllerBase
                 x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
+                x.Analysis != null ? x.Analysis.Recommended : null,
+                x.Analysis != null ? x.Analysis.DecisionScore : null,
                 x.IsFavorite,
                 1.0 - x.Distance
             ))
@@ -625,6 +627,8 @@ public class NoticesController : ControllerBase
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
+                x.Analysis != null ? x.Analysis.Recommended : null,
+                x.Analysis != null ? x.Analysis.DecisionScore : null,
                 x.IsFavorite,
                 null))
             .ToList();
@@ -797,6 +801,8 @@ public class NoticesController : ControllerBase
                 x.Analysis != null && x.Analysis.Status == NoticeAnalysisStatus.Completed && x.Analysis.HasResult,
                 x.Analysis != null ? x.Analysis.Status : null,
                 x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
+                x.Analysis != null ? x.Analysis.Recommended : null,
+                x.Analysis != null ? x.Analysis.DecisionScore : null,
                 true,
                 null))
             .ToList();
@@ -1448,6 +1454,8 @@ public record NoticeListItemDto(
     bool HasAnalysisAnswer,
     string? AnalysisStatus,
     DateTime? AnalysisUpdatedAt,
+    bool? Recommended,
+    double? DecisionScore,
     bool IsFavorite,
     double? Similarity);
 

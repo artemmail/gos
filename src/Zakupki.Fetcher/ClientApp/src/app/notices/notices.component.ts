@@ -288,7 +288,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getAnalysisStatusLabel(notice: NoticeListItem): string {
-    if ((notice.analysisStatus === 'Completed' || notice.hasAnalysisAnswer) && notice.hasAnalysisAnswer) {
+    if (this.isAnalysisCompleted(notice) && notice.hasAnalysisAnswer) {
+      if (notice.recommended === false) {
+        return 'Не подходит';
+      }
+
+      if (notice.recommended === true) {
+        return this.formatDecisionScore(notice.decisionScore);
+      }
+
       return 'Есть ответ';
     }
 
@@ -304,7 +312,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getAnalysisStatusClass(notice: NoticeListItem): string {
-    if ((notice.analysisStatus === 'Completed' || notice.hasAnalysisAnswer) && notice.hasAnalysisAnswer) {
+    if (this.isAnalysisCompleted(notice) && notice.hasAnalysisAnswer) {
+      if (notice.recommended === false) {
+        return 'analysis-status analysis-rejected';
+      }
+
+      if (notice.recommended === true) {
+        return 'analysis-status analysis-ready analysis-score';
+      }
+
       return 'analysis-status analysis-ready';
     }
 
@@ -317,6 +333,28 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     return 'analysis-status analysis-empty';
+  }
+
+  isAnalysisPositive(notice: NoticeListItem): boolean {
+    return this.isAnalysisCompleted(notice) && notice.hasAnalysisAnswer && notice.recommended === true;
+  }
+
+  isAnalysisNegative(notice: NoticeListItem): boolean {
+    return this.isAnalysisCompleted(notice) && notice.hasAnalysisAnswer && notice.recommended === false;
+  }
+
+  private isAnalysisCompleted(notice: NoticeListItem): boolean {
+    return notice.analysisStatus === 'Completed' || notice.hasAnalysisAnswer;
+  }
+
+  formatDecisionScore(score: number | null): string {
+    if (score === null || score === undefined || Number.isNaN(score)) {
+      return '—';
+    }
+
+    const clamped = Math.min(Math.max(score, 0), 1);
+    const scaled = Math.round(clamped * 1000) / 10;
+    return scaled.toFixed(1);
   }
 
   applyFilters(): void {
@@ -377,6 +415,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     notice.analysisStatus = response.status ?? null;
     notice.hasAnalysisAnswer = response.hasAnswer;
     notice.analysisUpdatedAt = response.updatedAt ?? null;
+    notice.recommended = response.recommended ?? null;
+    notice.decisionScore = response.decisionScore ?? null;
 
     if (response.status === 'Completed' && (response.result || response.structuredResult)) {
       const data: NoticeAnalysisDialogData = {
