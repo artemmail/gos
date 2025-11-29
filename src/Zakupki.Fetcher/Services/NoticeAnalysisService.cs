@@ -1,23 +1,15 @@
-using System;
-using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using Zakupki.EF2020;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Utilities;
-using Zakupki.EF2020;
 
 namespace Zakupki.Fetcher.Services;
 
@@ -866,7 +858,7 @@ public sealed class NoticeAnalysisService
         }
 
         throw new NoticeAnalysisException(
-            "Сервис анализа вернул ответ в неверном формате.",
+            "Сервис анализа вернул ответ в неверном формате." + answer,
             false);
     }
 
