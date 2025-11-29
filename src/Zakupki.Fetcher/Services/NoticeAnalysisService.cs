@@ -859,47 +859,71 @@ public sealed class NoticeAnalysisService
                 false);
         }
 
-        try
+        if (TryDeserializeTenderAnalysisResult(answer, out var parsed))
         {
-            var result = JsonSerializer.Deserialize<TenderAnalysisResult>(answer, SerializerOptions)
-                ?? throw new NoticeAnalysisException(
-                    "Сервис анализа вернул пустой ответ.",
-                    false);
+            return parsed;
+        }
 
-            NormalizeTenderAnalysisResult(result);
-            return result;
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse tender analysis result: {Answer}", answer);
-            throw new NoticeAnalysisException(
-                "Сервис анализа вернул ответ в неверном формате.",
-                false,
-                ex);
-        }
+        throw new NoticeAnalysisException(
+            "Сервис анализа вернул ответ в неверном формате.",
+            false);
     }
 
     internal static TenderAnalysisResult? TryParseTenderAnalysisResult(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json))
+        return TryDeserializeTenderAnalysisResult(json, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static bool TryDeserializeTenderAnalysisResult(
+        string? answer,
+        out TenderAnalysisResult? result)
+    {
+        result = null;
+
+        if (string.IsNullOrWhiteSpace(answer))
         {
-            return null;
+            return false;
         }
 
-        try
+        if (TryDeserialize(answer, out result))
         {
-            var result = JsonSerializer.Deserialize<TenderAnalysisResult>(json, SerializerOptions);
-            if (result is null)
+            return true;
+        }
+
+        var startIndex = answer.IndexOf('{');
+        var endIndex = answer.LastIndexOf('}');
+
+        if (startIndex >= 0 && endIndex > startIndex)
+        {
+            var json = answer.Substring(startIndex, endIndex - startIndex + 1);
+            if (TryDeserialize(json, out result))
             {
-                return null;
+                return true;
             }
-
-            NormalizeTenderAnalysisResult(result);
-            return result;
         }
-        catch (JsonException)
+
+        return false;
+
+        static bool TryDeserialize(string json, out TenderAnalysisResult? parsed)
         {
-            return null;
+            try
+            {
+                parsed = JsonSerializer.Deserialize<TenderAnalysisResult>(json, SerializerOptions);
+                if (parsed is null)
+                {
+                    return false;
+                }
+
+                NormalizeTenderAnalysisResult(parsed);
+                return true;
+            }
+            catch (JsonException)
+            {
+                parsed = null;
+                return false;
+            }
         }
     }
 
