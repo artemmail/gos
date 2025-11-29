@@ -14,5 +14,6 @@ export interface TenderAnalysisResult {
   scores?: TenderScores | null;
   decisionScore?: number | null;
   recommended?: boolean | null;
+  essence?: string | null;
   summary?: string | null;
 }

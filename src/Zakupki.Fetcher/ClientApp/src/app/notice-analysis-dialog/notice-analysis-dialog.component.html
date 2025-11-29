@@ -26,6 +26,11 @@
       </span>
     </div>
 
+    <div class="summary-card" *ngIf="essenceText">
+      <h3>Суть закупки</h3>
+      <p>{{ essenceText }}</p>
+    </div>
+
     <div class="summary-card" *ngIf="summaryText">
       <h3>Краткий вывод</h3>
       <p>{{ summaryText }}</p>
