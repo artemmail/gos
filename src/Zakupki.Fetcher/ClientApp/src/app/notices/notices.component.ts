@@ -283,6 +283,9 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         error: error => {
           const message = error?.error?.message ?? 'Не удалось запустить анализ.';
+          // Дублируем ошибку в консоль браузера для упрощения диагностики.
+          // eslint-disable-next-line no-console
+          console.error('Не удалось запустить анализ закупки:', message, error);
           this.snackBar.open(message, 'Закрыть', { duration: 6000 });
         }
       });
