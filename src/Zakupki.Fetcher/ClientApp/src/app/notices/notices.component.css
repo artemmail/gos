@@ -235,7 +235,7 @@ mat-table {
 }
 
 .analysis-rejected {
-  background-color: #ffebee;
+  background-color: transparent;
   color: #c62828;
 }
 
