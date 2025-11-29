@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 
@@ -95,7 +90,7 @@ public sealed class UserCompanyService
         CreateRegion(79, "Еврейская авт. обл."),
         CreateRegion(80, "Забайкальский край (старый код, дублирует 75)"),
         CreateRegion(81, "Пермский край (старый код, дублирует 59)"),
-        CreateRegion(82, "Респ. Крым"),
+        //CreateRegion(82, "Респ. Крым"),
         CreateRegion(83, "Ненецкий авт. округ"),
         CreateRegion(84, "Красноярский край (старый код, дублирует 24)"),
         CreateRegion(85, "Иркутская обл. (старый код)"),
@@ -104,7 +99,7 @@ public sealed class UserCompanyService
         CreateRegion(88, "Ямало-Ненецкий авт. округ"),
         CreateRegion(89, "Ямало-Ненецкий авт. округ (дублирующий)"),
         CreateRegion(90, "Запорожская область (новые территории)"),
-        CreateRegion(91, "Республика Крым (старый код до 2014)"),
+        CreateRegion(91, "Республика Крым"),
         CreateRegion(92, "Севастополь"),
         CreateRegion(93, "Херсонская область (новые территории)"),
         CreateRegion(94, "Донецкая Народная Республика (ДНР)"),
