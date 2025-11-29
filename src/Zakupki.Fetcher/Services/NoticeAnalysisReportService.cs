@@ -98,6 +98,7 @@ public sealed class NoticeAnalysisReportService
 
             AppendTitle(body, notice);
             AppendGeneralInfo(body, notice, analysis);
+            AppendEssence(body, result);
             AppendSummary(body, result);
             AppendDecision(body, result);
 
@@ -166,6 +167,17 @@ public sealed class NoticeAnalysisReportService
 
             body.AppendChild(CreateKeyValueParagraph(label, value!));
         }
+    }
+
+    private static void AppendEssence(Body body, TenderAnalysisResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.Essence))
+        {
+            return;
+        }
+
+        AppendSubHeading(body, "Суть закупки");
+        body.AppendChild(CreateParagraph(result.Essence.Trim()));
     }
 
     private static void AppendSummary(Body body, TenderAnalysisResult result)

@@ -12,6 +12,11 @@ public class TenderAnalysisResult
     /// Краткий общий вывод (1–3 предложения) для UI.
     /// </summary>
     public string Summary { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Краткое описание сути закупки (что и для чего закупается).
+    /// </summary>
+    public string Essence { get; set; } = string.Empty;
 }
 
 public class TenderScores

@@ -26,6 +26,7 @@ export class NoticeAnalysisDialogComponent {
   scoreSections: ScoreSectionView[] = [];
   decisionScoreTen: number | null = null;
   recommendation: boolean | null = null;
+  essenceText: string | null = null;
   summaryText: string | null = null;
   reportInProgress = false;
 
@@ -41,6 +42,9 @@ export class NoticeAnalysisDialogComponent {
     const decisionScore = data.decisionScore ?? this.structuredResult?.decisionScore ?? null;
     this.decisionScoreTen = this.toTenScale(decisionScore);
     this.recommendation = data.recommended ?? this.structuredResult?.recommended ?? null;
+
+    const essence = this.structuredResult?.essence?.trim();
+    this.essenceText = essence && essence.length > 0 ? essence : null;
 
     const summary = this.structuredResult?.summary?.trim();
     this.summaryText = summary && summary.length > 0 ? summary : null;
