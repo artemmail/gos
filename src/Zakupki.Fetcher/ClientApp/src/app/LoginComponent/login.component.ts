@@ -45,6 +45,12 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // При каждом входе на страницу авторизации очищаем хранилища,
+    // чтобы сбросить устаревшие токены или пользовательские данные
+    // и избежать конфликтов при повторной авторизации.
+    localStorage.clear();
+    sessionStorage.clear();
+
     // Обработка error из query-params
     this.route.queryParams.subscribe(params => {
       const error = params['error'];
