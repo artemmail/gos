@@ -1,5 +1,5 @@
 <mat-toolbar color="primary" class="app-toolbar">
-  <button mat-button routerLink="/" class="app-title">Zakupki Notices</button>
+  <button mat-button routerLink="/" class="app-title">Анализ тендеров ИИ</button>
   <ng-container *ngIf="user$ | async as user; else loginLink">
     <nav class="nav-links">
       <a
@@ -8,15 +8,15 @@
         routerLinkActive="active-link"
         [routerLinkActiveOptions]="{ exact: true }"
       >
-        Реестр
+        Тендеры
       </a>
       <a mat-button routerLink="/favorites" routerLinkActive="active-link">
-        Избранное
+        Избранное<mat-icon fontIcon="favorite"></mat-icon>
       </a>
     </nav>
     <span class="spacer"></span>
     <span class="user-name">{{ user.displayName || user.email }}</span>
-    <a mat-button routerLink="/company-profile" routerLinkActive="active-link">Данные компании</a>
+    <a mat-button routerLink="/company-profile" routerLinkActive="active-link">Профиль компании</a>
     <button mat-button (click)="onLogout()">Выйти</button>
   </ng-container>
   <ng-template #loginLink>
