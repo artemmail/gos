@@ -1,8 +1,8 @@
 <div class="page">
   <div class="page-header">
     <div>
-      <h1>Данные компании</h1>
-      <p class="subtitle">Заполните информацию о компании и настройте векторные запросы.</p>
+      <h1>Профиль компании для автоматической аналитики</h1>
+      <p class="subtitle">Заполните информацию о компании для смыслового поиска и интеллектуального анализа тендерной документации. Сервис будет скачивать и анализировать приложенные к госзакупкам файлы и сопоставлять с вашим профилем</p>
     </div>
     <div class="page-actions">
       <button mat-stroked-button color="primary" (click)="goBack()">Назад</button>
@@ -16,7 +16,8 @@
 
   <form [formGroup]="form" *ngIf="!isLoading" class="content">
     <section class="card">
-      <h2>Общие сведения</h2>
+      <h2>Описание компаниие (будет использоваться искутвенным интеллектом для анализа тендера)</h2>
+      <p class="subtitle">Введите важную информацию о вашей компании что бы искуственный интеллект смог по содержимому тендерной документации определить на сколько подходит вам тендер</p>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Информация о компании</mat-label>
         <textarea
@@ -27,7 +28,7 @@
         ></textarea>
         <mat-hint align="end">{{ form.get('companyInfo')?.value?.length || 0 }}/8000</mat-hint>
       </mat-form-field>
-
+      <p class="subtitle">Регионы вашей работы для фильтрации и анализа рентабельности с помощью ИИ</p>
       <mat-form-field appearance="outline" class="full-width region-field">
         <mat-label>Регионы работы</mat-label>
         <mat-chip-grid #chipGrid aria-label="Выбранные регионы">
@@ -46,12 +47,15 @@
           [matChipInputFor]="chipGrid"
           [formControl]="regionSearchControl"
         />
+        <p class="subtitle">Коды для опциональной фильтрации тендеров</p>
         <mat-autocomplete #regionAuto="matAutocomplete" (optionSelected)="handleRegionSelected($event)">
           <mat-option *ngFor="let region of filteredRegions" [value]="region">
             {{ region.code }} — {{ region.name }}
           </mat-option>
         </mat-autocomplete>
       </mat-form-field>
+
+      <p class="subtitle">ОКПД2 по которым (опционально) будут фильтроваться заявки в поиске</p>
 
       <mat-form-field appearance="outline" class="full-width okpd2-field">
         <mat-label>Коды ОКПД2</mat-label>
@@ -86,8 +90,8 @@
     <section class="card vector-section">
       <div class="section-header">
         <div>
-          <h2>Векторные запросы</h2>
-          <div class="hint">Управляйте запросами для поиска релевантных закупок.</div>
+          <h2>Услуги компании</h2>
+           <p class="subtitle">Введите услуги компании для <b>смыслового</b> сопоставления с названием тендера. Появятся в выпадающем списке при выборе "Семантический поик (ИИ)"  </p>
         </div>
         <div class="section-actions">
           <button

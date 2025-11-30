@@ -517,7 +517,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get pageTitle(): string {
-    return this.isFavoritesPage ? 'Избранные извещения' : 'Реестр извещений';
+    return this.isFavoritesPage ? 'Избранные извещения' : 'Поиск по госзкакупкам';
   }
 
   get pageSubtitle(): string {

@@ -239,7 +239,7 @@
             </ng-container>
 
             <ng-container matColumnDef="analysisStatus">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="analysisStatus">Статус анализа</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header="analysisStatus">Результат Анализа</th>
               <td mat-cell *matCellDef="let element">
                 <div [ngClass]="getAnalysisStatusClass(element)" class="analysis-status-wrapper">
                   <ng-container *ngIf="isAnalysisNegative(element); else nonNegativeStatus">
@@ -267,7 +267,7 @@
             </ng-container>
 
             <ng-container matColumnDef="analysis">
-              <th mat-header-cell *matHeaderCellDef>Анализ</th>
+              <th mat-header-cell *matHeaderCellDef>Анализ ИИ</th>
               <td mat-cell *matCellDef="let element">
                 <div class="analysis-actions">
                   <button
