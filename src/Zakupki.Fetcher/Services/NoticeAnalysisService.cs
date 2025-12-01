@@ -678,7 +678,7 @@ public sealed class NoticeAnalysisService
                     content
                 }
             },
-            temperature = 0.2,
+         //   temperature = 0.2,
             max_output_tokens = 8000,
             // response_format больше не используется в Responses API,
             // текст вернётся по умолчанию
