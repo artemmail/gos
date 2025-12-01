@@ -437,14 +437,21 @@ public class NoticesController : ControllerBase
         public double? DecisionScore { get; init; }
     }
 
-    [HttpGet("{noticeId:guid}")]
-    public async Task<ActionResult<NoticeDetailsDto>> GetNotice(Guid noticeId)
+    [HttpGet("by-number/{purchaseNumber}")]
+    public async Task<ActionResult<NoticeDetailsDto>> GetNotice(string purchaseNumber)
     {
+        if (string.IsNullOrWhiteSpace(purchaseNumber))
+        {
+            return BadRequest(new { message = "Не указан номер извещения." });
+        }
+
+        var normalizedNumber = purchaseNumber.Trim();
+
         await using var context = await _dbContextFactory.CreateDbContextAsync();
 
         var notice = await context.Notices
             .AsNoTracking()
-            .Where(n => n.Id == noticeId)
+            .Where(n => n.PurchaseNumber == normalizedNumber)
             .Select(n => new NoticeDetailsDto(
                 n.Id,
                 n.PurchaseNumber,

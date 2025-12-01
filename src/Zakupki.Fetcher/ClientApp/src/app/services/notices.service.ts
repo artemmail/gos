@@ -73,7 +73,7 @@ export class NoticesService {
     return this.http.get<NoticeListResponse>(`${this.baseUrl}/vector-search`, { params });
   }
 
-  getNotice(noticeId: string): Observable<NoticeDetails> {
-    return this.http.get<NoticeDetails>(`${this.baseUrl}/${noticeId}`);
+  getNoticeByPurchaseNumber(purchaseNumber: string): Observable<NoticeDetails> {
+    return this.http.get<NoticeDetails>(`${this.baseUrl}/by-number/${purchaseNumber}`);
   }
 }
