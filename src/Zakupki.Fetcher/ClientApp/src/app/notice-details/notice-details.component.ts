@@ -20,6 +20,7 @@ import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-di
 })
 export class NoticeDetailsComponent implements OnInit, OnDestroy {
   noticeId = '';
+  purchaseNumber = '';
   isLoading = false;
   errorMessage = '';
   parseError = '';
@@ -43,16 +44,16 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     this.route.paramMap
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
-        const noticeId = params.get('id');
+        const purchaseNumber = params.get('purchaseNumber');
 
-        if (!noticeId) {
-          this.errorMessage = 'Не указан идентификатор извещения.';
+        if (!purchaseNumber) {
+          this.errorMessage = 'Не указан номер извещения.';
           this.details = null;
           this.parsedNotice = null;
           return;
         }
 
-        this.noticeId = noticeId;
+        this.purchaseNumber = purchaseNumber;
         this.loadNotice();
       });
   }
@@ -71,7 +72,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
   }
 
   loadNotice(): void {
-    if (!this.noticeId) {
+    if (!this.purchaseNumber) {
       return;
     }
 
@@ -82,7 +83,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     this.noticesService
-      .getNotice(this.noticeId)
+      .getNoticeByPurchaseNumber(this.purchaseNumber)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -93,6 +94,7 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: notice => {
           this.details = notice;
+          this.noticeId = notice.id;
           this.rawJsonText = notice.rawJson ?? '';
           this.parsedNotice = this.parseNotice(this.rawJsonText);
           this.loadAttachments();

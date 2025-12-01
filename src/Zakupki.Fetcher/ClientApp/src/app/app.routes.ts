@@ -21,9 +21,8 @@ export const appRoutes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'notices/:id',
-    component: NoticeDetailsComponent,
-    canActivate: [AuthGuard]
+    path: 'notices/:purchaseNumber',
+    component: NoticeDetailsComponent
   },
   {
     path: 'favorites',
