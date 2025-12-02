@@ -1,14 +1,15 @@
-<div class="page">
-  <div class="page-header">
-    <div>
-      <h1>Профиль компании для автоматической аналитики</h1>
-      <p class="subtitle">Заполните информацию о компании для смыслового поиска и интеллектуального анализа тендерной документации. Сервис будет скачивать и анализировать приложенные к госзакупкам файлы и сопоставлять с вашим профилем</p>
+<div class="page-container">
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h1>Профиль компании для автоматической аналитики</h1>
+        <p class="subtitle">Заполните информацию о компании для смыслового поиска и интеллектуального анализа тендерной документации. Сервис будет скачивать и анализировать приложенные к госзакупкам файлы и сопоставлять с вашим профилем</p>
+      </div>
+      <div class="page-actions">
+        <button mat-stroked-button color="primary" (click)="goBack()">Назад</button>
+        <button mat-flat-button color="primary" (click)="save()" [disabled]="!canSave">Сохранить</button>
+      </div>
     </div>
-    <div class="page-actions">
-      <button mat-stroked-button color="primary" (click)="goBack()">Назад</button>
-      <button mat-flat-button color="primary" (click)="save()" [disabled]="!canSave">Сохранить</button>
-    </div>
-  </div>
 
   <div class="loading-container" *ngIf="isLoading">
     <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
@@ -155,4 +156,5 @@
     <div class="message error" *ngIf="errorMessage">{{ errorMessage }}</div>
     <div class="message success" *ngIf="successMessage">{{ successMessage }}</div>
   </form>
+  </div>
 </div>

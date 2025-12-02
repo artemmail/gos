@@ -34,6 +34,14 @@ body {
   min-height: 100vh;
 }
 
+.page-container {
+  width: 100%;
+  max-width: 1980px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
 .raw-json-dialog-panel-fullscreen {
   width: 100vw !important;
   max-width: 100vw !important;
