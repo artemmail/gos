@@ -4,6 +4,7 @@ import { LoginComponent } from './LoginComponent/login.component';
 import { AuthCallbackComponent } from './auth-callback/auth-callback.component';
 import { NoticesComponent } from './notices/notices.component';
 import { AuthGuard } from './services/auth.guard';
+import { HomeRedirectGuard } from './services/home-redirect.guard';
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
 import { CompanyProfileComponent } from './company-profile/company-profile.component';
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
@@ -14,6 +15,11 @@ export const appRoutes: Routes = [
   { path: 'presentation', component: PresentationPageComponent },
   {
     path: '',
+    component: PresentationPageComponent,
+    canActivate: [HomeRedirectGuard]
+  },
+  {
+    path: 'tenders',
     component: NoticesComponent,
     canActivate: [AuthGuard],
     data: {
