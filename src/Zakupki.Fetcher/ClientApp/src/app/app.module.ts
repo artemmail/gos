@@ -21,6 +21,7 @@ import { QueryVectorsComponent } from './query-vectors/query-vectors.component';
 import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.component';
 import { NoticeCommonInfoComponent } from './notice-common-info/notice-common-info.component';
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
+import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 
 registerLocaleData(localeRu);
 
@@ -36,7 +37,8 @@ registerLocaleData(localeRu);
     QueryVectorsComponent,
     QueryVectorDialogComponent,
     NoticeCommonInfoComponent,
-    NoticeDetailsComponent
+    NoticeDetailsComponent,
+    PresentationPageComponent
   ],
   imports: [
     BrowserModule,

@@ -1,5 +1,6 @@
 <mat-toolbar color="primary" class="app-toolbar">
   <button mat-button routerLink="/" class="app-title">Анализ тендеров ИИ</button>
+  <a mat-button routerLink="/presentation" routerLinkActive="active-link">Презентация</a>
   <ng-container *ngIf="user$ | async as user; else loginLink">
     <nav class="nav-links">
       <a
