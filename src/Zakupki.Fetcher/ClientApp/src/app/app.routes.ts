@@ -6,10 +6,12 @@ import { NoticesComponent } from './notices/notices.component';
 import { AuthGuard } from './services/auth.guard';
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
 import { CompanyProfileComponent } from './company-profile/company-profile.component';
+import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 
 export const appRoutes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'auth/callback', component: AuthCallbackComponent },
+  { path: 'presentation', component: PresentationPageComponent },
   {
     path: '',
     component: NoticesComponent,
