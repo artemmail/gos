@@ -1,9 +1,14 @@
 <!-- side-menu.component.html -->
 <mat-nav-list>
   <ng-container *ngIf="user$ | async as user; else guestMenu">
-    <a mat-list-item (click)="navigate('/')">
+    <a mat-list-item (click)="navigate('/presentation')">
       <mat-icon matListItemIcon>home</mat-icon>
-      <span matListItemTitle>Главная</span>
+      <span matListItemTitle>Презентация</span>
+    </a>
+
+    <a mat-list-item (click)="navigate('/tenders')">
+      <mat-icon matListItemIcon>table_chart</mat-icon>
+      <span matListItemTitle>Тендеры</span>
     </a>
 
         <a mat-list-item (click)="navigate('/blog')">
@@ -113,6 +118,11 @@
     </a>
   </ng-container>
   <ng-template #guestMenu>
+    <a mat-list-item (click)="navigate('/presentation')">
+      <mat-icon matListItemIcon>home</mat-icon>
+      <span matListItemTitle>Презентация</span>
+    </a>
+
     <a mat-list-item (click)="navigate('/recognition')">
       <mat-icon matListItemIcon>auto_stories</mat-icon>
       <span matListItemTitle>Conspect YouTube</span>
