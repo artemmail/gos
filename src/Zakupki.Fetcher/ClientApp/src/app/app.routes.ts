@@ -15,7 +15,10 @@ export const appRoutes: Routes = [
   {
     path: '',
     component: NoticesComponent,
-    canActivate: [AuthGuard]
+    canActivate: [AuthGuard],
+    data: {
+      unauthRedirect: '/presentation'
+    }
   },
   {
     path: 'company-profile',

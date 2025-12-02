@@ -16,6 +16,12 @@ export class AuthGuard implements CanActivate {
           return true;
         }
 
+        const unauthRedirect = route.data?.['unauthRedirect'] as string | undefined;
+
+        if (unauthRedirect) {
+          return this.router.createUrlTree([unauthRedirect]);
+        }
+
         return this.router.createUrlTree(['/login'], {
           queryParams: { returnUrl: state.url }
         });
