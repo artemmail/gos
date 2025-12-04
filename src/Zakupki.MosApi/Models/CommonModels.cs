@@ -440,11 +440,11 @@ namespace Zakupki.MosApi
     public enum CharacteristicValueTypeEnum
     {
         integer,
-        decimal,
+        @decimal,
         date,
         boolean,
         list,
-        string,
+        @string,
     }
 
 
@@ -590,7 +590,7 @@ namespace Zakupki.MosApi
     public enum UnpublishReasonEnum
     {
         contentOrCreationError,
-        double,
+        @double,
         integrationService,
         other,
         excessiveConsumerProperties,
@@ -644,7 +644,7 @@ namespace Zakupki.MosApi
         keepBlock,
         changeBlock,
         refused,
-        return,
+        @return,
     }
 
 

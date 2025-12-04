@@ -1822,7 +1822,7 @@ namespace Zakupki.MosApi
         appeaL_SENT,
         pendinG_APPEAL_REVOKE,
         archive,
-        return,
+        @return,
     }
 
 
@@ -1856,28 +1856,28 @@ namespace Zakupki.MosApi
     public class EisSignResultDto
     {
         [JsonPropertyName("ВнешИдЗапрос")]
-        public string? Anonymous { get; set; }
+        public string? externalRequestId { get; set; }
 
         [JsonPropertyName("ТипДокумент")]
-        public string? Anonymous { get; set; }
+        public string? documentType { get; set; }
 
         [JsonPropertyName("ИдДокумент")]
-        public string? Anonymous { get; set; }
+        public string? documentId { get; set; }
 
         [JsonPropertyName("ДатаПодписУсп")]
-        public string? Anonymous { get; set; }
+        public string? signedAt { get; set; }
 
         [JsonPropertyName("Код")]
-        public string? Anonymous { get; set; }
+        public string? code { get; set; }
 
         [JsonPropertyName("Уров")]
-        public string? Anonymous { get; set; }
+        public string? level { get; set; }
 
         [JsonPropertyName("Наим")]
-        public string? Anonymous { get; set; }
+        public string? name { get; set; }
 
         [JsonPropertyName("Опис")]
-        public string? Anonymous { get; set; }
+        public string? description { get; set; }
     }
 
 
@@ -3157,11 +3157,11 @@ namespace Zakupki.MosApi
     public enum CharacteristicTypeEnum
     {
         integer,
-        decimal,
+        @decimal,
         date,
         boolean,
         value,
-        string,
+        @string,
     }
 
 
@@ -3988,7 +3988,7 @@ namespace Zakupki.MosApi
         public string? id { get; set; }
 
         [JsonPropertyName("event")]
-        public string? event { get; set; }
+        public string? @event { get; set; }
 
         [JsonPropertyName("time")]
         public string? time { get; set; }
