@@ -22,6 +22,7 @@ import { QueryVectorDialogComponent } from './query-vectors/query-vector-dialog.
 import { NoticeCommonInfoComponent } from './notice-common-info/notice-common-info.component';
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
+import { TendersStartComponent } from './tenders-start/tenders-start.component';
 
 registerLocaleData(localeRu);
 
@@ -38,7 +39,8 @@ registerLocaleData(localeRu);
     QueryVectorDialogComponent,
     NoticeCommonInfoComponent,
     NoticeDetailsComponent,
-    PresentationPageComponent
+    PresentationPageComponent,
+    TendersStartComponent
   ],
   imports: [
     BrowserModule,
