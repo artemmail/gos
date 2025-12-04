@@ -154,5 +154,16 @@ namespace Zakupki.MosApi
         }
 
         public async Task ExternalcommandsReceivenotificationAsync(ReceiveNotificationCommand? body, CancellationToken cancellationToken = default)
+        {
+            var urlBuilder = new StringBuilder();
+            urlBuilder.Append(_baseUrl);
+            urlBuilder.Append("/api/externalCommands/ReceiveNotification");
+            using var request = new HttpRequestMessage(new HttpMethod("POST"), urlBuilder.ToString());
+            var json = JsonSerializer.Serialize(body, _serializerOptions);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            return;
+        }
     }
 }
