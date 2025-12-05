@@ -6,6 +6,8 @@ using Zakupki.MosApi;
 using Zakupki.MosApi.V2;
 using TenderDateFilter = Zakupki.MosApi.DateTime;
 using NeedDateFilter = Zakupki.MosApi.V2.DateTime2;
+using V1OrderDto = Zakupki.MosApi.OrderDto;
+using V2OrderDto = Zakupki.MosApi.V2.OrderDto;
 
 namespace Zakupki.MosApi.ConsoleTest
 {
@@ -71,9 +73,9 @@ namespace Zakupki.MosApi.ConsoleTest
                         end = now
                     }
                 },
-                order = new List<OrderDto>
+                order = new List<V2OrderDto>
                 {
-                    new OrderDto
+                    new V2OrderDto
                     {
                         field = "PublishDate",
                         desc = true
@@ -127,9 +129,9 @@ namespace Zakupki.MosApi.ConsoleTest
                         end = tomorrowStart
                     }
                 },
-                order = new List<OrderDto>
+                order = new List<V1OrderDto>
                 {
-                    new OrderDto
+                    new V1OrderDto
                     {
                         field = "RegistrationDate",
                         desc = true
