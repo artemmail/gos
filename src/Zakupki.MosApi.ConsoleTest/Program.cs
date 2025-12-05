@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Zakupki.MosApi;
 using TenderDateFilter = Zakupki.MosApi.DateTime;
@@ -25,17 +23,12 @@ namespace Zakupki.MosApi.ConsoleTest
             using var httpClient = new HttpClient();
             var client = new MosSwaggerClient(httpClient, baseUrl, token);
 
-            var serializerOptions = new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
             try
             {
                 var status = await client.GetApiTokenChecktokenAsync();
                 Console.WriteLine($"Token check response: {status ?? "<null>"}");
 
-                await FetchTodayTenders(client, serializerOptions);
+                await FetchTodayTenders(client);
                 return 0;
             }
             catch (Exception ex)
@@ -59,7 +52,7 @@ namespace Zakupki.MosApi.ConsoleTest
             return null;
         }
 
-        private static async Task FetchTodayTenders(MosSwaggerClient client, JsonSerializerOptions serializerOptions)
+        private static async Task FetchTodayTenders(MosSwaggerClient client)
         {
             var todayStart = DateTimeOffset.Now.Date;
             var tomorrowStart = todayStart.AddDays(1);
@@ -92,8 +85,7 @@ namespace Zakupki.MosApi.ConsoleTest
             var totalFetched = 0;
             while (true)
             {
-                var queryString = JsonSerializer.Serialize(query, serializerOptions);
-                var tenders = await client.QueriesGettendersAsync(queryString);
+                var tenders = await client.QueriesGettendersAsync(query);
 
                 if (tenders?.items == null || tenders.items.Count == 0)
                 {
