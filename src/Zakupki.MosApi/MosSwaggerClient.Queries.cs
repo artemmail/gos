@@ -267,11 +267,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetTenders");
-            var queryString = SerializeQuery(query);
+            var queryString = FormatGetQuery(query);
             if (queryString != null)
             {
                 urlBuilder.Append('?');
-                urlBuilder.Append(Uri.EscapeDataString(queryString));
+                urlBuilder.Append(queryString);
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
