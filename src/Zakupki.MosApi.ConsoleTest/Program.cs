@@ -38,6 +38,7 @@ namespace Zakupki.MosApi.ConsoleTest
                 var status = await v1Client.GetApiTokenChecktokenAsync();
                 Console.WriteLine($"Token check response: {status ?? "<null>"}");
 
+                await FetchAuctionDetails(v2Client);
                 await FetchAuctionsForLastMonth(v2Client);
                 await FetchNeedsForLastMonth(v2Client);
                 await FetchTodayTenders(v1Client);
@@ -135,6 +136,52 @@ namespace Zakupki.MosApi.ConsoleTest
 
             Console.WriteLine(
                 $"Saved {allAuctions.Count} auction(s) to {fileName}.");
+        }
+
+        private static async Task FetchAuctionDetails(MosSwaggerClientV2 client)
+        {
+            var now = DateTimeOffset.Now;
+            var monthAgo = now.AddDays(-7);
+
+            var query = new SearchQuery
+            {
+                filter = new SearchQueryFilterDto
+                {
+                    publishDate = new NeedDateFilter
+                    {
+                        start = monthAgo,
+                        end = now
+                    }
+                },
+                order = new List<V2OrderDto>
+                {
+                    new V2OrderDto
+                    {
+                        field = "PublishDate",
+                        desc = true
+                    }
+                },
+                take = 1
+            };
+
+            Console.WriteLine(
+                "Fetching the latest auction to demonstrate /api/v2/auction/public/Get...");
+
+            var searchResult = await client.AuctionSearchAsync(query);
+
+            var auctionId = searchResult?.items?.Count > 0 ? searchResult.items[0].id : null;
+            if (auctionId == null)
+            {
+                Console.WriteLine("No auctions found for the specified period.");
+                return;
+            }
+
+            var auctionDetails = await client.AuctionGetAsync(new GetQuery { id = auctionId.Value });
+
+            Console.WriteLine(
+                $"Auction #{auctionId.Value}: {auctionDetails?.name}\n" +
+                $"Status: {auctionDetails?.status}\n" +
+                $"Start price: {auctionDetails?.startPrice}");
         }
 
         private static async Task FetchNeedsForLastMonth(MosSwaggerClientV2 client)
