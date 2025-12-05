@@ -28,6 +28,8 @@ namespace Zakupki.MosApi
 
             _serializerOptions.Converters.Add(new IsoDateTimeConverter());
             _serializerOptions.Converters.Add(new IsoDateTimeNullableConverter());
+            _serializerOptions.Converters.Add(new IsoDateTimeOffsetConverter());
+            _serializerOptions.Converters.Add(new IsoDateTimeOffsetNullableConverter());
 
             ApiToken = apiToken;
         }
