@@ -38,15 +38,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetContracts");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -60,15 +56,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetContractStats");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -82,15 +74,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetCustomers");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -104,15 +92,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetExternalSkuChangeRequests");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -126,15 +110,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetExternalSkus");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -148,15 +128,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetOffers");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -170,15 +146,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetSku");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -192,15 +164,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetSkus");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -214,15 +182,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetStatistics");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -236,15 +200,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetSupplierBlockHistory");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -258,15 +218,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetSuppliersByIds");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -280,15 +236,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetSuppliers");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -302,15 +254,11 @@ namespace Zakupki.MosApi
             var urlBuilder = new StringBuilder();
             urlBuilder.Append(_baseUrl);
             urlBuilder.Append("/api/v1/queries/GetTenders");
-            var hasQuery = false;
             var queryString = SerializeQuery(query);
             if (queryString != null)
             {
-                urlBuilder.Append(hasQuery ? '&' : '?');
-                urlBuilder.Append(Uri.EscapeDataString("query"));
-                urlBuilder.Append('=');
+                urlBuilder.Append('?');
                 urlBuilder.Append(Uri.EscapeDataString(queryString));
-                hasQuery = true;
             }
             using var request = CreateGetRequest(urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
