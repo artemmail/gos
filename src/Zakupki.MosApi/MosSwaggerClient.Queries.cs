@@ -11,27 +11,23 @@ namespace Zakupki.MosApi
 {
     public partial class MosSwaggerClient
     {
-        private string? SerializeQuery(object? query)
-        {
-            return query switch
-            {
-                null => null,
-                string queryString => queryString,
-                _ => JsonSerializer.Serialize(query, _serializerOptions)
-            };
-        }
-
         private string? FormatGetQuery(object? query)
         {
-            var serialized = SerializeQuery(query);
-            if (serialized == null)
+            switch (query)
             {
-                return null;
+                case null:
+                    return null;
+                case string queryString:
+                    var trimmed = queryString.TrimStart('?');
+                    return trimmed.StartsWith("query=", StringComparison.OrdinalIgnoreCase)
+                        ? trimmed
+                        : $"query={trimmed}";
+                default:
+                    var serialized = JsonSerializer.Serialize(query, _serializerOptions);
+                    // Encode the JSON payload so the server receives a single URL-encoded JSON
+                    // argument without additional query-string parsing.
+                    return $"query={Uri.EscapeDataString(serialized)}";
             }
-
-            // Encode the JSON payload so the server receives a single URL-encoded JSON
-            // argument without additional query-string parsing.
-            return Uri.EscapeDataString(serialized);
         }
 
         private HttpRequestMessage CreateGetRequest(string url)
