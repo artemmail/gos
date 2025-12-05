@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Zakupki.MosApi;
 using Zakupki.MosApi.V2;
 using TenderDateFilter = Zakupki.MosApi.DateTime;
@@ -82,36 +84,47 @@ namespace Zakupki.MosApi.ConsoleTest
                     }
                 },
                 skip = 0,
-                take = 10,
+                take = 1000,
                 withCount = true
             };
 
             Console.WriteLine(
-                $"Fetching first 10 needs published between {monthAgo:yyyy-MM-dd} and {now:yyyy-MM-dd}...");
+                $"Fetching needs published between {monthAgo:yyyy-MM-dd} and {now:yyyy-MM-dd} in batches of {query.take}...");
 
-            var needs = await client.NeedSearchAsync(query);
+            var allNeeds = new List<NeedDto2>();
 
-            if (needs?.items == null || needs.items.Count == 0)
+            while (true)
             {
-                Console.WriteLine("No needs found for the specified period.");
-                return;
-            }
+                var needs = await client.NeedSearchAsync(query);
 
-            var index = 1;
-            foreach (var need in needs.items)
-            {
-                var beginDate = need.beginDate?.ToString("yyyy-MM-dd") ?? "n/a";
-                var status = need.status?.ToString() ?? "unknown";
-                var companyName = need.company?.name ?? "<no customer>";
-                var price = need.startPrice?.ToString("0.##") ?? "n/a";
+                if (needs?.items == null || needs.items.Count == 0)
+                {
+                    Console.WriteLine("No needs found for the specified period.");
+                    return;
+                }
+
+                allNeeds.AddRange(needs.items);
+
+                var totalAvailable = needs.count ?? allNeeds.Count;
 
                 Console.WriteLine(
-                    $"{index,2}. [{status}] #{need.id} {need.name} — customer: {companyName}, start price: {price}, begin: {beginDate}");
+                    $"Fetched {allNeeds.Count} of {totalAvailable} need(s)...");
 
-                index++;
+                if (allNeeds.Count >= totalAvailable || needs.items.Count < (query.take ?? 0))
+                {
+                    break;
+                }
+
+                query.skip = (query.skip ?? 0) + (query.take ?? 0);
             }
 
-            Console.WriteLine($"Displayed {needs.items.Count} need(s). Total available: {needs.count?.ToString() ?? "unknown"}.");
+            var fileName = $"needs_{monthAgo:yyyyMMdd}_{now:yyyyMMdd}.json";
+            var json = JsonSerializer.Serialize(allNeeds, new JsonSerializerOptions { WriteIndented = true });
+
+            await File.WriteAllTextAsync(fileName, json);
+
+            Console.WriteLine(
+                $"Saved {allNeeds.Count} need(s) to {fileName}.");
         }
 
         private static async Task FetchTodayTenders(MosSwaggerClient client)
