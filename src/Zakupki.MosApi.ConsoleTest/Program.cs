@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Zakupki.MosApi;
@@ -119,7 +120,13 @@ namespace Zakupki.MosApi.ConsoleTest
             }
 
             var fileName = $"needs_{monthAgo:yyyyMMdd}_{now:yyyyMMdd}.json";
-            var json = JsonSerializer.Serialize(allNeeds, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(
+                allNeeds,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
 
             await File.WriteAllTextAsync(fileName, json);
 
