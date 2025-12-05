@@ -18,8 +18,10 @@ namespace Zakupki.MosApi.ConsoleTest
     {
         private static async Task<int> Main(string[] args)
         {
-            var baseUrl = GetArgument(args, "--base-url", "-b") ?? Environment.GetEnvironmentVariable("MOS_API_BASE_URL");
-            var token = GetArgument(args, "--token", "-t") ?? Environment.GetEnvironmentVariable("MOS_API_TOKEN");
+            var token = "";
+
+            var baseUrl = "https://api.zakupki.mos.ru";
+
 
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
@@ -64,7 +66,7 @@ namespace Zakupki.MosApi.ConsoleTest
         private static async Task FetchNeedsForLastMonth(MosSwaggerClientV2 client)
         {
             var now = DateTimeOffset.Now;
-            var monthAgo = now.AddMonths(-1);
+            var monthAgo = now.AddDays(-7);
 
             var query = new SearchQuery4
             {
@@ -92,7 +94,9 @@ namespace Zakupki.MosApi.ConsoleTest
             Console.WriteLine(
                 $"Fetching needs published between {monthAgo:yyyy-MM-dd} and {now:yyyy-MM-dd} in batches of {query.take}...");
 
-            var allNeeds = new List<NeedDto2>();
+            var allNeeds = new List<SearchQueryListDto4>();
+
+            
 
             while (true)
             {
@@ -125,7 +129,7 @@ namespace Zakupki.MosApi.ConsoleTest
                 new JsonSerializerOptions
                 {
                     WriteIndented = true,
-                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
 
             await File.WriteAllTextAsync(fileName, json);
