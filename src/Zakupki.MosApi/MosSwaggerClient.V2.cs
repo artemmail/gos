@@ -2428,11 +2428,11 @@ namespace Zakupki.MosApi.V2
     public enum CharacteristicValueTypeEnum
     {
         integer,
-        decimal,
+        @decimal,
         date,
         boolean,
         list,
-        string,
+        @string,
     }
 
 
@@ -3062,7 +3062,7 @@ namespace Zakupki.MosApi.V2
     public enum CharacteristicTypeEnum
     {
         integer,
-        decimal,
+        @decimal,
         dateTime,
         boolean,
         list,
@@ -7454,7 +7454,7 @@ namespace Zakupki.MosApi.V2
         appeaL_SENT,
         pendinG_APPEAL_REVOKE,
         archive,
-        return,
+        @return,
     }
 
 
@@ -7488,28 +7488,28 @@ namespace Zakupki.MosApi.V2
     public class EisSignResultDto
     {
         [JsonPropertyName("ВнешИдЗапрос")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous1 { get; set; }
 
         [JsonPropertyName("ТипДокумент")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous2 { get; set; }
 
         [JsonPropertyName("ИдДокумент")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous3 { get; set; }
 
         [JsonPropertyName("ДатаПодписУсп")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous4 { get; set; }
 
         [JsonPropertyName("Код")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous5 { get; set; }
 
         [JsonPropertyName("Уров")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous6 { get; set; }
 
         [JsonPropertyName("Наим")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous7 { get; set; }
 
         [JsonPropertyName("Опис")]
-        public string? Anonymous { get; set; }
+        public string? Anonymous8 { get; set; }
     }
 
 
@@ -8028,11 +8028,11 @@ namespace Zakupki.MosApi.V2
     public enum ContractSkuCharacteristicTypeEnum
     {
         integer,
-        decimal,
+        @decimal,
         date,
         boolean,
         value,
-        string,
+        @string,
     }
 
 
@@ -8602,11 +8602,11 @@ namespace Zakupki.MosApi.V2
     public enum CharacteristicTypeEnum2
     {
         integer,
-        decimal,
+        @decimal,
         date,
         boolean,
         value,
-        string,
+        @string,
     }
 
 
@@ -10358,7 +10358,7 @@ namespace Zakupki.MosApi.V2
         public string? id { get; set; }
 
         [JsonPropertyName("event")]
-        public string? event { get; set; }
+        public string? @event { get; set; }
 
         [JsonPropertyName("time")]
         public string? time { get; set; }
