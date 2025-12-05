@@ -38,6 +38,7 @@ namespace Zakupki.MosApi.ConsoleTest
                 var status = await v1Client.GetApiTokenChecktokenAsync();
                 Console.WriteLine($"Token check response: {status ?? "<null>"}");
 
+                await FetchAuctionsForLastMonth(v2Client);
                 await FetchNeedsForLastMonth(v2Client);
                 await FetchTodayTenders(v1Client);
                 return 0;
@@ -61,6 +62,79 @@ namespace Zakupki.MosApi.ConsoleTest
             }
 
             return null;
+        }
+
+        private static async Task FetchAuctionsForLastMonth(MosSwaggerClientV2 client)
+        {
+            var now = DateTimeOffset.Now;
+            var monthAgo = now.AddDays(-7);
+
+            var query = new SearchQuery
+            {
+                filter = new SearchQueryFilterDto
+                {
+                    publishDate = new NeedDateFilter
+                    {
+                        start = monthAgo,
+                        end = now
+                    }
+                },
+                order = new List<V2OrderDto>
+                {
+                    new V2OrderDto
+                    {
+                        field = "PublishDate",
+                        desc = true
+                    }
+                },
+                skip = 0,
+                take = 1000,
+                withCount = true
+            };
+
+            Console.WriteLine(
+                $"Fetching auctions published between {monthAgo:yyyy-MM-dd} and {now:yyyy-MM-dd} in batches of {query.take}...");
+
+            var allAuctions = new List<SearchQueryListDto3>();
+
+            while (true)
+            {
+                var auctions = await client.AuctionSearchAsync(query);
+
+                if (auctions?.items == null || auctions.items.Count == 0)
+                {
+                    Console.WriteLine("No auctions found for the specified period.");
+                    return;
+                }
+
+                allAuctions.AddRange(auctions.items);
+
+                var totalAvailable = auctions.count ?? allAuctions.Count;
+
+                Console.WriteLine(
+                    $"Fetched {allAuctions.Count} of {totalAvailable} auction(s)...");
+
+                if (allAuctions.Count >= totalAvailable || auctions.items.Count < (query.take ?? 0))
+                {
+                    break;
+                }
+
+                query.skip = (query.skip ?? 0) + (query.take ?? 0);
+            }
+
+            var fileName = $"auctions_{monthAgo:yyyyMMdd}_{now:yyyyMMdd}.json";
+            var json = JsonSerializer.Serialize(
+                allAuctions,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+
+            await File.WriteAllTextAsync(fileName, json);
+
+            Console.WriteLine(
+                $"Saved {allAuctions.Count} auction(s) to {fileName}.");
         }
 
         private static async Task FetchNeedsForLastMonth(MosSwaggerClientV2 client)
