@@ -29,9 +29,9 @@ namespace Zakupki.MosApi
                 return null;
             }
 
-            // Preserve the exact JSON payload while protecting characters like '+' that
-            // would otherwise be interpreted as spaces by form decoding.
-            return serialized.Replace("+", "%2B");
+            // Encode the JSON payload so the server receives a single URL-encoded JSON
+            // argument without additional query-string parsing.
+            return Uri.EscapeDataString(serialized);
         }
 
         private HttpRequestMessage CreateGetRequest(string url)
