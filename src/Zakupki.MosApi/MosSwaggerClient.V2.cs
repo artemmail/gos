@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Zakupki.MosApi.Serialization;
 
 namespace Zakupki.MosApi.V2
 {
@@ -28,6 +29,9 @@ namespace Zakupki.MosApi.V2
                 PropertyNameCaseInsensitive = true,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
+
+            _serializerOptions.Converters.Add(new IsoDateTimeConverter());
+            _serializerOptions.Converters.Add(new IsoDateTimeNullableConverter());
 
             ApiToken = apiToken;
         }

@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Zakupki.MosApi.Serialization;
 
 namespace Zakupki.MosApi
 {
@@ -24,6 +25,9 @@ namespace Zakupki.MosApi
                 PropertyNameCaseInsensitive = true,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
+
+            _serializerOptions.Converters.Add(new IsoDateTimeConverter());
+            _serializerOptions.Converters.Add(new IsoDateTimeNullableConverter());
 
             ApiToken = apiToken;
         }
