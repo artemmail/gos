@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Zakupki.MosApi;
 using TenderDateFilter = Zakupki.MosApi.DateTime;
+using NeedDateFilter = Zakupki.MosApi.DateTime2;
 
 namespace Zakupki.MosApi.ConsoleTest
 {
@@ -28,6 +29,7 @@ namespace Zakupki.MosApi.ConsoleTest
                 var status = await client.GetApiTokenChecktokenAsync();
                 Console.WriteLine($"Token check response: {status ?? "<null>"}");
 
+                await FetchNeedsForLastMonth(client);
                 await FetchTodayTenders(client);
                 return 0;
             }
@@ -50,6 +52,62 @@ namespace Zakupki.MosApi.ConsoleTest
             }
 
             return null;
+        }
+
+        private static async Task FetchNeedsForLastMonth(MosSwaggerClient client)
+        {
+            var now = DateTimeOffset.Now;
+            var monthAgo = now.AddMonths(-1);
+
+            var query = new SearchQuery4
+            {
+                filter = new SearchQueryFilterDto2
+                {
+                    publishDate = new NeedDateFilter
+                    {
+                        start = monthAgo,
+                        end = now
+                    }
+                },
+                order = new List<OrderDto>
+                {
+                    new OrderDto
+                    {
+                        field = "PublishDate",
+                        desc = true
+                    }
+                },
+                skip = 0,
+                take = 10,
+                withCount = true
+            };
+
+            Console.WriteLine(
+                $"Fetching first 10 needs published between {monthAgo:yyyy-MM-dd} and {now:yyyy-MM-dd}...");
+
+            var needs = await client.NeedSearchAsync(query);
+
+            if (needs?.items == null || needs.items.Count == 0)
+            {
+                Console.WriteLine("No needs found for the specified period.");
+                return;
+            }
+
+            var index = 1;
+            foreach (var need in needs.items)
+            {
+                var beginDate = need.beginDate?.ToString("yyyy-MM-dd") ?? "n/a";
+                var status = need.status?.ToString() ?? "unknown";
+                var companyName = need.company?.name ?? "<no customer>";
+                var price = need.startPrice?.ToString("0.##") ?? "n/a";
+
+                Console.WriteLine(
+                    $"{index,2}. [{status}] #{need.id} {need.name} — customer: {companyName}, start price: {price}, begin: {beginDate}");
+
+                index++;
+            }
+
+            Console.WriteLine($"Displayed {needs.items.Count} need(s). Total available: {needs.count?.ToString() ?? "unknown"}.");
         }
 
         private static async Task FetchTodayTenders(MosSwaggerClient client)
