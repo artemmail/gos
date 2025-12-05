@@ -5,8 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Zakupki.MosApi;
-using Zakupki.MosApi.Models;
-using TenderDateFilter = Zakupki.MosApi.Models.DateTime;
+using TenderDateFilter = Zakupki.MosApi.DateTime;
 
 namespace Zakupki.MosApi.ConsoleTest
 {
