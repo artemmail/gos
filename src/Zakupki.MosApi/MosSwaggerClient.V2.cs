@@ -30,6 +30,7 @@ namespace Zakupki.MosApi.V2
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
+            _serializerOptions.Converters.Add(new JsonStringEnumConverter());
             _serializerOptions.Converters.Add(new IsoDateTimeConverter());
             _serializerOptions.Converters.Add(new IsoDateTimeNullableConverter());
             _serializerOptions.Converters.Add(new IsoDateTimeOffsetConverter());
