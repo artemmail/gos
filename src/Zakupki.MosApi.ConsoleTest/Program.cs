@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Zakupki.MosApi;
+using Zakupki.MosApi.V2;
 using TenderDateFilter = Zakupki.MosApi.DateTime;
-using NeedDateFilter = Zakupki.MosApi.DateTime2;
+using NeedDateFilter = Zakupki.MosApi.V2.DateTime2;
 
 namespace Zakupki.MosApi.ConsoleTest
 {
@@ -22,15 +23,16 @@ namespace Zakupki.MosApi.ConsoleTest
             }
 
             using var httpClient = new HttpClient();
-            var client = new MosSwaggerClient(httpClient, baseUrl, token);
+            var v1Client = new MosSwaggerClient(httpClient, baseUrl, token);
+            var v2Client = new MosSwaggerClientV2(httpClient, baseUrl, token);
 
             try
             {
-                var status = await client.GetApiTokenChecktokenAsync();
+                var status = await v1Client.GetApiTokenChecktokenAsync();
                 Console.WriteLine($"Token check response: {status ?? "<null>"}");
 
-                await FetchNeedsForLastMonth(client);
-                await FetchTodayTenders(client);
+                await FetchNeedsForLastMonth(v2Client);
+                await FetchTodayTenders(v1Client);
                 return 0;
             }
             catch (Exception ex)
@@ -54,7 +56,7 @@ namespace Zakupki.MosApi.ConsoleTest
             return null;
         }
 
-        private static async Task FetchNeedsForLastMonth(MosSwaggerClient client)
+        private static async Task FetchNeedsForLastMonth(MosSwaggerClientV2 client)
         {
             var now = DateTimeOffset.Now;
             var monthAgo = now.AddMonths(-1);
