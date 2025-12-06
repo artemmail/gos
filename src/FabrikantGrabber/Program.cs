@@ -4,8 +4,11 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
@@ -16,14 +19,15 @@ namespace FabrikantGrabber
     {
         public static async Task Main(string[] args)
         {
+            args = new string[] { "https://www.fabrikant.ru/v2/trades/procedure/view/C5b_EKEJiiyvLHpZij08zg", "c:/xml" };
             if (args.Length < 2)
             {
                 Console.WriteLine("Использование:");
                 Console.WriteLine("  FabrikantGrabber <procedureIdOrUrl> <outputFolder>");
                 Console.WriteLine();
                 Console.WriteLine("Пример:");
-                Console.WriteLine("  FabrikantGrabber C5b_EKEJiiyvLHpZij08zg C\\data\\fabrikant");
-                Console.WriteLine("  FabrikantGrabber https://www.fabrikant.ru/v2/trades/procedure/view/C5b_EKEJiiyvLHpZij08zg C\\data\\fabrikant");
+                Console.WriteLine("  FabrikantGrabber C5b_EKEJiiyvLHpZij08zg C:\\data\\fabrikant");
+                Console.WriteLine("  FabrikantGrabber https://www.fabrikant.ru/v2/trades/procedure/view/C5b_EKEJiiyvLHpZij08zg C:\\data\\fabrikant");
                 return;
             }
 
@@ -87,10 +91,12 @@ namespace FabrikantGrabber
     public sealed class FabrikantScraper
     {
         private readonly HttpClient _httpClient;
+
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // кириллица без \uXXXX
         };
 
         private const string BaseUrl = "https://www.fabrikant.ru";
@@ -115,24 +121,35 @@ namespace FabrikantGrabber
             Console.WriteLine("[*] View URL: " + viewUrl);
             Console.WriteLine("[*] Docs URL: " + docsUrl);
 
-            // 1. Скачиваем и парсим основную страницу
+            // 1. HTML карточки
             var htmlView = await _httpClient.GetStringAsync(viewUrl, cancellationToken);
 
             var procedure = ParseProcedurePage(htmlView, viewUrl);
 
-            var jsonFileName = SanitizeFileName(procedureId) + ".json";
-            var jsonPath = Path.Combine(outputFolder, jsonFileName);
-            var json = JsonSerializer.Serialize(procedure, JsonOptions);
-            await File.WriteAllTextAsync(jsonPath, json, cancellationToken);
-            Console.WriteLine("[*] JSON сохранён: " + jsonPath);
-
-            // 2. Скачиваем страницу документации и выкачиваем файлы
+            // 2. HTML вкладки документации + ссылки
             var docsHtml = await _httpClient.GetStringAsync(docsUrl, cancellationToken);
             var baseUri = new Uri(docsUrl);
             var docLinks = ExtractDocumentationLinks(docsHtml, baseUri);
 
             Console.WriteLine("[*] Найдено документов: " + docLinks.Count);
 
+            // Сохраняем ссылки на документы в JSON
+            procedure.Documents = docLinks;
+
+            // 3. JSON (UTF-8, без BOM)
+            var jsonFileName = SanitizeFileName(procedureId) + ".json";
+            var jsonPath = Path.Combine(outputFolder, jsonFileName);
+            var json = JsonSerializer.Serialize(procedure, JsonOptions);
+
+            await using (var fs = new FileStream(jsonPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (var writer = new StreamWriter(fs, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                await writer.WriteAsync(json);
+            }
+
+            Console.WriteLine("[*] JSON сохранён: " + jsonPath);
+
+            // 4. Скачиваем документы
             var docsFolder = Path.Combine(outputFolder, SanitizeFileName(procedureId) + "_docs");
             Directory.CreateDirectory(docsFolder);
 
@@ -216,7 +233,7 @@ namespace FabrikantGrabber
                            GetValueAfterLabel(doc, "Предмет закупки") ??
                            string.Empty;
 
-            // Организатор / заказчик (примерно, может потребовать точной подстройки под DOM)
+            // Организатор / заказчик
             result.OrganizerName = GetValueAfterLabel(doc, "Информация об организаторе") ??
                                    GetValueAfterLabel(doc, "Организатор") ??
                                    string.Empty;
@@ -262,7 +279,7 @@ namespace FabrikantGrabber
                                      GetValueAfterLabel(doc, "Адрес поставки") ??
                                      string.Empty;
 
-            // Количество + единица (очень грубый метод, при необходимости подправить)
+            // Количество + единица (очень грубо)
             var qtyNodeValue = GetValueAfterLabel(doc, "Количество по ОКЕИ") ??
                                GetValueAfterLabel(doc, "Количество");
             if (!string.IsNullOrWhiteSpace(qtyNodeValue))
@@ -290,7 +307,6 @@ namespace FabrikantGrabber
 
             var node = nodes[0];
 
-            // Ищем ближайший “значимый” сосед/потомок
             HtmlNode? current = node;
             for (int i = 0; i < 12 && current != null; i++)
             {
@@ -398,33 +414,61 @@ namespace FabrikantGrabber
             var doc = new HtmlDocument();
             doc.LoadHtml(docsHtml);
 
-            // Берём все <a>, у которых есть href и это не javascript:
-            var anchors = doc.DocumentNode.SelectNodes("//a[@href]")
-                          ?? new HtmlNodeCollection(null);
+            // Ищем таблицу, где есть заголовок "Файл"
+            var table = doc.DocumentNode.SelectSingleNode("//table[.//th[contains(., 'Файл')]]");
+            if (table == null)
+                return result;
 
-            foreach (var a in anchors)
+            // Берём все строки с ячейками <td> (пропускаем заголовок с <th>)
+            var rows = table.SelectNodes(".//tr[td]");
+            if (rows == null || rows.Count == 0)
+                return result;
+
+            var regexFile = new Regex(
+                @"Файл\s+(.+?)\s+загружен",
+                RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+
+            foreach (var row in rows)
             {
-                var href = a.GetAttributeValue("href", "");
-                if (string.IsNullOrWhiteSpace(href)) continue;
-                if (href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase)) continue;
+                // 1) первая колонка — текст "Файл ... загружен ...", оттуда достаём имя
+                var fileCell = row.SelectSingleNode(".//td[1]");
+                if (fileCell == null) continue;
 
-                // Очень грубый фильтр: ссылки, содержащие "document", "doc", "download", либо типичные расширения
-                var lower = href.ToLowerInvariant();
-                if (!(lower.Contains("doc") || lower.Contains("pdf") || lower.Contains("xls") ||
-                      lower.Contains("download") || lower.Contains("documentation")))
+                var cellText = HtmlEntity.DeEntitize(fileCell.InnerText ?? string.Empty).Trim();
+
+                string? fileName = null;
+
+                var m = regexFile.Match(cellText);
+                if (m.Success)
                 {
-                    continue;
+                    fileName = m.Groups[1].Value;
+                }
+                else if (cellText.Contains("Файл "))
+                {
+                    // запасной вариант: всё после "Файл " до конца строки
+                    var idx = cellText.IndexOf("Файл ", StringComparison.OrdinalIgnoreCase);
+                    if (idx >= 0)
+                    {
+                        fileName = cellText[(idx + "Файл ".Length)..];
+                    }
                 }
 
-                Uri fileUri;
-                if (Uri.TryCreate(href, UriKind.Absolute, out var abs))
-                    fileUri = abs;
-                else
-                    fileUri = new Uri(baseUri, href);
-
-                var fileName = a.InnerText?.Trim();
                 if (string.IsNullOrWhiteSpace(fileName))
-                    fileName = Path.GetFileName(fileUri.LocalPath);
+                    continue;
+
+                fileName = fileName.Trim('«', '»', '"', '\'', ' ', '\u00A0', '.');
+
+                // 2) в этой же строке ищем ссылку "Скачать" с href download/single
+                var linkNode = row.SelectSingleNode(".//a[@href[contains(.,'/documentation/download/single/')]]")
+                              ?? row.SelectSingleNode(".//a[contains(., 'Скачать') and @href]");
+
+                if (linkNode == null) continue;
+
+                var href = linkNode.GetAttributeValue("href", "");
+                if (string.IsNullOrWhiteSpace(href)) continue;
+
+                if (!Uri.TryCreate(href, UriKind.Absolute, out var fileUri))
+                    fileUri = new Uri(baseUri, href);
 
                 result.Add(new DocumentationLink
                 {
@@ -433,12 +477,9 @@ namespace FabrikantGrabber
                 });
             }
 
-            // Возможные дубликаты убираем по Url
-            return result
-                .GroupBy(x => x.Url.ToString())
-                .Select(g => g.First())
-                .ToList();
+            return result;
         }
+
 
         #endregion
 
@@ -486,6 +527,8 @@ namespace FabrikantGrabber
         public decimal? Quantity { get; set; }
         public string Unit { get; set; } = string.Empty;
         public string DeliveryAddress { get; set; } = string.Empty;
+
+        public List<DocumentationLink> Documents { get; set; } = new();
 
         public string RawHtml { get; set; } = string.Empty;
     }
