@@ -319,6 +319,9 @@ namespace FabrikantGrabber
                 }
             }
 
+            // Лоты из таблицы
+            result.Lots = ExtractLots(doc);
+
             return result;
         }
 
@@ -507,6 +510,140 @@ namespace FabrikantGrabber
 
         #endregion
 
+        #region Lots parsing
+
+        private static List<FabrikantLot> ExtractLots(HtmlDocument doc)
+        {
+            var result = new List<FabrikantLot>();
+
+            var lotTables = doc.DocumentNode.SelectNodes("//table[.//th[contains(translate(normalize-space(.), 'Л', 'л'), 'лот')]]")
+                            ?? doc.DocumentNode.SelectNodes("//table[.//th[contains(., 'Наименование лота')]]");
+
+            if (lotTables == null)
+                return result;
+
+            foreach (var table in lotTables)
+            {
+                var headerCells = table.SelectNodes(".//tr[th][1]/th");
+                if (headerCells == null || headerCells.Count == 0)
+                    continue;
+
+                var headers = headerCells.Select(h => NormalizeText(h.InnerText)).ToList();
+
+                var rows = table.SelectNodes(".//tr[td]");
+                if (rows == null || rows.Count == 0)
+                    continue;
+
+                foreach (var row in rows)
+                {
+                    var cells = row.SelectNodes("./td");
+                    if (cells == null || cells.Count == 0)
+                        continue;
+
+                    var lot = new FabrikantLot();
+
+                    for (int i = 0; i < Math.Min(headers.Count, cells.Count); i++)
+                    {
+                        var header = headers[i];
+                        var value = CleanText(cells[i].InnerText);
+
+                        if (string.IsNullOrWhiteSpace(value))
+                            continue;
+
+                        var headerLower = header.ToLowerInvariant();
+
+                        if (headerLower.Contains("номер") || headerLower.Contains("№"))
+                        {
+                            lot.Number = value;
+                        }
+                        else if (headerLower.Contains("наимен"))
+                        {
+                            lot.Name = value;
+                        }
+                        else if (headerLower.Contains("началь") || headerLower.Contains("цена"))
+                        {
+                            lot.StartPrice ??= ParseMoney(value);
+                        }
+                        else if (headerLower.Contains("валют"))
+                        {
+                            lot.Currency = value.Contains("руб", StringComparison.OrdinalIgnoreCase) ? "RUB" : value;
+                        }
+                        else if (headerLower.Contains("колич"))
+                        {
+                            ParseLotQuantity(value, lot);
+                        }
+                        else if (headerLower.Contains("единиц") || headerLower.Contains("ед.") || headerLower.Contains("оке"))
+                        {
+                            if (string.IsNullOrWhiteSpace(lot.Unit))
+                                lot.Unit = value;
+                        }
+                        else if (headerLower.Contains("статус"))
+                        {
+                            lot.Status = value;
+                        }
+                        else if (headerLower.Contains("место") || headerLower.Contains("адрес"))
+                        {
+                            lot.DeliveryAddress = value;
+                        }
+                        else if (headerLower.Contains("срок"))
+                        {
+                            lot.DeliveryTerm = value;
+                        }
+                        else if (headerLower.Contains("оплат"))
+                        {
+                            lot.PaymentTerms = value;
+                        }
+                        else
+                        {
+                            lot.AdditionalFields[header] = value;
+                        }
+                    }
+
+                    lot.RawRow = string.Join(" | ", cells
+                        .Select(c => CleanText(c.InnerText))
+                        .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                    if (lot.HasData)
+                        result.Add(lot);
+                }
+            }
+
+            return result;
+        }
+
+        private static void ParseLotQuantity(string value, FabrikantLot lot)
+        {
+            var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length >= 1 && decimal.TryParse(parts[0].Replace(',', '.'), NumberStyles.Any,
+                    CultureInfo.InvariantCulture, out var qty))
+            {
+                lot.Quantity = qty;
+                if (parts.Length >= 2 && string.IsNullOrWhiteSpace(lot.Unit))
+                    lot.Unit = parts[1];
+            }
+            else if (!string.IsNullOrWhiteSpace(value))
+            {
+                lot.AdditionalFields["Количество"] = value;
+            }
+        }
+
+        private static string CleanText(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            return HtmlEntity.DeEntitize(text).Trim();
+        }
+
+        private static string NormalizeText(string? text)
+        {
+            var cleaned = CleanText(text);
+            return Regex.Replace(cleaned, "\\s+", " ").Trim();
+        }
+
+        #endregion
+
         #region Helpers
 
         private static string SanitizeFileName(string name)
@@ -558,6 +695,7 @@ namespace FabrikantGrabber
         public decimal? ApplicationSecurity { get; set; }
         public decimal? ContractSecurity { get; set; }
 
+        public List<FabrikantLot> Lots { get; set; } = new();
         public List<DocumentationLink> Documents { get; set; } = new();
 
         public string RawHtml { get; set; } = string.Empty;
@@ -567,6 +705,33 @@ namespace FabrikantGrabber
     {
         public Uri Url { get; set; } = default!;
         public string FileName { get; set; } = string.Empty;
+    }
+
+    public sealed class FabrikantLot
+    {
+        public string Number { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public decimal? StartPrice { get; set; }
+        public string Currency { get; set; } = string.Empty;
+        public decimal? Quantity { get; set; }
+        public string Unit { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string DeliveryAddress { get; set; } = string.Empty;
+        public string DeliveryTerm { get; set; } = string.Empty;
+        public string PaymentTerms { get; set; } = string.Empty;
+
+        public Dictionary<string, string> AdditionalFields { get; set; } = new();
+
+        [JsonIgnore]
+        public bool HasData =>
+            !string.IsNullOrWhiteSpace(Number) ||
+            !string.IsNullOrWhiteSpace(Name) ||
+            StartPrice.HasValue ||
+            Quantity.HasValue ||
+            !string.IsNullOrWhiteSpace(Status) ||
+            AdditionalFields.Count > 0;
+
+        public string RawRow { get; set; } = string.Empty;
     }
 
     #endregion
