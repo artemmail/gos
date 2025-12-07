@@ -233,6 +233,16 @@ namespace FabrikantGrabber
                            GetValueAfterLabel(doc, "Предмет закупки") ??
                            string.Empty;
 
+            // Тип и статус процедуры
+            result.ProcedureType = GetValueAfterLabel(doc, "Тип процедуры") ??
+                                    GetValueAfterLabel(doc, "Способ закупки") ??
+                                    GetValueAfterLabel(doc, "Способ проведения закупки") ??
+                                    string.Empty;
+
+            result.Status = GetValueAfterLabel(doc, "Статус процедуры") ??
+                            GetValueAfterLabel(doc, "Статус") ??
+                            string.Empty;
+
             // Организатор / заказчик
             result.OrganizerName = GetValueAfterLabel(doc, "Информация об организаторе") ??
                                    GetValueAfterLabel(doc, "Организатор") ??
@@ -278,6 +288,20 @@ namespace FabrikantGrabber
             result.DeliveryAddress = GetValueAfterLabel(doc, "Место поставки") ??
                                      GetValueAfterLabel(doc, "Адрес поставки") ??
                                      string.Empty;
+
+            result.DeliveryTerm = GetValueAfterLabel(doc, "Срок поставки") ??
+                                   GetValueAfterLabel(doc, "Сроки поставки") ??
+                                   string.Empty;
+
+            result.PaymentTerms = GetValueAfterLabel(doc, "Условия оплаты") ??
+                                   GetValueAfterLabel(doc, "Порядок оплаты") ??
+                                   string.Empty;
+
+            result.ApplicationSecurity = ParseMoney(GetValueAfterLabel(doc, "Размер обеспечения заявки"));
+            result.ContractSecurity = ParseMoney(
+                GetValueAfterLabel(doc, "Размер обеспечения договора") ??
+                GetValueAfterLabel(doc, "Размер обеспечения исполнения договора") ??
+                GetValueAfterLabel(doc, "Размер обеспечения исполнения контракта"));
 
             // Количество + единица (очень грубо)
             var qtyNodeValue = GetValueAfterLabel(doc, "Количество по ОКЕИ") ??
@@ -503,6 +527,8 @@ namespace FabrikantGrabber
         public string ProcedureNumber { get; set; } = default!;
         public string LawSection { get; set; } = default!;
         public string Title { get; set; } = default!;
+        public string ProcedureType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
 
         public string OrganizerName { get; set; } = string.Empty;
         public string OrganizerInn { get; set; } = string.Empty;
@@ -527,6 +553,10 @@ namespace FabrikantGrabber
         public decimal? Quantity { get; set; }
         public string Unit { get; set; } = string.Empty;
         public string DeliveryAddress { get; set; } = string.Empty;
+        public string DeliveryTerm { get; set; } = string.Empty;
+        public string PaymentTerms { get; set; } = string.Empty;
+        public decimal? ApplicationSecurity { get; set; }
+        public decimal? ContractSecurity { get; set; }
 
         public List<DocumentationLink> Documents { get; set; } = new();
 
