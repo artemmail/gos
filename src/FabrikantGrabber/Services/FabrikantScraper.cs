@@ -137,7 +137,7 @@ public sealed class FabrikantScraper
         var uri = new Uri(searchUrl);
         var queryParams = ParseQueryParameters(uri.Query);
 
-        return await DownloadSearchResultsAsync(uri, queryParams, outputFolder, includeProcedureContent: false, cancellationToken);
+        return await DownloadSearchResultsAsync(uri, queryParams, outputFolder, includeProcedureContent: true, cancellationToken);
     }
 
     public Task<SearchDownloadResult> DownloadSearchResultsWithContentAsync(
@@ -254,9 +254,24 @@ public sealed class FabrikantScraper
         {
             try
             {
-                var viewUrl = procedure.Url ?? new Uri(BaseUrl + ViewPath + procedure.ProcedureId);
+                var procedureId = procedure.ProcedureId;
+
+                var viewUrl = procedure.Url ?? new Uri(BaseUrl + ViewPath + procedureId);
                 var html = await _httpClient.GetStringAsync(viewUrl, cancellationToken);
-                var parsed = _procedurePageParser.Parse(html, procedure.ProcedureId);
+                var parsed = _procedurePageParser.Parse(html, procedureId);
+
+                var docsUrl = new Uri(BaseUrl + DocsPath + procedureId);
+
+                try
+                {
+                    var docsHtml = await _httpClient.GetStringAsync(docsUrl, cancellationToken);
+                    parsed.Documents = _documentationParser.ParseDocumentationLinks(docsHtml, docsUrl);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[WARN] Не удалось загрузить документы {procedureId}: {ex.Message}");
+                }
+
                 result.Add(parsed);
             }
             catch (Exception ex)
