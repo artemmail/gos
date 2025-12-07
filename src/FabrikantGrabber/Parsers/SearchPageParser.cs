@@ -98,14 +98,32 @@ public sealed class SearchPageParser
 
     private static List<FabrikantSearchItem> ExtractProcedures(HtmlDocument doc, Uri? baseUri)
     {
-        var nodes = doc.DocumentNode.SelectNodes("//a[contains(@href, '/v2/trades/procedure/view/')]");
-        if (nodes == null)
+        var cardNodes = doc.DocumentNode.SelectNodes("//div[@data-slot='card']");
+        var anchorNodes = new List<HtmlNode>();
+
+        if (cardNodes != null)
+        {
+            foreach (var card in cardNodes)
+            {
+                var link = card.SelectSingleNode(".//a[contains(@href, '/v2/trades/procedure/view/')]");
+                if (link != null)
+                    anchorNodes.Add(link);
+            }
+        }
+        else
+        {
+            var fallbackNodes = doc.DocumentNode.SelectNodes("//a[contains(@href, '/v2/trades/procedure/view/')]");
+            if (fallbackNodes != null)
+                anchorNodes.AddRange(fallbackNodes);
+        }
+
+        if (anchorNodes.Count == 0)
             return new List<FabrikantSearchItem>();
 
         var result = new List<FabrikantSearchItem>();
         var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var a in nodes)
+        foreach (var a in anchorNodes)
         {
             var href = a.GetAttributeValue("href", string.Empty);
             if (string.IsNullOrWhiteSpace(href))
