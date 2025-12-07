@@ -576,6 +576,7 @@ namespace FabrikantGrabber
                 lot.DeliveryTerm = GetValueAfterLabel(panel, "Срок поставки") ?? string.Empty;
                 lot.PaymentTerms = GetValueAfterLabel(panel, "Условия оплаты") ?? string.Empty;
 
+                EnrichLotFromPositionsTable(panel, lot);
                 if (lot.HasData)
                     result.Add(lot);
             }
@@ -583,6 +584,62 @@ namespace FabrikantGrabber
             return result;
         }
 
+        private static void EnrichLotFromPositionsTable(HtmlNode panel, FabrikantLot lot)
+        {
+            var positionsTable = panel.SelectSingleNode(
+                ".//table[contains(@class, 'kim-positions') or contains(@class, 'table')][.//th[contains(., 'Количество по ОКЕИ')]]");
+            if (positionsTable == null)
+                return;
+
+            var headers = positionsTable
+                .SelectNodes(".//thead//th")
+                ?.Select(h => NormalizeText(h.InnerText))
+                .ToList();
+
+            var firstRowCells = positionsTable.SelectSingleNode(".//tbody/tr")?.SelectNodes("./td");
+            if (headers == null || headers.Count == 0 || firstRowCells == null || firstRowCells.Count == 0)
+                return;
+
+            for (int i = 0; i < Math.Min(headers.Count, firstRowCells.Count); i++)
+            {
+                var header = headers[i].ToLowerInvariant();
+                var value = CleanText(firstRowCells[i].InnerText);
+                if (string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                if (header.Contains("наимен"))
+                {
+                    lot.Name = value;
+                }
+                else if (header.Contains("колич"))
+                {
+                    ParseLotQuantity(value, lot);
+                }
+                else if (header.Contains("валют"))
+                {
+                    lot.Currency = value.Contains("руб", StringComparison.OrdinalIgnoreCase) ? "RUB" : value;
+                }
+                else if (header.Contains("место") || header.Contains("адрес"))
+                {
+                    lot.DeliveryAddress = value;
+                }
+                else if (header.Contains("цена"))
+                {
+                    lot.StartPrice = ParseMoney(value);
+                    if (!lot.StartPrice.HasValue)
+                        lot.AdditionalFields["Цена позиции"] = value;
+                }
+                else if (header.Contains("единиц") || header.Contains("ед.") || header.Contains("оке"))
+                {
+                    if (string.IsNullOrWhiteSpace(lot.Unit))
+                        lot.Unit = value;
+                }
+                else
+                {
+                    lot.AdditionalFields[headers[i]] = value;
+                }
+            }
+        }
         private static List<FabrikantLot> ExtractLotsFromTables(HtmlDocument doc)
         {
             var result = new List<FabrikantLot>();
