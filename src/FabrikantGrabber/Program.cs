@@ -326,9 +326,12 @@ namespace FabrikantGrabber
         }
 
         private static string? GetValueAfterLabel(HtmlDocument doc, string labelText)
+            => GetValueAfterLabel(doc.DocumentNode, labelText);
+
+        private static string? GetValueAfterLabel(HtmlNode root, string labelText)
         {
-            var nodes = doc.DocumentNode
-                .SelectNodes("//*[contains(normalize-space(text()), '" + labelText + "')]");
+            var nodes = root
+                .SelectNodes(".//*[contains(normalize-space(text()), '" + labelText + "')]");
             if (nodes == null || nodes.Count == 0)
                 return null;
 
@@ -513,6 +516,74 @@ namespace FabrikantGrabber
         #region Lots parsing
 
         private static List<FabrikantLot> ExtractLots(HtmlDocument doc)
+        {
+            var result = ExtractLotsFromPanels(doc);
+            if (result.Count > 0)
+                return result;
+
+            return ExtractLotsFromTables(doc);
+        }
+
+        private static List<FabrikantLot> ExtractLotsFromPanels(HtmlDocument doc)
+        {
+            var result = new List<FabrikantLot>();
+
+            var headings = doc.DocumentNode
+                .SelectNodes("//div[contains(@class,'panel-heading')][contains(normalize-space(.), 'Лот №')]");
+            if (headings == null || headings.Count == 0)
+                return result;
+
+            foreach (var heading in headings)
+            {
+                var panel = heading.ParentNode;
+                if (panel == null)
+                    continue;
+
+                var lot = new FabrikantLot();
+
+                var headingText = CleanText(heading.InnerText);
+                var numberMatch = Regex.Match(headingText, @"Лот\s*№\s*([\d]+)");
+                if (numberMatch.Success)
+                    lot.Number = numberMatch.Groups[1].Value;
+
+                var nameFromHeading = headingText;
+                var dotIndex = headingText.IndexOf('.');
+                if (dotIndex >= 0 && dotIndex + 1 < headingText.Length)
+                    nameFromHeading = headingText[(dotIndex + 1)..];
+
+                var dashIndex = nameFromHeading.IndexOf('-');
+                if (dashIndex > 0)
+                    nameFromHeading = nameFromHeading[..dashIndex];
+
+                lot.Name = CleanText(GetValueAfterLabel(panel, "Предмет договора") ?? nameFromHeading);
+
+                lot.StartPrice = ParseMoney(
+                    GetValueAfterLabel(panel, "Начальная (максимальная) цена") ??
+                    GetValueAfterLabel(panel, "Цена") ??
+                    GetValueAfterLabel(panel, "Цена позиции"));
+
+                var currency = GetValueAfterLabel(panel, "Валюта");
+                if (!string.IsNullOrWhiteSpace(currency))
+                    lot.Currency = currency.Contains("руб", StringComparison.OrdinalIgnoreCase) ? "RUB" : currency;
+
+                var qtyText = GetValueAfterLabel(panel, "Количество по ОКЕИ") ?? GetValueAfterLabel(panel, "Количество");
+                if (!string.IsNullOrWhiteSpace(qtyText))
+                    ParseLotQuantity(qtyText, lot);
+
+                lot.DeliveryAddress = GetValueAfterLabel(panel, "Место поставки") ??
+                                       GetValueAfterLabel(panel, "Адрес") ?? string.Empty;
+
+                lot.DeliveryTerm = GetValueAfterLabel(panel, "Срок поставки") ?? string.Empty;
+                lot.PaymentTerms = GetValueAfterLabel(panel, "Условия оплаты") ?? string.Empty;
+
+                if (lot.HasData)
+                    result.Add(lot);
+            }
+
+            return result;
+        }
+
+        private static List<FabrikantLot> ExtractLotsFromTables(HtmlDocument doc)
         {
             var result = new List<FabrikantLot>();
 
