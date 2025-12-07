@@ -137,7 +137,18 @@ public sealed class FabrikantScraper
         var uri = new Uri(searchUrl);
         var queryParams = ParseQueryParameters(uri.Query);
 
-        return await DownloadSearchResultsAsync(uri, queryParams, outputFolder, cancellationToken);
+        return await DownloadSearchResultsAsync(uri, queryParams, outputFolder, includeProcedureContent: false, cancellationToken);
+    }
+
+    public Task<SearchDownloadResult> DownloadSearchResultsWithContentAsync(
+        string searchUrl,
+        string outputFolder,
+        CancellationToken cancellationToken = default)
+    {
+        var uri = new Uri(searchUrl);
+        var queryParams = ParseQueryParameters(uri.Query);
+
+        return DownloadSearchResultsAsync(uri, queryParams, outputFolder, includeProcedureContent: true, cancellationToken);
     }
 
     public Task<SearchDownloadResult> DownloadDefaultSearchResultsAsync(
@@ -147,13 +158,24 @@ public sealed class FabrikantScraper
         var parameters = BuildDefaultSearchParameters(1);
         var firstPageUri = BuildSearchUri(parameters);
 
-        return DownloadSearchResultsAsync(firstPageUri, parameters, outputFolder, cancellationToken);
+        return DownloadSearchResultsAsync(firstPageUri, parameters, outputFolder, includeProcedureContent: false, cancellationToken);
+    }
+
+    public Task<SearchDownloadResult> DownloadDefaultSearchResultsWithContentAsync(
+        string outputFolder,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = BuildDefaultSearchParameters(1);
+        var firstPageUri = BuildSearchUri(parameters);
+
+        return DownloadSearchResultsAsync(firstPageUri, parameters, outputFolder, includeProcedureContent: true, cancellationToken);
     }
 
     private async Task<SearchDownloadResult> DownloadSearchResultsAsync(
         Uri searchUri,
         List<KeyValuePair<string, string>> queryParams,
         string outputFolder,
+        bool includeProcedureContent,
         CancellationToken cancellationToken)
     {
         Console.WriteLine("[*] Search URL: " + searchUri);
@@ -198,6 +220,13 @@ public sealed class FabrikantScraper
         searchResult.PageSize = pageSize;
         searchResult.TotalPages = totalPages;
 
+        if (includeProcedureContent)
+        {
+            Console.WriteLine("[*] Загружаю содержимое процедур...");
+            searchResult.ProcedureDetails = await LoadProceduresContentAsync(allProcedures, cancellationToken);
+            Console.WriteLine($"[*] Загружено процедур: {searchResult.ProcedureDetails.Count}");
+        }
+
         var jsonFileName = SanitizeFileName("search_results") + ".json";
         var jsonPath = Path.Combine(outputFolder, jsonFileName);
         var json = JsonSerializer.Serialize(searchResult, JsonOptions);
@@ -213,6 +242,30 @@ public sealed class FabrikantScraper
             JsonPath = jsonPath,
             SearchResult = searchResult
         };
+    }
+
+    private async Task<List<FabrikantProcedure>> LoadProceduresContentAsync(
+        IEnumerable<FabrikantSearchItem> procedures,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<FabrikantProcedure>();
+
+        foreach (var procedure in procedures)
+        {
+            try
+            {
+                var viewUrl = procedure.Url ?? new Uri(BaseUrl + ViewPath + procedure.ProcedureId);
+                var html = await _httpClient.GetStringAsync(viewUrl, cancellationToken);
+                var parsed = _procedurePageParser.Parse(html, procedure.ProcedureId);
+                result.Add(parsed);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARN] Не удалось загрузить процедуру {procedure.ProcedureId}: {ex.Message}");
+            }
+        }
+
+        return result;
     }
 
     private static string ExtractId(string idOrUrl)
