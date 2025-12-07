@@ -12,6 +12,7 @@ namespace FabrikantGrabber
     {
         public static async Task Main(string[] args)
         {
+            args = new string[] { "", "c:/xml" };
             if (args.Length < 1)
             {
                 PrintUsage();
@@ -48,7 +49,7 @@ namespace FabrikantGrabber
                 {
                     Console.WriteLine("[*] Начинаю обработку поисковой выдачи по умолчанию.");
 
-                    var searchResult = await scraper.DownloadDefaultSearchResultsAsync(
+                    var searchResult = await scraper.DownloadDefaultSearchResultsWithContentAsync(
                         outputFolder,
                         cts.Token);
 
