@@ -128,11 +128,48 @@ public sealed class FabrikantScraper
     {
         Console.WriteLine("[*] Search URL: " + searchUrl);
 
-        var html = await _httpClient.GetStringAsync(searchUrl, cancellationToken);
-        var searchResult = _searchPageParser.Parse(html, new Uri(BaseUrl));
+        var uri = new Uri(searchUrl);
+        var queryParams = ParseQueryParameters(uri.Query);
+
+        var firstPageHtml = await _httpClient.GetStringAsync(uri, cancellationToken);
+        var searchResult = _searchPageParser.Parse(firstPageHtml, new Uri(BaseUrl));
+
+        var pageSize = ExtractPageSize(queryParams, searchResult.Procedures.Count);
+        var totalPages = CalculateTotalPages(searchResult.TotalCount, pageSize);
 
         Console.WriteLine("[*] Найдено заявок всего: " + searchResult.TotalCount);
+        Console.WriteLine("[*] Размер страницы: " + pageSize);
+        Console.WriteLine("[*] Количество страниц: " + totalPages);
         Console.WriteLine("[*] Найдено процедур на странице: " + searchResult.Procedures.Count);
+
+        var allProcedures = new List<FabrikantSearchItem>(searchResult.Procedures);
+        var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in allProcedures)
+            seenIds.Add(p.ProcedureId);
+
+        if (totalPages > 1)
+        {
+            for (var page = 2; page <= totalPages; page++)
+            {
+                var pageUrl = BuildPageUrl(uri, queryParams, page);
+                Console.WriteLine($"[*] Загружаю страницу {page}/{totalPages}: {pageUrl}");
+
+                var html = await _httpClient.GetStringAsync(pageUrl, cancellationToken);
+                var pageResult = _searchPageParser.Parse(html, new Uri(BaseUrl));
+
+                Console.WriteLine($"    -> Найдено процедур на странице: {pageResult.Procedures.Count}");
+
+                foreach (var p in pageResult.Procedures)
+                {
+                    if (seenIds.Add(p.ProcedureId))
+                        allProcedures.Add(p);
+                }
+            }
+        }
+
+        searchResult.Procedures = allProcedures;
+        searchResult.PageSize = pageSize;
+        searchResult.TotalPages = totalPages;
 
         var jsonFileName = SanitizeFileName("search_results") + ".json";
         var jsonPath = Path.Combine(outputFolder, jsonFileName);
@@ -168,5 +205,67 @@ public sealed class FabrikantScraper
         var invalid = Path.GetInvalidFileNameChars();
         var chars = name.Select(c => invalid.Contains(c) ? '_' : c).ToArray();
         return new string(chars);
+    }
+
+    private static List<KeyValuePair<string, string>> ParseQueryParameters(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return new List<KeyValuePair<string, string>>();
+
+        if (query.StartsWith("?"))
+            query = query[1..];
+
+        var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries);
+        var result = new List<KeyValuePair<string, string>>(parts.Length);
+
+        foreach (var part in parts)
+        {
+            var split = part.Split('=', 2);
+            var key = Uri.UnescapeDataString(split[0]);
+            var value = split.Length > 1 ? Uri.UnescapeDataString(split[1]) : string.Empty;
+            result.Add(new KeyValuePair<string, string>(key, value));
+        }
+
+        return result;
+    }
+
+    private static int ExtractPageSize(IEnumerable<KeyValuePair<string, string>> parameters, int fallback)
+    {
+        var param = parameters.LastOrDefault(p => p.Key.Equals("page_limit", StringComparison.OrdinalIgnoreCase));
+        if (param.Key != null && int.TryParse(param.Value, out var pageSize) && pageSize > 0)
+            return pageSize;
+
+        return fallback > 0 ? fallback : 40;
+    }
+
+    private static int CalculateTotalPages(int totalCount, int pageSize)
+    {
+        if (pageSize <= 0)
+            return 1;
+
+        if (totalCount <= 0)
+            return 1;
+
+        return (int)Math.Ceiling(totalCount / (double)pageSize);
+    }
+
+    private static string BuildPageUrl(Uri baseUri, List<KeyValuePair<string, string>> originalParams, int pageNumber)
+    {
+        var parameters = originalParams
+            .Where(p => !p.Key.Equals("page_number", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        parameters.Add(new KeyValuePair<string, string>("page_number", pageNumber.ToString()));
+
+        var query = string.Join(
+            "&",
+            parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
+
+        var builder = new UriBuilder(baseUri)
+        {
+            Query = query
+        };
+
+        return builder.Uri.ToString();
     }
 }
