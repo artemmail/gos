@@ -19,6 +19,7 @@ public sealed class FabrikantScraper
     private readonly HttpClient _httpClient;
     private readonly ProcedurePageParser _procedurePageParser;
     private readonly DocumentationParser _documentationParser;
+    private readonly SearchPageParser _searchPageParser;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -34,11 +35,13 @@ public sealed class FabrikantScraper
     public FabrikantScraper(
         HttpClient httpClient,
         ProcedurePageParser procedurePageParser,
-        DocumentationParser documentationParser)
+        DocumentationParser documentationParser,
+        SearchPageParser searchPageParser)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _procedurePageParser = procedurePageParser ?? throw new ArgumentNullException(nameof(procedurePageParser));
         _documentationParser = documentationParser ?? throw new ArgumentNullException(nameof(documentationParser));
+        _searchPageParser = searchPageParser ?? throw new ArgumentNullException(nameof(searchPageParser));
     }
 
     public async Task<DownloadResult> DownloadProcedureAndDocsAsync(
@@ -115,6 +118,36 @@ public sealed class FabrikantScraper
             JsonPath = jsonPath,
             DocumentsFolder = docsFolder,
             DownloadedFiles = downloaded
+        };
+    }
+
+    public async Task<SearchDownloadResult> DownloadSearchResultsAsync(
+        string searchUrl,
+        string outputFolder,
+        CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine("[*] Search URL: " + searchUrl);
+
+        var html = await _httpClient.GetStringAsync(searchUrl, cancellationToken);
+        var searchResult = _searchPageParser.Parse(html, new Uri(BaseUrl));
+
+        Console.WriteLine("[*] Найдено заявок всего: " + searchResult.TotalCount);
+        Console.WriteLine("[*] Найдено процедур на странице: " + searchResult.Procedures.Count);
+
+        var jsonFileName = SanitizeFileName("search_results") + ".json";
+        var jsonPath = Path.Combine(outputFolder, jsonFileName);
+        var json = JsonSerializer.Serialize(searchResult, JsonOptions);
+
+        await using (var fs = new FileStream(jsonPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var writer = new StreamWriter(fs, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+        {
+            await writer.WriteAsync(json);
+        }
+
+        return new SearchDownloadResult
+        {
+            JsonPath = jsonPath,
+            SearchResult = searchResult
         };
     }
 
