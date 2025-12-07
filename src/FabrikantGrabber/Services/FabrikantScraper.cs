@@ -31,6 +31,14 @@ public sealed class FabrikantScraper
     private const string BaseUrl = "https://www.fabrikant.ru";
     private const string ViewPath = "/v2/trades/procedure/view/";
     private const string DocsPath = "/v2/trades/procedure/documentation/";
+    private const string SearchPath = "/procedure/search/purchases";
+
+    private const string DefaultRsc = "ibhqu";
+    private const int DefaultPageSize = 40;
+    private static readonly string[] DefaultSections =
+    {
+        "3", "17", "24", "25", "26", "21", "27", "28", "30", "31", "2"
+    };
 
     public FabrikantScraper(
         HttpClient httpClient,
@@ -126,12 +134,31 @@ public sealed class FabrikantScraper
         string outputFolder,
         CancellationToken cancellationToken = default)
     {
-        Console.WriteLine("[*] Search URL: " + searchUrl);
-
         var uri = new Uri(searchUrl);
         var queryParams = ParseQueryParameters(uri.Query);
 
-        var firstPageHtml = await _httpClient.GetStringAsync(uri, cancellationToken);
+        return await DownloadSearchResultsAsync(uri, queryParams, outputFolder, cancellationToken);
+    }
+
+    public Task<SearchDownloadResult> DownloadDefaultSearchResultsAsync(
+        string outputFolder,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = BuildDefaultSearchParameters(1);
+        var firstPageUri = BuildSearchUri(parameters);
+
+        return DownloadSearchResultsAsync(firstPageUri, parameters, outputFolder, cancellationToken);
+    }
+
+    private async Task<SearchDownloadResult> DownloadSearchResultsAsync(
+        Uri searchUri,
+        List<KeyValuePair<string, string>> queryParams,
+        string outputFolder,
+        CancellationToken cancellationToken)
+    {
+        Console.WriteLine("[*] Search URL: " + searchUri);
+
+        var firstPageHtml = await _httpClient.GetStringAsync(searchUri, cancellationToken);
         var searchResult = _searchPageParser.Parse(firstPageHtml, new Uri(BaseUrl));
 
         var pageSize = ExtractPageSize(queryParams, searchResult.Procedures.Count);
@@ -151,7 +178,7 @@ public sealed class FabrikantScraper
         {
             for (var page = 2; page <= totalPages; page++)
             {
-                var pageUrl = BuildPageUrl(uri, queryParams, page);
+                var pageUrl = BuildPageUrl(searchUri, queryParams, page);
                 Console.WriteLine($"[*] Загружаю страницу {page}/{totalPages}: {pageUrl}");
 
                 var html = await _httpClient.GetStringAsync(pageUrl, cancellationToken);
@@ -229,13 +256,48 @@ public sealed class FabrikantScraper
         return result;
     }
 
+    private static List<KeyValuePair<string, string>> BuildDefaultSearchParameters(int pageNumber)
+    {
+        var parameters = new List<KeyValuePair<string, string>>
+        {
+            new("_rsc", DefaultRsc),
+            new("page_limit", DefaultPageSize.ToString()),
+            new("page_number", pageNumber.ToString())
+        };
+
+        foreach (var section in DefaultSections)
+            parameters.Add(new KeyValuePair<string, string>("section_ids[]", section));
+
+        parameters.Add(new KeyValuePair<string, string>("statuses[]", "1"));
+
+        return parameters;
+    }
+
+    private static Uri BuildSearchUri(List<KeyValuePair<string, string>> parameters)
+    {
+        var builder = new UriBuilder(BaseUrl)
+        {
+            Path = SearchPath,
+            Query = BuildQueryString(parameters)
+        };
+
+        return builder.Uri;
+    }
+
+    private static string BuildQueryString(IEnumerable<KeyValuePair<string, string>> parameters)
+    {
+        return string.Join(
+            "&",
+            parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
+    }
+
     private static int ExtractPageSize(IEnumerable<KeyValuePair<string, string>> parameters, int fallback)
     {
         var param = parameters.LastOrDefault(p => p.Key.Equals("page_limit", StringComparison.OrdinalIgnoreCase));
         if (param.Key != null && int.TryParse(param.Value, out var pageSize) && pageSize > 0)
             return pageSize;
 
-        return fallback > 0 ? fallback : 40;
+        return fallback > 0 ? fallback : DefaultPageSize;
     }
 
     private static int CalculateTotalPages(int totalCount, int pageSize)
@@ -257,9 +319,7 @@ public sealed class FabrikantScraper
 
         parameters.Add(new KeyValuePair<string, string>("page_number", pageNumber.ToString()));
 
-        var query = string.Join(
-            "&",
-            parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
+        var query = BuildQueryString(parameters);
 
         var builder = new UriBuilder(baseUri)
         {
