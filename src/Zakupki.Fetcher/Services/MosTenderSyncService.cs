@@ -11,6 +11,8 @@ using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
 using Zakupki.MosApi.V2;
+using DateTime = System.DateTime;
+using Guid = System.Guid;
 using DateTimeFilter = Zakupki.MosApi.V2.DateTime2;
 
 namespace Zakupki.Fetcher.Services;
