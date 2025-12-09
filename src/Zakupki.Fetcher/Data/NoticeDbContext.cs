@@ -39,6 +39,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<FavoriteNotice> FavoriteNotices => Set<FavoriteNotice>();
     public DbSet<UserQueryVector> UserQueryVectors => Set<UserQueryVector>();
     public DbSet<VectorSearchMatch> VectorSearchMatches => Set<VectorSearchMatch>();
+    public DbSet<MosNotice> MosNotices => Set<MosNotice>();
+    public DbSet<MosNoticeAttachment> MosNoticeAttachments => Set<MosNoticeAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +60,8 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureFavoriteNotice(modelBuilder);
         ConfigureUserQueryVector(modelBuilder);
         ConfigureVectorSearchMatch(modelBuilder);
+        ConfigureMosNotice(modelBuilder);
+        ConfigureMosNoticeAttachment(modelBuilder);
     }
 
     private static byte? ParseRegion(string? region)
@@ -307,6 +311,57 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .WithOne(s => s.Attachment)
             .HasForeignKey(s => s.AttachmentId)
             .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureMosNotice(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<MosNotice>();
+        entity.ToTable("MosNotices");
+        entity.HasKey(n => n.Id);
+
+        entity.Property(n => n.RegisterNumber).HasMaxLength(128);
+        entity.Property(n => n.RegistrationNumber).HasMaxLength(128);
+        entity.Property(n => n.Name).HasMaxLength(1024);
+        entity.Property(n => n.FederalLawName).HasMaxLength(256);
+        entity.Property(n => n.StateName).HasMaxLength(128);
+        entity.Property(n => n.CustomerInn).HasMaxLength(32);
+        entity.Property(n => n.CustomerName).HasMaxLength(512);
+        entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
+
+        entity.HasIndex(n => n.RegisterNumber)
+            .IsUnique()
+            .HasDatabaseName("UX_MosNotices_RegisterNumber");
+
+        entity.HasIndex(n => n.RegistrationDate)
+            .HasDatabaseName("IX_MosNotices_RegistrationDate");
+
+        entity.HasMany(n => n.Attachments)
+            .WithOne(a => a.MosNotice)
+            .HasForeignKey(a => a.MosNoticeId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureMosNoticeAttachment(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<MosNoticeAttachment>();
+        entity.ToTable("MosNoticeAttachments");
+        entity.HasKey(a => a.Id);
+
+        entity.Property(a => a.PublishedContentId).HasMaxLength(128);
+        entity.Property(a => a.FileName).HasMaxLength(512);
+        entity.Property(a => a.Description).HasColumnType("nvarchar(max)");
+        entity.Property(a => a.DocumentKindCode).HasMaxLength(64);
+        entity.Property(a => a.DocumentKindName).HasMaxLength(256);
+        entity.Property(a => a.Url).HasMaxLength(512);
+        entity.Property(a => a.ContentHash).HasMaxLength(128);
+        entity.Property(a => a.BinaryContent).HasColumnType("varbinary(max)");
+        entity.Property(a => a.MarkdownContent).HasColumnType("nvarchar(max)");
+        entity.Property(a => a.SourceFileName).HasMaxLength(256);
+
+        entity.HasIndex(a => a.FileName).HasDatabaseName("IX_MosNoticeAttachments_FileName");
+        entity.HasIndex(a => new { a.PublishedContentId, a.MosNoticeId })
+            .HasDatabaseName("UX_MosNoticeAttachments_ContentId_Notice")
+            .IsUnique();
     }
 
     private static void ConfigureAttachmentSignature(ModelBuilder modelBuilder)

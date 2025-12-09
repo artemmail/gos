@@ -682,6 +682,157 @@ namespace Zakupki.Fetcher.Migrations
                     b.ToTable("NoticeAttachments", (string)null);
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.MosNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CustomerInn")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("CustomerName")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTimeOffset?>("EndFillingDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("ExternalId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FederalLawName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<double?>("InitialSum")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("InsertedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<DateTimeOffset?>("PlanDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RawJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RegisterNumber")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset?>("RegistrationDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RegistrationNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int?>("StateId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StateName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset?>("SummingUpDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegistrationDate")
+                        .HasDatabaseName("IX_MosNotices_RegistrationDate");
+
+                    b.HasIndex("RegisterNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MosNotices_RegisterNumber");
+
+                    b.ToTable("MosNotices", (string)null);
+                });
+
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.MosNoticeAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("BinaryContent")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("ContentHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DocumentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DocumentKindCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("DocumentKindName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("InsertedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MarkdownContent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("MosNoticeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PublishedContentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SourceFileName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileName")
+                        .HasDatabaseName("IX_MosNoticeAttachments_FileName");
+
+                    b.HasIndex("MosNoticeId");
+
+                    b.HasIndex("PublishedContentId", "MosNoticeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MosNoticeAttachments_ContentId_Notice")
+                        .HasFilter("[PublishedContentId] IS NOT NULL");
+
+                    b.ToTable("MosNoticeAttachments", (string)null);
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeSearchVector", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1071,6 +1222,17 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("NoticeVersion");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.MosNoticeAttachment", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.MosNotice", "MosNotice")
+                        .WithMany("Attachments")
+                        .HasForeignKey("MosNoticeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MosNotice");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeSearchVector", b =>
                 {
                     b.HasOne("Zakupki.Fetcher.Data.Entities.NoticeVersion", "NoticeVersion")
@@ -1165,6 +1327,11 @@ namespace Zakupki.Fetcher.Migrations
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeAttachment", b =>
                 {
                     b.Navigation("Signatures");
+                });
+
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.MosNotice", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.NoticeVersion", b =>
