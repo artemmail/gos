@@ -28,6 +28,8 @@ using Zakupki.Fetcher.Hubs;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
 using Zakupki.MosApi.V2;
+using DateTime = System.DateTime;
+using Guid = System.Guid;
 
 var builder = WebApplication.CreateBuilder(args);
 
