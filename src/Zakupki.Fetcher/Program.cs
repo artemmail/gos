@@ -18,6 +18,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Linq;
 using Serilog;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
@@ -308,6 +309,29 @@ builder.Services
 var app = builder.Build();
 
 var isDevelopment = app.Environment.IsDevelopment();
+
+var redirectPrefixes = new[]
+{
+    "/MarketMap",
+    "/ServiceNews",
+    "/Report",
+    "/Portfolio",
+    "/fundamental"
+};
+
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+
+    if (redirectPrefixes.Any(prefix => path.StartsWithSegments(prefix, StringComparison.OrdinalIgnoreCase)))
+    {
+        var destination = $"https://stockchart.ru{context.Request.Path}{context.Request.QueryString}";
+        context.Response.Redirect(destination, permanent: false);
+        return;
+    }
+
+    await next();
+});
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
