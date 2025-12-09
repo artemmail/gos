@@ -67,6 +67,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Zakupki.MosApi\Zakupki.MosApi.csproj" />
+    <ProjectReference Include="..\FabrikantGrabber\FabrikantGrabber.csproj" />
   </ItemGroup>
 
 	<!-- Сборка Angular-клиента -->
