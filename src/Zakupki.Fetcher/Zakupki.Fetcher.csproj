@@ -65,10 +65,10 @@
           <Folder Include="Migrations\" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Zakupki.MosApi\Zakupki.MosApi.csproj" />
-    <ProjectReference Include="..\FabrikantGrabber\FabrikantGrabber.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\Zakupki.MosApi.V2\Zakupki.MosApi.V2.csproj" />
+      <ProjectReference Include="..\FabrikantGrabber\FabrikantGrabber.csproj" />
+    </ItemGroup>
 
 	<!-- Сборка Angular-клиента -->
 	<Target Name="BuildClientApp" Condition="'$(DesignTimeBuild)' != 'true' and '$(Configuration)' != 'Debug'" BeforeTargets="Build">
