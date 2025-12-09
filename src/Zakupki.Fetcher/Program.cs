@@ -12,6 +12,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using System.IO;
 using System.Net;
@@ -26,6 +27,7 @@ using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Hubs;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
+using Zakupki.MosApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,6 +56,7 @@ builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("Open
 builder.Services.Configure<EventBusOptions>(builder.Configuration.GetSection("EventBus"));
 builder.Services.Configure<QueryVectorOptions>(builder.Configuration.GetSection("QueryVector"));
 builder.Services.Configure<NoticeEmbeddingOptions>(builder.Configuration.GetSection("NoticeEmbedding"));
+builder.Services.Configure<MosApiOptions>(builder.Configuration.GetSection(MosApiOptions.SectionName));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(new CookieContainer());
 builder.Services.AddHttpClient();
@@ -70,6 +73,15 @@ builder.Services
 
 builder.Services.AddHttpClient<ZakupkiClient>();
 builder.Services.AddHttpClient<NoticeAnalysisService>();
+builder.Services.AddHttpClient<MosSwaggerClient>((sp, httpClient) =>
+{
+    var options = sp.GetRequiredService<IOptions<MosApiOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+        ? "https://api.zakupki.mos.ru"
+        : options.BaseUrl;
+
+    return new MosSwaggerClient(httpClient, baseUrl!, options.Token);
+});
 builder.Services.AddSingleton<AttachmentContentExtractor>();
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
@@ -105,10 +117,12 @@ builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueSe
 builder.Services.AddSingleton<IXmlImportQueue, XmlImportQueue>();
 builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
 builder.Services.AddScoped<INoticeEmbeddingService, NoticeEmbeddingService>();
+builder.Services.AddScoped<MosTenderSyncService>();
 builder.Services.AddHostedService<QueryVectorResultListener>();
 builder.Services.AddHostedService<NoticeEmbeddingVectorizer>();
 builder.Services.AddHostedService<NoticeAnalysisQueueWorker>();
 builder.Services.AddHostedService<XmlImportWorker>();
+builder.Services.AddHostedService<MosTenderSyncWorker>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {

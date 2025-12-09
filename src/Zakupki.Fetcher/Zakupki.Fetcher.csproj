@@ -60,10 +60,14 @@
                 </None>
         </ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="Infra\" />
-	  <Folder Include="Migrations\" />
-	</ItemGroup>
+  <ItemGroup>
+          <Folder Include="Infra\" />
+          <Folder Include="Migrations\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Zakupki.MosApi\Zakupki.MosApi.csproj" />
+  </ItemGroup>
 
 	<!-- Сборка Angular-клиента -->
 	<Target Name="BuildClientApp" Condition="'$(DesignTimeBuild)' != 'true' and '$(Configuration)' != 'Debug'" BeforeTargets="Build">
