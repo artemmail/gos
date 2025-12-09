@@ -27,7 +27,7 @@ using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Hubs;
 using Zakupki.Fetcher.Options;
 using Zakupki.Fetcher.Services;
-using Zakupki.MosApi;
+using Zakupki.MosApi.V2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,7 +84,7 @@ builder.Services.AddSingleton(sp =>
     var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
     var httpClient = httpClientFactory.CreateClient("MosSwaggerClient");
 
-    return new MosSwaggerClient(httpClient, baseUrl!, options.Token);
+    return new MosSwaggerClientV2(httpClient, baseUrl!, options.Token);
 });
 builder.Services.AddSingleton<AttachmentContentExtractor>();
 var connectionString = builder.Configuration.GetConnectionString("Default");

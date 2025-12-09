@@ -10,21 +10,21 @@ using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
-using Zakupki.MosApi;
-using DateTimeFilter = Zakupki.MosApi.DateTime;
+using Zakupki.MosApi.V2;
+using DateTimeFilter = Zakupki.MosApi.V2.DateTime2;
 
 namespace Zakupki.Fetcher.Services;
 
 public class MosTenderSyncService
 {
     private readonly NoticeDbContext _dbContext;
-    private readonly MosSwaggerClient _mosClient;
+    private readonly MosSwaggerClientV2 _mosClient;
     private readonly ILogger<MosTenderSyncService> _logger;
     private readonly IOptionsMonitor<MosApiOptions> _optionsMonitor;
 
     public MosTenderSyncService(
         NoticeDbContext dbContext,
-        MosSwaggerClient mosClient,
+        MosSwaggerClientV2 mosClient,
         ILogger<MosTenderSyncService> logger,
         IOptionsMonitor<MosApiOptions> optionsMonitor)
     {
@@ -56,11 +56,11 @@ public class MosTenderSyncService
         var pageSize = Math.Max(1, options.PageSize);
         var created = 0;
 
-        var query = new GetTendersQuery
+        var query = new SearchQuery
         {
-            filter = new TenderFilterDto
+            filter = new SearchQueryFilterDto
             {
-                registrationDate = new DateTimeFilter
+                publishDate = new DateTimeFilter
                 {
                     start = since,
                     end = now
@@ -70,8 +70,8 @@ public class MosTenderSyncService
             {
                 new()
                 {
-                    field = "RegistrationDate",
-                    desc = false
+                    field = "PublishDate",
+                    desc = true
                 }
             },
             skip = 0,
@@ -82,7 +82,7 @@ public class MosTenderSyncService
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var response = await _mosClient.QueriesGettendersAsync(query, cancellationToken);
+            var response = await _mosClient.AuctionSearchAsync(query, cancellationToken);
             if (response?.items == null || response.items.Count == 0)
             {
                 break;
@@ -90,20 +90,21 @@ public class MosTenderSyncService
 
             foreach (var item in response.items)
             {
-                if (string.IsNullOrWhiteSpace(item.registerNumber))
+                var registerNumber = item.id?.ToString();
+                if (string.IsNullOrWhiteSpace(registerNumber))
                 {
                     continue;
                 }
 
                 var exists = await _dbContext.MosNotices
-                    .AnyAsync(n => n.RegisterNumber == item.registerNumber, cancellationToken);
+                    .AnyAsync(n => n.RegisterNumber == registerNumber, cancellationToken);
 
                 if (exists)
                 {
                     continue;
                 }
 
-                var notice = MapNotice(item);
+                var notice = MapNotice(registerNumber, item);
                 _dbContext.MosNotices.Add(notice);
                 created++;
             }
@@ -123,25 +124,25 @@ public class MosTenderSyncService
         return created;
     }
 
-    private static MosNotice MapNotice(TenderListDto2 item)
+    private static MosNotice MapNotice(string registerNumber, SearchQueryListDto3 item)
     {
         return new MosNotice
         {
             Id = Guid.NewGuid(),
             ExternalId = item.id ?? 0,
-            RegisterNumber = item.registerNumber ?? item.registrationNumber ?? string.Empty,
-            RegistrationNumber = item.registrationNumber,
+            RegisterNumber = registerNumber,
+            RegistrationNumber = registerNumber,
             Name = item.name,
-            RegistrationDate = item.registrationDate,
-            SummingUpDate = item.summingUpDate,
-            EndFillingDate = item.endFillingDate,
-            PlanDate = item.planDate,
-            InitialSum = item.initialSum,
-            StateId = item.stateId,
-            StateName = item.stateName,
-            FederalLawName = item.federalLawName,
-            CustomerInn = item.customer?.inn,
-            CustomerName = item.customer?.name,
+            RegistrationDate = item.beginDate,
+            SummingUpDate = item.endDate,
+            EndFillingDate = item.endDate,
+            PlanDate = item.endDate,
+            InitialSum = item.startPrice,
+            StateId = (int?)item.status,
+            StateName = item.status?.ToString(),
+            FederalLawName = item.federalLaw?.ToString(),
+            CustomerInn = item.company?.inn,
+            CustomerName = item.company?.name,
             RawJson = JsonSerializer.Serialize(item),
             InsertedAt = DateTime.UtcNow,
             LastUpdatedAt = DateTime.UtcNow
