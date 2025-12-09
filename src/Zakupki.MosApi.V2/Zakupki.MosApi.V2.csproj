@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Zakupki.MosApi.V2</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Zakupki.MosApi\Zakupki.MosApi.csproj" />
-    <ProjectReference Include="..\Zakupki.MosApi.V2\Zakupki.MosApi.V2.csproj" />
   </ItemGroup>
 </Project>

@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zakupki.Fetcher", "src\Zaku
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zakupki.MosApi", "src\Zakupki.MosApi\Zakupki.MosApi.csproj", "{472B3527-E9F7-4D34-905C-EB76E471A40F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zakupki.MosApi.V2", "src\Zakupki.MosApi.V2\Zakupki.MosApi.V2.csproj", "{67263FCB-6BE0-4D9F-9089-02BC10586319}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zakupki.MosApi.ConsoleTest", "src\Zakupki.MosApi.ConsoleTest\Zakupki.MosApi.ConsoleTest.csproj", "{FDEF2528-433B-4E77-98D1-D96CAAF8256F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FabrikantGrabber", "src\FabrikantGrabber\FabrikantGrabber.csproj", "{830C9DF9-008C-44D6-860A-A375F35A19E9}"
@@ -34,6 +36,10 @@ Global
                 {472B3527-E9F7-4D34-905C-EB76E471A40F}.Debug|Any CPU.Build.0 = Debug|Any CPU
                 {472B3527-E9F7-4D34-905C-EB76E471A40F}.Release|Any CPU.ActiveCfg = Release|Any CPU
                 {472B3527-E9F7-4D34-905C-EB76E471A40F}.Release|Any CPU.Build.0 = Release|Any CPU
+                {67263FCB-6BE0-4D9F-9089-02BC10586319}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+                {67263FCB-6BE0-4D9F-9089-02BC10586319}.Debug|Any CPU.Build.0 = Debug|Any CPU
+                {67263FCB-6BE0-4D9F-9089-02BC10586319}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {67263FCB-6BE0-4D9F-9089-02BC10586319}.Release|Any CPU.Build.0 = Release|Any CPU
                 {FDEF2528-433B-4E77-98D1-D96CAAF8256F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
                 {FDEF2528-433B-4E77-98D1-D96CAAF8256F}.Debug|Any CPU.Build.0 = Debug|Any CPU
                 {FDEF2528-433B-4E77-98D1-D96CAAF8256F}.Release|Any CPU.ActiveCfg = Release|Any CPU
