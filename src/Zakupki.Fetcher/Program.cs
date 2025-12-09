@@ -73,12 +73,16 @@ builder.Services
 
 builder.Services.AddHttpClient<ZakupkiClient>();
 builder.Services.AddHttpClient<NoticeAnalysisService>();
-builder.Services.AddHttpClient<MosSwaggerClient>((sp, httpClient) =>
+builder.Services.AddHttpClient("MosSwaggerClient");
+builder.Services.AddSingleton(sp =>
 {
     var options = sp.GetRequiredService<IOptions<MosApiOptions>>().Value;
     var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
         ? "https://api.zakupki.mos.ru"
         : options.BaseUrl;
+
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient("MosSwaggerClient");
 
     return new MosSwaggerClient(httpClient, baseUrl!, options.Token);
 });
