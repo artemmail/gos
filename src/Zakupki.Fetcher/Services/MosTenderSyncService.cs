@@ -11,7 +11,7 @@ using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
 using Zakupki.MosApi;
-using Zakupki.MosApi.Models;
+using DateTimeFilter = Zakupki.MosApi.DateTime;
 
 namespace Zakupki.Fetcher.Services;
 
@@ -60,7 +60,7 @@ public class MosTenderSyncService
         {
             filter = new TenderFilterDto
             {
-                registrationDate = new DateTime
+                registrationDate = new DateTimeFilter
                 {
                     start = since,
                     end = now
