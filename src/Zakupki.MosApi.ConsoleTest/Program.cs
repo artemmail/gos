@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
@@ -136,6 +137,8 @@ namespace Zakupki.MosApi.ConsoleTest
 
             Console.WriteLine(
                 $"Saved {allAuctions.Count} auction(s) to {fileName}.");
+
+            await SaveAuctionDetailsWithDocuments(client, allAuctions, monthAgo, now);
         }
 
         private static async Task FetchAuctionDetails(MosSwaggerClientV2 client)
@@ -257,6 +260,76 @@ namespace Zakupki.MosApi.ConsoleTest
 
             Console.WriteLine(
                 $"Saved {allNeeds.Count} need(s) to {fileName}.");
+
+            await SaveNeedDetailsWithDocuments(client, allNeeds, monthAgo, now);
+        }
+
+        private static async Task SaveAuctionDetailsWithDocuments(
+            MosSwaggerClientV2 client,
+            IEnumerable<SearchQueryListDto3> auctions,
+            DateTimeOffset monthAgo,
+            DateTimeOffset now)
+        {
+            var auctionDetails = new List<object>();
+
+            foreach (var auction in auctions.Where(a => a.id.HasValue))
+            {
+                var details = await client.AuctionGetAsync(new GetQuery { id = auction.id!.Value });
+
+                auctionDetails.Add(new
+                {
+                    summary = auction,
+                    details
+                });
+            }
+
+            var fileName = $"auction_details_{monthAgo:yyyyMMdd}_{now:yyyyMMdd}.json";
+            var json = JsonSerializer.Serialize(
+                auctionDetails,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+
+            await File.WriteAllTextAsync(fileName, json);
+
+            Console.WriteLine(
+                $"Saved {auctionDetails.Count} auction detail record(s) with documents to {fileName}.");
+        }
+
+        private static async Task SaveNeedDetailsWithDocuments(
+            MosSwaggerClientV2 client,
+            IEnumerable<SearchQueryListDto4> needs,
+            DateTimeOffset monthAgo,
+            DateTimeOffset now)
+        {
+            var needDetails = new List<object>();
+
+            foreach (var need in needs.Where(n => n.id.HasValue))
+            {
+                var details = await client.NeedGetAsync(new GetQuery3 { id = need.id!.Value });
+
+                needDetails.Add(new
+                {
+                    summary = need,
+                    details
+                });
+            }
+
+            var fileName = $"need_details_{monthAgo:yyyyMMdd}_{now:yyyyMMdd}.json";
+            var json = JsonSerializer.Serialize(
+                needDetails,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+
+            await File.WriteAllTextAsync(fileName, json);
+
+            Console.WriteLine(
+                $"Saved {needDetails.Count} need detail record(s) with documents to {fileName}.");
         }
 
         private static async Task FetchTodayTenders(MosSwaggerClient client)
