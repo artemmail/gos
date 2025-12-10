@@ -106,7 +106,19 @@ public class MosTenderSyncService
                     continue;
                 }
 
-                var notice = MapNotice(registerNumber, item);
+                var details = await _mosClient.AuctionGetAsync(
+                    new GetQuery { id = item.id ?? 0 },
+                    cancellationToken);
+
+                if (details == null)
+                {
+                    _logger.LogWarning(
+                        "Unable to fetch MOS tender details for {RegisterNumber}",
+                        registerNumber);
+                    continue;
+                }
+
+                var notice = MapNotice(registerNumber, item, details);
                 _dbContext.MosNotices.Add(notice);
                 created++;
             }
@@ -126,28 +138,61 @@ public class MosTenderSyncService
         return created;
     }
 
-    private static MosNotice MapNotice(string registerNumber, SearchQueryListDto3 item)
+    private static MosNotice MapNotice(string registerNumber, SearchQueryListDto3 item, GetQueryDataDto details)
     {
+        var now = DateTime.UtcNow;
+        var noticeId = Guid.NewGuid();
+
         return new MosNotice
         {
-            Id = Guid.NewGuid(),
-            ExternalId = item.id ?? 0,
+            Id = noticeId,
+            ExternalId = details.id ?? item.id ?? 0,
             RegisterNumber = registerNumber,
             RegistrationNumber = registerNumber,
-            Name = item.name,
-            RegistrationDate = item.beginDate,
-            SummingUpDate = item.endDate,
-            EndFillingDate = item.endDate,
-            PlanDate = item.endDate,
-            InitialSum = item.startPrice,
-            StateId = (int?)item.status,
-            StateName = item.status?.ToString(),
-            FederalLawName = item.federalLaw?.ToString(),
-            CustomerInn = item.company?.inn,
-            CustomerName = item.company?.name,
-            RawJson = JsonSerializer.Serialize(item),
-            InsertedAt = DateTime.UtcNow,
-            LastUpdatedAt = DateTime.UtcNow
+            Name = details.name ?? item.name,
+            RegistrationDate = details.beginDate ?? item.beginDate,
+            SummingUpDate = details.endDate ?? item.endDate,
+            EndFillingDate = details.endDate ?? item.endDate,
+            PlanDate = details.endDate ?? item.endDate,
+            InitialSum = details.startPrice ?? item.startPrice,
+            StateId = (int?)details.status ?? (int?)item.status,
+            StateName = details.status?.ToString() ?? item.status?.ToString(),
+            FederalLawName = details.federalLaw?.ToString() ?? item.federalLaw?.ToString(),
+            CustomerInn = details.company?.inn ?? item.company?.inn,
+            CustomerName = details.company?.name ?? item.company?.name,
+            RawJson = JsonSerializer.Serialize(details),
+            InsertedAt = now,
+            LastUpdatedAt = now,
+            Attachments = MapAttachments(details, noticeId)
         };
+    }
+
+    private static List<MosNoticeAttachment> MapAttachments(GetQueryDataDto details, Guid noticeId)
+    {
+        if (details.attachments == null || details.attachments.Count == 0)
+        {
+            return new List<MosNoticeAttachment>();
+        }
+
+        var now = DateTime.UtcNow;
+
+        return details.attachments
+            .Select(a => new MosNoticeAttachment
+            {
+                Id = Guid.NewGuid(),
+                MosNoticeId = noticeId,
+                PublishedContentId = a.publishedContentId,
+                FileName = a.fileName ?? string.Empty,
+                FileSize = a.fileSize,
+                Description = a.description,
+                DocumentDate = a.documentDate,
+                DocumentKindCode = a.documentKindCode,
+                DocumentKindName = a.documentKindName,
+                Url = a.url,
+                ContentHash = a.contentHash,
+                InsertedAt = now,
+                LastSeenAt = now
+            })
+            .ToList();
     }
 }

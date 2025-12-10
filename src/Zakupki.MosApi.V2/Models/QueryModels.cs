@@ -200,7 +200,7 @@ namespace Zakupki.MosApi.V2
         public int? id { get; set; }
     }
 
-    public class GetQueryDataDto
+    public partial class GetQueryDataDto
     {
         [JsonPropertyName("name")]
         public string? name { get; set; }
