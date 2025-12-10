@@ -185,7 +185,8 @@ public class MosTenderSyncService
                 FileName = a.fileName ?? string.Empty,
                 FileSize = a.fileSize,
                 Description = a.description,
-                DocumentDate = a.documentDate,
+                DocumentDate = a.documentDate?.start?.UtcDateTime
+                    ?? a.documentDate?.end?.UtcDateTime,
                 DocumentKindCode = a.documentKindCode,
                 DocumentKindName = a.documentKindName,
                 Url = a.url,
