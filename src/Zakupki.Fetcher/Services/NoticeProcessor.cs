@@ -262,6 +262,7 @@ public sealed class NoticeProcessor
         string serializedNotification,
         string externalId)
     {
+        notice.Source = NoticeSource.Eis;
         notice.Region = _regionDeterminationService.DetermineRegionCode(
             EnumerateFactAddresses(notification),
             EnumerateInnCandidates(notification),
@@ -290,6 +291,7 @@ public sealed class NoticeProcessor
         string serializedContract,
         string externalId)
     {
+        notice.Source = NoticeSource.Eis;
         notice.Region = (document.Region);
         notice.PurchaseNumber = contract.Foundation?.FcsOrder?.Order?.NotificationNumber ?? externalId;
         notice.PublishDate = contract.PublishDate;

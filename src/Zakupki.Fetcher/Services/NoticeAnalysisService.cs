@@ -92,6 +92,7 @@ public sealed class NoticeAnalysisService
     private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly AttachmentContentExtractor _attachmentContentExtractor;
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
+    private readonly MosTenderSyncService _mosTenderSyncService;
     private readonly OpenAiOptions _options;
     private readonly EventBusOptions _eventBusOptions;
     private readonly IEventBusPublisher _eventBusPublisher;
@@ -103,6 +104,7 @@ public sealed class NoticeAnalysisService
         AttachmentDownloadService attachmentDownloadService,
         AttachmentContentExtractor attachmentContentExtractor,
         AttachmentMarkdownService attachmentMarkdownService,
+        MosTenderSyncService mosTenderSyncService,
         IOptions<OpenAiOptions> options,
         IOptions<EventBusOptions> eventBusOptions,
         IEventBusPublisher eventBusPublisher,
@@ -113,6 +115,7 @@ public sealed class NoticeAnalysisService
         _attachmentDownloadService = attachmentDownloadService ?? throw new ArgumentNullException(nameof(attachmentDownloadService));
         _attachmentContentExtractor = attachmentContentExtractor ?? throw new ArgumentNullException(nameof(attachmentContentExtractor));
         _attachmentMarkdownService = attachmentMarkdownService ?? throw new ArgumentNullException(nameof(attachmentMarkdownService));
+        _mosTenderSyncService = mosTenderSyncService ?? throw new ArgumentNullException(nameof(mosTenderSyncService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _eventBusOptions = eventBusOptions?.Value ?? throw new ArgumentNullException(nameof(eventBusOptions));
         _eventBusPublisher = eventBusPublisher ?? throw new ArgumentNullException(nameof(eventBusPublisher));
@@ -183,6 +186,22 @@ public sealed class NoticeAnalysisService
         var attachments = activeVersion.Attachments
             .OrderBy(a => a.FileName)
             .ToList();
+
+        if (attachments.Count == 0 && notice.Source == NoticeSource.Mos)
+        {
+            var loaded = await _mosTenderSyncService.EnsureNoticeDetailsLoadedAsync(notice.Id, cancellationToken);
+            if (loaded)
+            {
+                context.Entry(activeVersion).Collection(v => v.Attachments).IsLoaded = false;
+                await context.Entry(activeVersion)
+                    .Collection(v => v.Attachments)
+                    .LoadAsync(cancellationToken);
+
+                attachments = activeVersion.Attachments
+                    .OrderBy(a => a.FileName)
+                    .ToList();
+            }
+        }
 
         if (attachments.Count == 0)
         {

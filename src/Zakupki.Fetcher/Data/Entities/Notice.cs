@@ -8,6 +8,8 @@ public class Notice
 {
     public Guid Id { get; set; }
 
+    public NoticeSource Source { get; set; }
+
     public byte Region { get; set; }
 
     public string PurchaseNumber { get; set; } = null!;
@@ -26,6 +28,8 @@ public class Notice
     public string? PurchaseObjectInfo { get; set; }
 
     public decimal? MaxPrice { get; set; }
+
+    public int? FederalLaw { get; set; }
 
     public string? Okpd2Code { get; set; }
 

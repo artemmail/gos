@@ -47,9 +47,10 @@ public class MosTenderSyncService
 
         _mosClient.ApiToken = options.Token;
         var now = DateTimeOffset.UtcNow;
-        var latestDate = await _dbContext.MosNotices
-            .OrderByDescending(n => n.RegistrationDate)
-            .Select(n => n.RegistrationDate)
+        var latestDate = await _dbContext.Notices
+            .Where(n => n.Source == NoticeSource.Mos)
+            .OrderByDescending(n => n.PublishDate)
+            .Select(n => n.PublishDate)
             .FirstOrDefaultAsync(cancellationToken);
 
         var since = latestDate ?? now.AddDays(-options.LookbackDays);
@@ -98,28 +99,19 @@ public class MosTenderSyncService
                     continue;
                 }
 
-                var exists = await _dbContext.MosNotices
-                    .AnyAsync(n => n.RegisterNumber == registerNumber, cancellationToken);
+                var exists = await _dbContext.Notices
+                    .AnyAsync(
+                        n => n.PurchaseNumber == registerNumber && n.Source == NoticeSource.Mos,
+                        cancellationToken);
 
                 if (exists)
                 {
                     continue;
                 }
 
-                var details = await _mosClient.AuctionGetAsync(
-                    new GetQuery { id = item.id ?? 0 },
-                    cancellationToken);
-
-                if (details == null)
-                {
-                    _logger.LogWarning(
-                        "Unable to fetch MOS tender details for {RegisterNumber}",
-                        registerNumber);
-                    continue;
-                }
-
-                var notice = MapNotice(registerNumber, item, details);
-                _dbContext.MosNotices.Add(notice);
+                var notice = MapNotice(registerNumber, item);
+                await LinkCompanyAsync(notice, item.company, cancellationToken);
+                _dbContext.Notices.Add(notice);
                 created++;
             }
 
@@ -138,55 +130,121 @@ public class MosTenderSyncService
         return created;
     }
 
-    private static MosNotice MapNotice(string registerNumber, SearchQueryListDto3 item, GetQueryDataDto details)
+    public async Task<bool> EnsureNoticeDetailsLoadedAsync(Guid noticeId, CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
-        var noticeId = Guid.NewGuid();
+        var notice = await _dbContext.Notices
+            .Include(n => n.Versions.Where(v => v.IsActive))
+                .ThenInclude(v => v.Attachments)
+            .FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
 
-        return new MosNotice
+        if (notice == null || notice.Source != NoticeSource.Mos)
         {
-            Id = noticeId,
-            ExternalId = details.id ?? item.id ?? 0,
-            RegisterNumber = registerNumber,
-            RegistrationNumber = registerNumber,
-            Name = details.name ?? item.name,
-            RegistrationDate = details.beginDate ?? item.beginDate,
-            SummingUpDate = details.endDate ?? item.endDate,
-            EndFillingDate = details.endDate ?? item.endDate,
-            PlanDate = details.endDate ?? item.endDate,
-            InitialSum = details.startPrice ?? item.startPrice,
-            StateId = (int?)details.status ?? (int?)item.status,
-            StateName = details.status?.ToString() ?? item.status?.ToString(),
-            FederalLawName = details.federalLaw?.ToString() ?? item.federalLaw?.ToString(),
-            CustomerInn = details.company?.inn ?? item.company?.inn,
-            CustomerName = details.company?.name ?? item.company?.name,
-            RawJson = JsonSerializer.Serialize(details),
-            InsertedAt = now,
-            LastUpdatedAt = now,
-            Attachments = MapAttachments(details, noticeId)
-        };
-    }
+            return false;
+        }
 
-    private static List<MosNoticeAttachment> MapAttachments(GetQueryDataDto details, Guid noticeId)
-    {
-        if (details.attachments == null || details.attachments.Count == 0)
+        var activeVersion = notice.Versions.FirstOrDefault();
+        if (activeVersion == null)
         {
-            return new List<MosNoticeAttachment>();
+            return false;
+        }
+
+        if (activeVersion.Attachments.Any())
+        {
+            return false;
+        }
+
+        if (!int.TryParse(notice.PurchaseNumber, out var auctionId))
+        {
+            _logger.LogWarning("Unable to parse MOS purchase number {PurchaseNumber}", notice.PurchaseNumber);
+            return false;
+        }
+
+        var details = await _mosClient.AuctionGetAsync(new GetQuery { id = auctionId }, cancellationToken);
+        if (details == null)
+        {
+            _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", notice.PurchaseNumber);
+            return false;
         }
 
         var now = DateTime.UtcNow;
+        UpdateNoticeFromDetails(notice, activeVersion, details, now);
+        activeVersion.Attachments = MapAttachments(details, activeVersion.Id, now);
+        await LinkCompanyAsync(notice, details.company, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private static Notice MapNotice(string registerNumber, SearchQueryListDto3 item)
+    {
+        var now = DateTime.UtcNow;
+        var noticeId = Guid.NewGuid();
+        var rawDetails = JsonSerializer.Serialize(item);
+
+        var notice = new Notice
+        {
+            Id = noticeId,
+            Source = NoticeSource.Mos,
+            Region = ResolveRegion(null),
+            PurchaseNumber = registerNumber,
+            PublishDate = item.beginDate?.UtcDateTime,
+            PurchaseObjectInfo = item.name,
+            MaxPrice = (decimal?)item.startPrice,
+            FederalLaw = (int?)item.federalLaw,
+            RawJson = rawDetails,
+            CollectingEnd = item.endDate?.UtcDateTime
+        };
+
+        var version = new NoticeVersion
+        {
+            Id = Guid.NewGuid(),
+            NoticeId = noticeId,
+            ExternalId = registerNumber,
+            VersionNumber = 1,
+            IsActive = true,
+            VersionReceivedAt = now,
+            RawJson = rawDetails,
+            InsertedAt = now,
+            LastSeenAt = now
+        };
+
+        notice.Versions.Add(version);
+
+        return notice;
+    }
+
+    private static void UpdateNoticeFromDetails(Notice notice, NoticeVersion version, GetQueryDataDto details, DateTime now)
+    {
+        notice.Region = ResolveRegion(details.regionId);
+        notice.PublishDate = details.beginDate?.UtcDateTime ?? notice.PublishDate;
+        notice.PurchaseObjectInfo = details.name ?? notice.PurchaseObjectInfo;
+        notice.MaxPrice = (decimal?)details.startPrice ?? notice.MaxPrice;
+        notice.FederalLaw = (int?)(details.federalLaw ?? notice.FederalLaw);
+        notice.Okpd2Code = details.items?.Select(i => i.okpdCode).FirstOrDefault(code => !string.IsNullOrWhiteSpace(code))
+            ?? notice.Okpd2Code;
+        notice.RawJson = JsonSerializer.Serialize(details);
+        notice.CollectingEnd = details.endDate?.UtcDateTime ?? notice.CollectingEnd;
+
+        version.RawJson = notice.RawJson;
+        version.LastSeenAt = now;
+    }
+
+    private static List<NoticeAttachment> MapAttachments(GetQueryDataDto details, Guid noticeVersionId, DateTime now)
+    {
+        if (details.attachments == null || details.attachments.Count == 0)
+        {
+            return new List<NoticeAttachment>();
+        }
 
         return details.attachments
-            .Select(a => new MosNoticeAttachment
+            .Select(a => new NoticeAttachment
             {
                 Id = Guid.NewGuid(),
-                MosNoticeId = noticeId,
-                PublishedContentId = a.publishedContentId,
+                NoticeVersionId = noticeVersionId,
+                PublishedContentId = a.publishedContentId ?? string.Empty,
                 FileName = a.fileName ?? string.Empty,
                 FileSize = a.fileSize,
                 Description = a.description,
-                DocumentDate = a.documentDate?.start?.UtcDateTime
-                    ?? a.documentDate?.end?.UtcDateTime,
+                DocumentDate = a.documentDate,
                 DocumentKindCode = a.documentKindCode,
                 DocumentKindName = a.documentKindName,
                 Url = a.url,
@@ -195,5 +253,49 @@ public class MosTenderSyncService
                 LastSeenAt = now
             })
             .ToList();
+    }
+
+    private static byte ResolveRegion(int? regionId)
+    {
+        if (regionId.HasValue && regionId.Value is >= byte.MinValue and <= byte.MaxValue)
+        {
+            return (byte)regionId.Value;
+        }
+
+        return 77;
+    }
+
+    private async Task LinkCompanyAsync(
+        Notice notice,
+        SearchQueryCompanyDto? company,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(company?.inn))
+        {
+            return;
+        }
+
+        var inn = company.inn.Trim();
+        var companyEntity = await _dbContext.Companies
+            .FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
+
+        if (companyEntity is null)
+        {
+            companyEntity = new Company
+            {
+                Id = Guid.NewGuid(),
+                Inn = inn,
+                Region = notice.Region
+            };
+            _dbContext.Companies.Add(companyEntity);
+        }
+
+        if (!string.IsNullOrWhiteSpace(company.name) && string.IsNullOrWhiteSpace(companyEntity.Name))
+        {
+            companyEntity.Name = company.name;
+        }
+
+        notice.CompanyId = companyEntity.Id;
+        notice.Company = companyEntity;
     }
 }
