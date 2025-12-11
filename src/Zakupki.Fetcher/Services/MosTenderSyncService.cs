@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text.Json;
-using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +23,11 @@ namespace Zakupki.Fetcher.Services;
 
 public class MosTenderSyncService
 {
+    private static readonly JsonSerializerOptions UndocumentedSerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly NoticeDbContext _dbContext;
     private readonly MosSwaggerClientV2 _mosClient;
     private readonly ILogger<MosTenderSyncService> _logger;
@@ -175,22 +180,18 @@ public class MosTenderSyncService
             return false;
         }
 
-        var details = await _mosClient.AuctionGetAsync(new GetQuery { id = auctionId }, cancellationToken);
-        if (details == null)
+        var undocumentedDetails = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
+        if (undocumentedDetails == null)
         {
             _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", notice.PurchaseNumber);
             return false;
         }
 
         var now = DateTime.UtcNow;
-        UpdateNoticeFromDetails(notice, activeVersion, details, now);
-        activeVersion.Attachments = await MapAttachmentsAsync(
-            details,
-            activeVersion.Id,
-            auctionId,
-            now,
-            cancellationToken);
-        await LinkCompanyAsync(notice, details.company, cancellationToken);
+        UpdateNoticeFromUndocumentedDetails(notice, activeVersion, undocumentedDetails, now);
+
+        activeVersion.Attachments = MapAttachmentsFromUndocumented(undocumentedDetails, activeVersion.Id, now);
+        await LinkCompanyAsync(notice, ConvertCompany(undocumentedDetails.customer), cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -233,146 +234,127 @@ public class MosTenderSyncService
         return notice;
     }
 
-    private static void UpdateNoticeFromDetails(Notice notice, NoticeVersion version, GetQueryDataDto details, DateTime now)
-    {
-        notice.Region = ResolveRegion(details.regionId);
-        notice.PublishDate = details.beginDate?.UtcDateTime ?? notice.PublishDate;
-        notice.PurchaseObjectInfo = details.name ?? notice.PurchaseObjectInfo;
-        notice.MaxPrice = (decimal?)details.startPrice ?? notice.MaxPrice;
-        notice.FederalLaw = details.federalLaw.HasValue ? (int?)details.federalLaw.Value : notice.FederalLaw;
-        notice.Okpd2Code = details.items?.Select(i => i.okpdCode).FirstOrDefault(code => !string.IsNullOrWhiteSpace(code))
-            ?? notice.Okpd2Code;
-        notice.RawJson = JsonSerializer.Serialize(details);
-        notice.CollectingEnd = details.endDate?.UtcDateTime ?? notice.CollectingEnd;
-
-        version.RawJson = notice.RawJson;
-        version.LastSeenAt = now;
-    }
-
-    private async Task<List<NoticeAttachment>> MapAttachmentsAsync(
-        GetQueryDataDto details,
+    private static List<NoticeAttachment> MapAttachmentsFromUndocumented(
+        UndocumentedAuctionDto undocumentedDetails,
         Guid noticeVersionId,
-        int auctionId,
-        DateTime now,
-        CancellationToken cancellationToken)
+        DateTime now)
     {
-        var attachments = details.attachments
-            ?.Select(a => new NoticeAttachment
+        var attachments = undocumentedDetails.files
+            ?.Select(f => new NoticeAttachment
             {
                 Id = Guid.NewGuid(),
                 NoticeVersionId = noticeVersionId,
-                PublishedContentId = a.publishedContentId ?? string.Empty,
-                FileName = a.fileName ?? string.Empty,
-                FileSize = a.fileSize,
-                Description = a.description,
-                DocumentDate = a.documentDate?.UtcDateTime,
-                DocumentKindCode = a.documentKindCode,
-                DocumentKindName = a.documentKindName,
-                Url = a.url,
-                ContentHash = a.contentHash,
+                PublishedContentId = f.id?.ToString() ?? string.Empty,
+                FileName = f.name ?? string.Empty,
+                Url = string.IsNullOrWhiteSpace(f.id?.ToString())
+                    ? null
+                    : $"https://zakupki.mos.ru/newapi/api/FileStorage/Download?id={f.id}",
                 InsertedAt = now,
                 LastSeenAt = now
             })
-            .ToList()
-            ?? new List<NoticeAttachment>();
+            .ToList();
 
-        var htmlAttachments = await FetchAttachmentsFromAuctionPageAsync(
-            auctionId,
-            noticeVersionId,
-            now,
-            cancellationToken);
-
-        if (htmlAttachments.Count == 0)
-        {
-            return attachments;
-        }
-
-        var existingUrls = new HashSet<string>(
-            attachments
-                .Select(a => a.Url ?? string.Empty)
-                .Where(url => !string.IsNullOrWhiteSpace(url)),
-            StringComparer.OrdinalIgnoreCase);
-
-        foreach (var attachment in htmlAttachments)
-        {
-            if (string.IsNullOrWhiteSpace(attachment.Url) || existingUrls.Contains(attachment.Url))
-            {
-                continue;
-            }
-
-            existingUrls.Add(attachment.Url);
-            attachments.Add(attachment);
-        }
-
-        return attachments;
+        return attachments ?? new List<NoticeAttachment>();
     }
 
-    private async Task<List<NoticeAttachment>> FetchAttachmentsFromAuctionPageAsync(
+    private async Task<UndocumentedAuctionDto?> FetchUndocumentedAuctionAsync(
         int auctionId,
-        Guid noticeVersionId,
-        DateTime now,
         CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
-        var auctionUrl = $"https://zakupki.mos.ru/auction/{auctionId}";
+        var auctionUrl = $"https://zakupki.mos.ru/newapi/api/Auction/Get?auctionId={auctionId}";
 
         try
         {
             using var response = await client.GetAsync(auctionUrl, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogDebug(
-                    "Skipping MOS auction page parsing for {AuctionId} due to status code {StatusCode}",
-                    auctionId,
-                    response.StatusCode);
-                return new List<NoticeAttachment>();
+                _logger.LogWarning(
+                    "Undocumented MOS auction API returned status code {StatusCode} for {AuctionId}",
+                    response.StatusCode,
+                    auctionId);
+                return null;
             }
 
-            var pageContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            var matches = Regex.Matches(
-                pageContent,
-                "<a[^>]+href\\s*=\\s*\"(?<url>https://zakupki\\.mos\\.ru/newapi/api/FileStorage/Download\\?id=(?<id>\\d+))\"[^>]*>(?<name>.*?)</a>",
-                RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-            if (matches.Count == 0)
-            {
-                return new List<NoticeAttachment>();
-            }
-
-            var attachments = new List<NoticeAttachment>(matches.Count);
-
-            foreach (Match match in matches)
-            {
-                var url = match.Groups["url"].Value;
-                if (string.IsNullOrWhiteSpace(url))
-                {
-                    continue;
-                }
-
-                var publishedContentId = match.Groups["id"].Value;
-                var rawName = match.Groups["name"].Value;
-                var fileName = WebUtility.HtmlDecode(Regex.Replace(rawName, "<.*?>", string.Empty)).Trim();
-
-                attachments.Add(new NoticeAttachment
-                {
-                    Id = Guid.NewGuid(),
-                    NoticeVersionId = noticeVersionId,
-                    PublishedContentId = publishedContentId,
-                    FileName = string.IsNullOrWhiteSpace(fileName) ? publishedContentId : fileName,
-                    Url = url,
-                    InsertedAt = now,
-                    LastSeenAt = now
-                });
-            }
-
-            return attachments;
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            return await JsonSerializer.DeserializeAsync<UndocumentedAuctionDto>(
+                stream,
+                UndocumentedSerializerOptions,
+                cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse MOS auction page {AuctionId}", auctionId);
-            return new List<NoticeAttachment>();
+            _logger.LogWarning(ex, "Failed to fetch undocumented MOS auction {AuctionId}", auctionId);
+            return null;
         }
+    }
+
+    private static SearchQueryCompanyDto? ConvertCompany(UndocumentedCompanyDto? company)
+    {
+        if (company == null)
+        {
+            return null;
+        }
+
+        return new SearchQueryCompanyDto
+        {
+            inn = company.inn,
+            name = company.name,
+            id = company.id
+        };
+    }
+
+    private static void UpdateNoticeFromUndocumentedDetails(
+        Notice notice,
+        NoticeVersion version,
+        UndocumentedAuctionDto details,
+        DateTime now)
+    {
+        notice.Region = ResolveRegion(details.auctionRegion?.FirstOrDefault()?.id);
+        notice.PublishDate = ParseRussianDateTime(details.startDate) ?? notice.PublishDate;
+        notice.PurchaseObjectInfo = details.name ?? notice.PurchaseObjectInfo;
+        notice.MaxPrice = (decimal?)details.startCost ?? notice.MaxPrice;
+        notice.RawJson = JsonSerializer.Serialize(details);
+        notice.CollectingEnd = ParseRussianDateTime(details.endDate) ?? notice.CollectingEnd;
+
+        version.RawJson = notice.RawJson;
+        version.LastSeenAt = now;
+    }
+
+    private static DateTime? ParseRussianDateTime(string? value)
+    {
+        var offset = ParseRussianDateTimeOffset(value);
+        return offset?.UtcDateTime;
+    }
+
+    private static DateTimeOffset? ParseRussianDateTimeOffset(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var formats = new[] { "dd.MM.yyyy HH:mm:ss" };
+        if (DateTimeOffset.TryParseExact(
+                value,
+                formats,
+                CultureInfo.GetCultureInfo("ru-RU"),
+                DateTimeStyles.AssumeLocal,
+                out var result))
+        {
+            return result.ToUniversalTime();
+        }
+
+        if (DateTimeOffset.TryParse(
+                value,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeLocal,
+                out result))
+        {
+            return result.ToUniversalTime();
+        }
+
+        return null;
     }
 
     private static byte ResolveRegion(int? regionId)
@@ -470,4 +452,61 @@ public class MosTenderSyncService
             noticeEntry.Entity.Company = trackedCompany;
         }
     }
+}
+
+public class UndocumentedAuctionDto
+{
+    [JsonPropertyName("name")]
+    public string? name { get; set; }
+
+    [JsonPropertyName("startDate")]
+    public string? startDate { get; set; }
+
+    [JsonPropertyName("endDate")]
+    public string? endDate { get; set; }
+
+    [JsonPropertyName("startCost")]
+    public double? startCost { get; set; }
+
+    [JsonPropertyName("federalLawName")]
+    public string? federalLawName { get; set; }
+
+    [JsonPropertyName("auctionRegion")]
+    public List<UndocumentedAuctionRegionDto>? auctionRegion { get; set; }
+
+    [JsonPropertyName("files")]
+    public List<UndocumentedAuctionFileDto>? files { get; set; }
+
+    [JsonPropertyName("customer")]
+    public UndocumentedCompanyDto? customer { get; set; }
+
+    [JsonPropertyName("id")]
+    public int? id { get; set; }
+}
+
+public class UndocumentedAuctionFileDto
+{
+    [JsonPropertyName("id")]
+    public long? id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? name { get; set; }
+}
+
+public class UndocumentedAuctionRegionDto
+{
+    [JsonPropertyName("id")]
+    public int? id { get; set; }
+}
+
+public class UndocumentedCompanyDto
+{
+    [JsonPropertyName("inn")]
+    public string? inn { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? name { get; set; }
+
+    [JsonPropertyName("id")]
+    public int? id { get; set; }
 }
