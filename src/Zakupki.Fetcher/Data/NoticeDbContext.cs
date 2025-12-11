@@ -135,7 +135,10 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.ToTable("Notices");
         entity.HasKey(n => n.Id);
 
-        entity.Property(n => n.Region)            
+        entity.Property(n => n.Source)
+            .HasColumnType("tinyint")
+            .HasDefaultValue(NoticeSource.Unknown);
+        entity.Property(n => n.Region)
             .HasColumnType("tinyint");
         entity.Property(n => n.PurchaseNumber).HasMaxLength(64);
         entity.Property(n => n.Href).HasMaxLength(512);
@@ -144,6 +147,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(n => n.EtpUrl).HasMaxLength(512);
         entity.Property(n => n.PurchaseObjectInfo).HasColumnType("nvarchar(max)");
         entity.Property(n => n.MaxPrice).HasColumnType("decimal(18,2)");
+        entity.Property(n => n.FederalLaw).HasColumnType("int");
         entity.Property(n => n.Okpd2Code).HasMaxLength(64);
         entity.Property(n => n.Okpd2Name).HasMaxLength(512);
         entity.Property(n => n.KvrCode).HasMaxLength(64);

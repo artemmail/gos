@@ -527,6 +527,9 @@ namespace Zakupki.Fetcher.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
+                    b.Property<int?>("FederalLaw")
+                        .HasColumnType("int");
+
                     b.Property<string>("Href")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
@@ -570,6 +573,11 @@ namespace Zakupki.Fetcher.Migrations
 
                     b.Property<byte>("Region")
                         .HasColumnType("tinyint");
+
+                    b.Property<byte>("Source")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)0);
 
                     b.Property<Guid?>("CompanyId")
                         .HasColumnType("uniqueidentifier");
