@@ -218,7 +218,7 @@ public class MosTenderSyncService
         notice.PublishDate = details.beginDate?.UtcDateTime ?? notice.PublishDate;
         notice.PurchaseObjectInfo = details.name ?? notice.PurchaseObjectInfo;
         notice.MaxPrice = (decimal?)details.startPrice ?? notice.MaxPrice;
-        notice.FederalLaw = (int?)(details.federalLaw ?? notice.FederalLaw);
+        notice.FederalLaw = details.federalLaw.HasValue ? (int?)details.federalLaw.Value : notice.FederalLaw;
         notice.Okpd2Code = details.items?.Select(i => i.okpdCode).FirstOrDefault(code => !string.IsNullOrWhiteSpace(code))
             ?? notice.Okpd2Code;
         notice.RawJson = JsonSerializer.Serialize(details);
@@ -244,7 +244,7 @@ public class MosTenderSyncService
                 FileName = a.fileName ?? string.Empty,
                 FileSize = a.fileSize,
                 Description = a.description,
-                DocumentDate = a.documentDate,
+                DocumentDate = a.documentDate?.UtcDateTime,
                 DocumentKindCode = a.documentKindCode,
                 DocumentKindName = a.documentKindName,
                 Url = a.url,
