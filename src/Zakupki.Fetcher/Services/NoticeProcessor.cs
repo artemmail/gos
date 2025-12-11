@@ -126,6 +126,8 @@ public sealed class NoticeProcessor
             dbContext.Notices.Add(notice!);
         }
 
+        await LinkCompanyAsync(dbContext, notice!, notification, cancellationToken);
+
         var version = await dbContext.NoticeVersions
             .Include(v => v.Attachments)
                 .ThenInclude(a => a.Signatures)
@@ -339,6 +341,83 @@ public sealed class NoticeProcessor
         entity.RawJson = serializedContract;
         entity.UpdatedAt = now;
     }
+
+    private async Task LinkCompanyAsync(
+        NoticeDbContext dbContext,
+        Notice notice,
+        EpNotificationEf2020 notification,
+        CancellationToken cancellationToken)
+    {
+        var companyInfo = ExtractCompanyInfo(notification);
+        if (string.IsNullOrWhiteSpace(companyInfo.Inn))
+        {
+            return;
+        }
+
+        var inn = companyInfo.Inn.Trim();
+        var company = await dbContext.Companies
+            .FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
+
+        if (company is null)
+        {
+            company = new Company
+            {
+                Id = Guid.NewGuid(),
+                Inn = inn
+            };
+            dbContext.Companies.Add(company);
+        }
+
+        if (!string.IsNullOrWhiteSpace(companyInfo.Name) && string.IsNullOrWhiteSpace(company.Name))
+        {
+            company.Name = companyInfo.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(companyInfo.Address) && string.IsNullOrWhiteSpace(company.Address))
+        {
+            company.Address = companyInfo.Address;
+        }
+
+        var regionCode = _regionDeterminationService.DetermineRegionCode(
+            EnumerateFactAddresses(notification),
+            EnumerateInnCandidates(notification),
+            0);
+        if (!company.Region.HasValue && regionCode > 0)
+        {
+            company.Region = regionCode;
+        }
+
+        notice.CompanyId = company.Id;
+        notice.Company = company;
+    }
+
+    private static CompanyInfo ExtractCompanyInfo(EpNotificationEf2020 notification)
+    {
+        var responsible = notification.PurchaseResponsibleInfo?.ResponsibleOrgInfo;
+        var responsibleInfo = CreateCompanyInfo(responsible?.INN, responsible?.FullName, responsible?.ShortName, responsible?.FactAddress, responsible?.PostAddress);
+        if (!string.IsNullOrWhiteSpace(responsibleInfo.Inn))
+        {
+            return responsibleInfo;
+        }
+
+        var specialized = notification.PurchaseResponsibleInfo?.SpecializedOrgInfo;
+        return CreateCompanyInfo(specialized?.INN, specialized?.FullName, specialized?.ShortName, specialized?.FactAddress, specialized?.PostAddress);
+    }
+
+    private static CompanyInfo CreateCompanyInfo(
+        string? inn,
+        string? fullName,
+        string? shortName,
+        string? factAddress,
+        string? postAddress)
+    {
+        return new CompanyInfo(
+            inn,
+            FirstNonEmpty(fullName, shortName),
+            FirstNonEmpty(factAddress, postAddress));
+    }
+
+    private readonly record struct CompanyInfo(string? Inn, string? Name, string? Address);
 
     private static IEnumerable<string?> EnumerateInnCandidates(EpNotificationEf2020 notification)
     {
