@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -23,17 +26,20 @@ public class MosTenderSyncService
     private readonly NoticeDbContext _dbContext;
     private readonly MosSwaggerClientV2 _mosClient;
     private readonly ILogger<MosTenderSyncService> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptionsMonitor<MosApiOptions> _optionsMonitor;
 
     public MosTenderSyncService(
         NoticeDbContext dbContext,
         MosSwaggerClientV2 mosClient,
         ILogger<MosTenderSyncService> logger,
+        IHttpClientFactory httpClientFactory,
         IOptionsMonitor<MosApiOptions> optionsMonitor)
     {
         _dbContext = dbContext;
         _mosClient = mosClient;
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
         _optionsMonitor = optionsMonitor;
     }
 
@@ -178,7 +184,12 @@ public class MosTenderSyncService
 
         var now = DateTime.UtcNow;
         UpdateNoticeFromDetails(notice, activeVersion, details, now);
-        activeVersion.Attachments = MapAttachments(details, activeVersion.Id, now);
+        activeVersion.Attachments = await MapAttachmentsAsync(
+            details,
+            activeVersion.Id,
+            auctionId,
+            now,
+            cancellationToken);
         await LinkCompanyAsync(notice, details.company, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
@@ -238,15 +249,15 @@ public class MosTenderSyncService
         version.LastSeenAt = now;
     }
 
-    private static List<NoticeAttachment> MapAttachments(GetQueryDataDto details, Guid noticeVersionId, DateTime now)
+    private async Task<List<NoticeAttachment>> MapAttachmentsAsync(
+        GetQueryDataDto details,
+        Guid noticeVersionId,
+        int auctionId,
+        DateTime now,
+        CancellationToken cancellationToken)
     {
-        if (details.attachments == null || details.attachments.Count == 0)
-        {
-            return new List<NoticeAttachment>();
-        }
-
-        return details.attachments
-            .Select(a => new NoticeAttachment
+        var attachments = details.attachments
+            ?.Select(a => new NoticeAttachment
             {
                 Id = Guid.NewGuid(),
                 NoticeVersionId = noticeVersionId,
@@ -262,7 +273,106 @@ public class MosTenderSyncService
                 InsertedAt = now,
                 LastSeenAt = now
             })
-            .ToList();
+            .ToList()
+            ?? new List<NoticeAttachment>();
+
+        var htmlAttachments = await FetchAttachmentsFromAuctionPageAsync(
+            auctionId,
+            noticeVersionId,
+            now,
+            cancellationToken);
+
+        if (htmlAttachments.Count == 0)
+        {
+            return attachments;
+        }
+
+        var existingUrls = new HashSet<string>(
+            attachments
+                .Select(a => a.Url ?? string.Empty)
+                .Where(url => !string.IsNullOrWhiteSpace(url)),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attachment in htmlAttachments)
+        {
+            if (string.IsNullOrWhiteSpace(attachment.Url) || existingUrls.Contains(attachment.Url))
+            {
+                continue;
+            }
+
+            existingUrls.Add(attachment.Url);
+            attachments.Add(attachment);
+        }
+
+        return attachments;
+    }
+
+    private async Task<List<NoticeAttachment>> FetchAttachmentsFromAuctionPageAsync(
+        int auctionId,
+        Guid noticeVersionId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient();
+        var auctionUrl = $"https://zakupki.mos.ru/auction/{auctionId}";
+
+        try
+        {
+            using var response = await client.GetAsync(auctionUrl, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogDebug(
+                    "Skipping MOS auction page parsing for {AuctionId} due to status code {StatusCode}",
+                    auctionId,
+                    response.StatusCode);
+                return new List<NoticeAttachment>();
+            }
+
+            var pageContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            var matches = Regex.Matches(
+                pageContent,
+                "<a[^>]+href\\s*=\\s*\"(?<url>https://zakupki\\.mos\\.ru/newapi/api/FileStorage/Download\\?id=(?<id>\\d+))\"[^>]*>(?<name>.*?)</a>",
+                RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+            if (matches.Count == 0)
+            {
+                return new List<NoticeAttachment>();
+            }
+
+            var attachments = new List<NoticeAttachment>(matches.Count);
+
+            foreach (Match match in matches)
+            {
+                var url = match.Groups["url"].Value;
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
+                var publishedContentId = match.Groups["id"].Value;
+                var rawName = match.Groups["name"].Value;
+                var fileName = WebUtility.HtmlDecode(Regex.Replace(rawName, "<.*?>", string.Empty)).Trim();
+
+                attachments.Add(new NoticeAttachment
+                {
+                    Id = Guid.NewGuid(),
+                    NoticeVersionId = noticeVersionId,
+                    PublishedContentId = publishedContentId,
+                    FileName = string.IsNullOrWhiteSpace(fileName) ? publishedContentId : fileName,
+                    Url = url,
+                    InsertedAt = now,
+                    LastSeenAt = now
+                });
+            }
+
+            return attachments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse MOS auction page {AuctionId}", auctionId);
+            return new List<NoticeAttachment>();
+        }
     }
 
     private static byte ResolveRegion(int? regionId)
