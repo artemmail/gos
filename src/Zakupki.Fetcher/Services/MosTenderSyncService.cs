@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data;
@@ -115,7 +116,16 @@ public class MosTenderSyncService
                 created++;
             }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (IsCompanyInnConflict(ex))
+            {
+                _logger.LogWarning(ex, "Detected duplicate company INN during MOS sync, attempting to re-link notices.");
+                await ResolveCompanyConflictsAsync(cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
 
             var totalAvailable = response.count ?? 0;
             if (response.items.Count < pageSize || (query.skip ?? 0) + pageSize >= totalAvailable)
@@ -297,5 +307,51 @@ public class MosTenderSyncService
 
         notice.CompanyId = companyEntity.Id;
         notice.Company = companyEntity;
+    }
+
+    private static bool IsCompanyInnConflict(DbUpdateException ex)
+    {
+        return ex.InnerException?.Message.Contains("UX_Companies_Inn", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private async Task ResolveCompanyConflictsAsync(CancellationToken cancellationToken)
+    {
+        var addedCompanies = _dbContext.ChangeTracker.Entries<Company>()
+            .Where(e => e.State == EntityState.Added)
+            .ToList();
+
+        foreach (var entry in addedCompanies)
+        {
+            var inn = entry.Entity.Inn;
+            var existing = await _dbContext.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
+
+            if (existing is null)
+            {
+                continue;
+            }
+
+            RelinkNoticesToCompany(entry, existing);
+        }
+    }
+
+    private void RelinkNoticesToCompany(EntityEntry<Company> newCompanyEntry, Company existingCompany)
+    {
+        var trackedCompany = _dbContext.Companies.Local.FirstOrDefault(c => c.Id == existingCompany.Id)
+            ?? _dbContext.Attach(existingCompany).Entity;
+
+        var newCompanyId = newCompanyEntry.Entity.Id;
+        newCompanyEntry.State = EntityState.Detached;
+
+        var noticesToUpdate = _dbContext.ChangeTracker.Entries<Notice>()
+            .Where(n => n.Entity.CompanyId == newCompanyId)
+            .ToList();
+
+        foreach (var noticeEntry in noticesToUpdate)
+        {
+            noticeEntry.Entity.CompanyId = trackedCompany.Id;
+            noticeEntry.Entity.Company = trackedCompany;
+        }
     }
 }
