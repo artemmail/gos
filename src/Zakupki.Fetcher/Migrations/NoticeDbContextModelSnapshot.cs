@@ -480,6 +480,36 @@ namespace Zakupki.Fetcher.Migrations
                     b.ToTable("ImportBatches", (string)null);
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Company", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Inn")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<byte?>("Region")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Inn")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Companies_Inn");
+
+                    b.ToTable("Companies", (string)null);
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Notice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -541,6 +571,9 @@ namespace Zakupki.Fetcher.Migrations
                     b.Property<byte>("Region")
                         .HasColumnType("tinyint");
 
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<SqlVector<float>?>("Vector")
                         .HasColumnType("vector(1024)");
 
@@ -548,6 +581,8 @@ namespace Zakupki.Fetcher.Migrations
 
                     b.HasIndex("CollectingEnd")
                         .HasDatabaseName("IX_Notices_CollectingEnd");
+
+                    b.HasIndex("CompanyId");
 
                     b.HasIndex("PurchaseNumber")
                         .HasDatabaseName("IX_Notices_PurchaseNumber");
@@ -1222,6 +1257,16 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("NoticeVersion");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Notice", b =>
+                {
+                    b.HasOne("Zakupki.Fetcher.Data.Entities.Company", "Company")
+                        .WithMany("Notices")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Company");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.MosNoticeAttachment", b =>
                 {
                     b.HasOne("Zakupki.Fetcher.Data.Entities.MosNotice", "MosNotice")
@@ -1315,8 +1360,15 @@ namespace Zakupki.Fetcher.Migrations
                     b.Navigation("NoticeVersions");
                 });
 
+            modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Company", b =>
+                {
+                    b.Navigation("Notices");
+                });
+
             modelBuilder.Entity("Zakupki.Fetcher.Data.Entities.Notice", b =>
                 {
+                    b.Navigation("Company");
+
                     b.Navigation("Analyses");
 
                     b.Navigation("Favorites");

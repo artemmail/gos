@@ -39,6 +39,10 @@ public class Notice
 
     public DateTime? CollectingEnd { get; set; }
 
+    public Guid? CompanyId { get; set; }
+
+    public Company? Company { get; set; }
+
     public SqlVector<float>? Vector { get; set; } = null!;
 
     public ICollection<NoticeVersion> Versions { get; set; } = new List<NoticeVersion>();

@@ -41,6 +41,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<VectorSearchMatch> VectorSearchMatches => Set<VectorSearchMatch>();
     public DbSet<MosNotice> MosNotices => Set<MosNotice>();
     public DbSet<MosNoticeAttachment> MosNoticeAttachments => Set<MosNoticeAttachment>();
+    public DbSet<Company> Companies => Set<Company>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +63,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureVectorSearchMatch(modelBuilder);
         ConfigureMosNotice(modelBuilder);
         ConfigureMosNoticeAttachment(modelBuilder);
+        ConfigureCompany(modelBuilder);
     }
 
     private static byte? ParseRegion(string? region)
@@ -168,6 +170,11 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .WithOne(f => f.Notice)
             .HasForeignKey(f => f.NoticeId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasOne(n => n.Company)
+            .WithMany(c => c.Notices)
+            .HasForeignKey(n => n.CompanyId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 
     private static void ConfigureFavoriteNotice(ModelBuilder modelBuilder)
@@ -451,5 +458,21 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.ToView(null);
 
         entity.Property(m => m.Similarity).HasColumnType("float");
+    }
+
+    private static void ConfigureCompany(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<Company>();
+        entity.ToTable("Companies");
+        entity.HasKey(c => c.Id);
+
+        entity.Property(c => c.Inn).HasMaxLength(32);
+        entity.Property(c => c.Name).HasMaxLength(512);
+        entity.Property(c => c.Address).HasColumnType("nvarchar(max)");
+        entity.Property(c => c.Region).HasColumnType("tinyint");
+
+        entity.HasIndex(c => c.Inn)
+            .IsUnique()
+            .HasDatabaseName("UX_Companies_Inn");
     }
 }
