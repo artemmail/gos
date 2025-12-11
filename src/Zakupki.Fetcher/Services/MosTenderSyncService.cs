@@ -286,8 +286,9 @@ public class MosTenderSyncService
         }
 
         var inn = company.inn.Trim();
-        var companyEntity = await _dbContext.Companies
-            .FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
+
+        var companyEntity = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == inn)
+            ?? await _dbContext.Companies.FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
 
         if (companyEntity is null)
         {
@@ -303,6 +304,11 @@ public class MosTenderSyncService
         if (!string.IsNullOrWhiteSpace(company.name) && string.IsNullOrWhiteSpace(companyEntity.Name))
         {
             companyEntity.Name = company.name;
+        }
+
+        if (companyEntity.Region == default)
+        {
+            companyEntity.Region = notice.Region;
         }
 
         notice.CompanyId = companyEntity.Id;
