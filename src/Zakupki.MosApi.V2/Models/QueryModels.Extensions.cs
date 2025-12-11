@@ -25,7 +25,7 @@ public class GetQueryDataAttachmentDto
     public string? description { get; set; }
 
     [JsonPropertyName("documentDate")]
-    public DateTime? documentDate { get; set; }
+    public DateTimeOffset? documentDate { get; set; }
 
     [JsonPropertyName("documentKindCode")]
     public string? documentKindCode { get; set; }
