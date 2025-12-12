@@ -192,7 +192,20 @@ public class MosTenderSyncService
 
         activeVersion.Attachments = MapAttachmentsFromUndocumented(undocumentedDetails, activeVersion.Id, now);
         await LinkCompanyAsync(notice, ConvertCompany(undocumentedDetails.customer), cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Notice {PurchaseNumber} was updated concurrently while fetching MOS tender details",
+                notice.PurchaseNumber);
+            return false;
+        }
+
         return true;
     }
 
