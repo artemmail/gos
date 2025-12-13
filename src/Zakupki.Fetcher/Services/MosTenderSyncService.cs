@@ -137,7 +137,7 @@ public class MosTenderSyncService
                 // company: prefer customer from details
                 await LinkCompanyAsync(
                     notice,
-                    ConvertCompany(details?.customer) ?? item.company,
+                    ConvertCompany(details?.Auction?.customer) ?? item.company,
                     cancellationToken);
 
                 _dbContext.Notices.Add(notice);
@@ -211,16 +211,16 @@ public class MosTenderSyncService
         }
 
         var details = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
-        if (details == null)
+        if (details?.Auction == null)
         {
             _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", noticeRow.PurchaseNumber);
             return false;
         }
 
         var now = DateTime.UtcNow;
-        var raw = JsonSerializer.Serialize(details);
+        var raw = details.RawJson;
 
-        var firstAuctionRegion = details.auctionRegion?.FirstOrDefault();
+        var firstAuctionRegion = details.Auction.auctionRegion?.FirstOrDefault();
         var resolvedRegion = ResolveRegion(firstAuctionRegion?.id);
 
         // Update Notice without tracking => avoid concurrency exceptions
@@ -228,11 +228,11 @@ public class MosTenderSyncService
             .Where(n => n.Id == noticeId)
             .ExecuteUpdateAsync(setters => setters
                     .SetProperty(n => n.Region, _ => resolvedRegion)
-                    .SetProperty(n => n.PublishDate, n => ParseRussianDateTime(details.startDate) ?? n.PublishDate)
-                    .SetProperty(n => n.PurchaseObjectInfo, n => details.name ?? n.PurchaseObjectInfo)
-                    .SetProperty(n => n.MaxPrice, n => (decimal?)details.startCost ?? n.MaxPrice)
+                    .SetProperty(n => n.PublishDate, n => ParseRussianDateTime(details.Auction.startDate) ?? n.PublishDate)
+                    .SetProperty(n => n.PurchaseObjectInfo, n => details.Auction.name ?? n.PurchaseObjectInfo)
+                    .SetProperty(n => n.MaxPrice, n => (decimal?)details.Auction.startCost ?? n.MaxPrice)
                     .SetProperty(n => n.RawJson, _ => raw)
-                    .SetProperty(n => n.CollectingEnd, n => ParseRussianDateTime(details.endDate) ?? n.CollectingEnd),
+                    .SetProperty(n => n.CollectingEnd, n => ParseRussianDateTime(details.Auction.endDate) ?? n.CollectingEnd),
                 cancellationToken);
 
         await _dbContext.NoticeVersions
@@ -246,10 +246,10 @@ public class MosTenderSyncService
         var noticeTracked = await _dbContext.Notices.FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
         if (noticeTracked != null)
         {
-            await LinkCompanyAsync(noticeTracked, ConvertCompany(details.customer), cancellationToken);
+            await LinkCompanyAsync(noticeTracked, ConvertCompany(details.Auction.customer), cancellationToken);
         }
 
-        var attachments = MapAttachmentsFromUndocumented(details, activeVersionId, now)
+        var attachments = MapAttachmentsFromUndocumented(details.Auction, activeVersionId, now)
             .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
@@ -282,30 +282,33 @@ public class MosTenderSyncService
     // Mapping
     // ============================
 
-    private static Notice MapNotice(string registerNumber, SearchQueryListDto3 item, UndocumentedAuctionDto? details)
+    private static Notice MapNotice(
+        string registerNumber,
+        SearchQueryListDto3 item,
+        UndocumentedAuctionResult? details)
     {
         var now = DateTime.UtcNow;
         var noticeId = Guid.NewGuid();
 
-        var raw = details != null
-            ? JsonSerializer.Serialize(details)
-            : JsonSerializer.Serialize(item);
+        var raw = details?.RawJson ?? JsonSerializer.Serialize(item);
+
+        var auction = details?.Auction;
 
         var notice = new Notice
         {
             Id = noticeId,
             Source = NoticeSource.Mos,
-            Region = ResolveRegion(details?.auctionRegion?.FirstOrDefault()?.id),
+            Region = ResolveRegion(auction?.auctionRegion?.FirstOrDefault()?.id),
             PurchaseNumber = registerNumber,
-            PublishDate = details != null
-                ? ParseRussianDateTime(details.startDate) ?? item.beginDate?.UtcDateTime
+            PublishDate = auction != null
+                ? ParseRussianDateTime(auction.startDate) ?? item.beginDate?.UtcDateTime
                 : item.beginDate?.UtcDateTime,
-            PurchaseObjectInfo = details?.name ?? item.name,
-            MaxPrice = details != null ? (decimal?)details.startCost : (decimal?)item.startPrice,
+            PurchaseObjectInfo = auction?.name ?? item.name,
+            MaxPrice = auction != null ? (decimal?)auction.startCost : (decimal?)item.startPrice,
             FederalLaw = (int?)item.federalLaw,
             RawJson = raw,
-            CollectingEnd = details != null
-                ? ParseRussianDateTime(details.endDate) ?? item.endDate?.UtcDateTime
+            CollectingEnd = auction != null
+                ? ParseRussianDateTime(auction.endDate) ?? item.endDate?.UtcDateTime
                 : item.endDate?.UtcDateTime,
             Versions = new List<NoticeVersion>()
         };
@@ -324,9 +327,9 @@ public class MosTenderSyncService
             Attachments = new List<NoticeAttachment>()
         };
 
-        if (details != null)
+        if (auction != null)
         {
-            var attachments = MapAttachmentsFromUndocumented(details, version.Id, now)
+            var attachments = MapAttachmentsFromUndocumented(auction, version.Id, now)
                 .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.First())
                 .ToList();
@@ -372,7 +375,9 @@ public class MosTenderSyncService
     // HTTP undocumented details
     // ============================
 
-    private async Task<UndocumentedAuctionDto?> FetchUndocumentedAuctionAsync(int auctionId, CancellationToken cancellationToken)
+    private async Task<UndocumentedAuctionResult?> FetchUndocumentedAuctionAsync(
+        int auctionId,
+        CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
         var auctionUrl = $"https://zakupki.mos.ru/newapi/api/Auction/Get?auctionId={auctionId}";
@@ -389,11 +394,9 @@ public class MosTenderSyncService
                 return null;
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return await JsonSerializer.DeserializeAsync<UndocumentedAuctionDto>(
-                stream,
-                UndocumentedSerializerOptions,
-                cancellationToken);
+            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+            var auction = JsonSerializer.Deserialize<UndocumentedAuctionDto>(raw, UndocumentedSerializerOptions);
+            return new UndocumentedAuctionResult(auction, raw);
         }
         catch (Exception ex)
         {
@@ -632,6 +635,19 @@ public class UndocumentedAuctionDto
 
     [JsonPropertyName("id")]
     public int? id { get; set; }
+}
+
+public class UndocumentedAuctionResult
+{
+    public UndocumentedAuctionResult(UndocumentedAuctionDto? auction, string rawJson)
+    {
+        Auction = auction;
+        RawJson = rawJson;
+    }
+
+    public UndocumentedAuctionDto? Auction { get; }
+
+    public string RawJson { get; }
 }
 
 public class UndocumentedAuctionFileDto
