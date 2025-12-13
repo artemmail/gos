@@ -309,8 +309,22 @@
                 <tbody>
                   <tr *ngFor="let file of auction.files; let i = index">
                     <td>{{ i + 1 }}</td>
-                    <td>{{ file.name || 'Без названия' }}</td>
-                    <td>{{ file.id || '—' }}</td>
+                    <td>
+                      <ng-container *ngIf="getFileDownloadUrl(file.id) as url; else fileName">
+                        <a [href]="url" target="_blank" rel="noopener" class="file-link">
+                          {{ file.name || 'Без названия' }}
+                        </a>
+                      </ng-container>
+                      <ng-template #fileName>
+                        {{ file.name || 'Без названия' }}
+                      </ng-template>
+                    </td>
+                    <td>
+                      <ng-container *ngIf="getFileDownloadUrl(file.id) as url; else noId">
+                        <a [href]="url" target="_blank" rel="noopener">{{ file.id }}</a>
+                      </ng-container>
+                      <ng-template #noId>—</ng-template>
+                    </td>
                   </tr>
                 </tbody>
               </table>

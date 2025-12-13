@@ -164,4 +164,13 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
     this.parseError = 'Нет данных извещения.';
     return '';
   }
+
+  getFileDownloadUrl(fileId: number | null | undefined): string | null {
+    if (fileId == null) {
+      return null;
+    }
+
+    const encodedId = encodeURIComponent(fileId.toString());
+    return `https://zakupki.mos.ru/newapi/api/FileStorage/Download?id=${encodedId}`;
+  }
 }
