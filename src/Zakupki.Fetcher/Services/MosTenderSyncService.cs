@@ -1,23 +1,25 @@
+using DocumentFormat.OpenXml.Drawing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
 using Zakupki.MosApi.V2;
 using DateTime = System.DateTime;
-using Guid = System.Guid;
 using DateTimeFilter = Zakupki.MosApi.V2.DateTime2;
+using Guid = System.Guid;
 
 namespace Zakupki.Fetcher.Services;
 
@@ -379,30 +381,113 @@ public class MosTenderSyncService
         int auctionId,
         CancellationToken cancellationToken)
     {
-        var client = _httpClientFactory.CreateClient();
+        // В идеале: CreateClient("mos") и в DI повесить CookieContainer/Decompression на named client.
+        // Но даже без DI — ретраи+заголовки уже сильно снижают "рандомные" 402.
+        var client = _httpClientFactory.CreateClient("mos");
+
         var auctionUrl = $"https://zakupki.mos.ru/newapi/api/Auction/Get?auctionId={auctionId}";
 
-        try
+        const int maxAttempts = 6;
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
-            using var response = await client.GetAsync(auctionUrl, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, auctionUrl);
+
+                // Минимально "приближаемся к браузеру" — часто реально решает периодический 402/403
+                req.Headers.TryAddWithoutValidation("User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36");
+                req.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+                req.Headers.TryAddWithoutValidation("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8");
+                req.Headers.TryAddWithoutValidation("Referer", $"https://zakupki.mos.ru/auction/{auctionId}");
+
+                using var response = await client.SendAsync(
+                    req,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var rawOk = await response.Content.ReadAsStringAsync(cancellationToken);
+                    var auctionOk = JsonSerializer.Deserialize<UndocumentedAuctionDto>(rawOk, UndocumentedSerializerOptions);
+                    return new UndocumentedAuctionResult(auctionOk, rawOk);
+                }
+
+                var status = (int)response.StatusCode;
+                var isRetryable = IsRetryableMosStatus(status);
+
+                // Немного диагностики по телу/типу (осторожно с размером)
+                var contentType = response.Content.Headers.ContentType?.ToString();
+                string bodySnippet = string.Empty;
+                try
+                {
+                    var rawErr = await response.Content.ReadAsStringAsync(cancellationToken);
+                    bodySnippet = rawErr.Length > 1500 ? rawErr[..1500] : rawErr;
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                _logger.LogWarning(
+                    "Undocumented MOS auction API failed. Status={StatusCode} AuctionId={AuctionId} Attempt={Attempt}/{MaxAttempts} ContentType={ContentType} BodySnippet={BodySnippet}",
+                    status,
+                    auctionId,
+                    attempt + 1,
+                    maxAttempts,
+                    contentType,
+                    bodySnippet);
+
+                if (!isRetryable)
+                    return null;
+
+                var delay = GetRetryDelay(response, attempt);
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
             {
                 _logger.LogWarning(
-                    "Undocumented MOS auction API returned status code {StatusCode} for {AuctionId}",
-                    response.StatusCode,
-                    auctionId);
-                return null;
-            }
+                    ex,
+                    "Failed to fetch undocumented MOS auction {AuctionId} attempt {Attempt}/{MaxAttempts}",
+                    auctionId,
+                    attempt + 1,
+                    maxAttempts);
 
-            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
-            var auction = JsonSerializer.Deserialize<UndocumentedAuctionDto>(raw, UndocumentedSerializerOptions);
-            return new UndocumentedAuctionResult(auction, raw);
+                await Task.Delay(TimeSpan.FromMilliseconds(200 + attempt * 200), cancellationToken);
+            }
         }
-        catch (Exception ex)
+
+        return null;
+    }
+
+    private static bool IsRetryableMosStatus(int statusCode)
+        => statusCode is 402 or 403 or 429 or 500 or 502 or 503 or 504;
+
+    private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
+    {
+        // Уважим Retry-After, если сервис его прислал
+        if (response.Headers.RetryAfter?.Delta is { } delta)
+            return delta;
+
+        // Backoff “лесенкой”
+        var ms = attempt switch
         {
-            _logger.LogWarning(ex, "Failed to fetch undocumented MOS auction {AuctionId}", auctionId);
-            return null;
-        }
+            0 => 300,
+            1 => 700,
+            2 => 1500,
+            3 => 3000,
+            4 => 6000,
+            _ => 10000
+        };
+
+        return TimeSpan.FromMilliseconds(ms);
     }
 
     // ============================
