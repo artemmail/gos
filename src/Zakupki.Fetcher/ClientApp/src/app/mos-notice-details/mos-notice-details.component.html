@@ -74,13 +74,13 @@
                     <th>Статус</th>
                     <td>{{ auction.state?.name }}</td>
                   </tr>
-                  <tr *ngIf="auction.startDate">
+                  <tr *ngIf="parseDateTime(auction.startDate) as startDate">
                     <th>Дата начала подачи</th>
-                    <td>{{ auction.startDate | date: 'd MMMM yyyy, HH:mm' }}</td>
+                    <td>{{ startDate | date: 'd MMMM yyyy, HH:mm' }}</td>
                   </tr>
-                  <tr *ngIf="auction.endDate">
+                  <tr *ngIf="parseDateTime(auction.endDate) as endDate">
                     <th>Дата окончания подачи</th>
-                    <td>{{ auction.endDate | date: 'd MMMM yyyy, HH:mm' }}</td>
+                    <td>{{ endDate | date: 'd MMMM yyyy, HH:mm' }}</td>
                   </tr>
                   <tr *ngIf="auction.initialDuration != null">
                     <th>Продолжительность</th>
