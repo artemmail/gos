@@ -45,6 +45,12 @@
                 <h1 class="notice-title">
                   {{ auction.name || 'Закупка zakupki.mos.ru' }}
                 </h1>
+
+                <div class="badge-row">
+                  <span class="badge badge-status" *ngIf="auction.state?.name">{{ auction.state.name }}</span>
+                  <span class="badge badge-secondary" *ngIf="auction.offersSigned">Подписание предложений</span>
+                  <span class="badge badge-secondary" *ngIf="auction.isElectronicContractExecutionRequired">Электронное исполнение контракта</span>
+                </div>
               </div>
 
               <div class="notice-header-aside">
@@ -64,6 +70,10 @@
               <div class="section-title">Общие сведения</div>
               <table class="info-table">
                 <tbody>
+                  <tr *ngIf="auction.state?.name">
+                    <th>Статус</th>
+                    <td>{{ auction.state.name }}</td>
+                  </tr>
                   <tr *ngIf="auction.startDate">
                     <th>Дата начала подачи</th>
                     <td>{{ auction.startDate | date: 'd MMMM yyyy, HH:mm' }}</td>
@@ -72,12 +82,16 @@
                     <th>Дата окончания подачи</th>
                     <td>{{ auction.endDate | date: 'd MMMM yyyy, HH:mm' }}</td>
                   </tr>
+                  <tr *ngIf="auction.initialDuration != null">
+                    <th>Продолжительность</th>
+                    <td>{{ auction.initialDuration }} ч.</td>
+                  </tr>
                   <tr *ngIf="auction.auctionRegion?.length">
                     <th>Регионы закупки</th>
                     <td>
                       <div class="badge-list">
                         <span class="badge badge-neutral" *ngFor="let region of auction.auctionRegion">
-                          {{ region.id || '—' }}
+                          {{ region.name || region.id || '—' }}
                         </span>
                       </div>
                     </td>
@@ -85,6 +99,46 @@
                   <tr *ngIf="auction.id">
                     <th>Идентификатор закупки</th>
                     <td>{{ auction.id }}</td>
+                  </tr>
+                  <tr *ngIf="auction.externalId">
+                    <th>Внешний идентификатор</th>
+                    <td>{{ auction.externalId }}</td>
+                  </tr>
+                  <tr *ngIf="auction.purchaseTypeId != null">
+                    <th>Тип закупки</th>
+                    <td>{{ auction.purchaseTypeId }}</td>
+                  </tr>
+                  <tr *ngIf="auction.organizingTypeId != null">
+                    <th>Тип проведения</th>
+                    <td>{{ auction.organizingTypeId }}</td>
+                  </tr>
+                  <tr *ngIf="auction.step != null">
+                    <th>Шаг снижения</th>
+                    <td>{{ auction.step }}</td>
+                  </tr>
+                  <tr *ngIf="auction.startCost != null">
+                    <th>Начальная цена</th>
+                    <td>{{ auction.startCost | number: '1.2-2' }}</td>
+                  </tr>
+                  <tr *ngIf="auction.nextCost != null">
+                    <th>Следующая цена</th>
+                    <td>{{ auction.nextCost | number: '1.2-2' }}</td>
+                  </tr>
+                  <tr *ngIf="auction.lastBetCost != null">
+                    <th>Текущая ставка</th>
+                    <td>{{ auction.lastBetCost | number: '1.2-2' }}</td>
+                  </tr>
+                  <tr *ngIf="auction.uniqueSupplierCount != null">
+                    <th>Количество участников</th>
+                    <td>{{ auction.uniqueSupplierCount }}</td>
+                  </tr>
+                  <tr *ngIf="auction.federalLawName">
+                    <th>Закон</th>
+                    <td>{{ auction.federalLawName }}</td>
+                  </tr>
+                  <tr *ngIf="auction.conclusionReasonName">
+                    <th>Основание закупки</th>
+                    <td>{{ auction.conclusionReasonName }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -108,6 +162,138 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <div class="section" *ngIf="auction.createdByCustomer as owner">
+              <div class="section-title">Создатель извещения</div>
+              <table class="info-table">
+                <tbody>
+                  <tr *ngIf="owner.name">
+                    <th>Наименование</th>
+                    <td>{{ owner.name }}</td>
+                  </tr>
+                  <tr *ngIf="owner.id">
+                    <th>Идентификатор</th>
+                    <td>{{ owner.id }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section" *ngIf="auction.items?.length">
+              <div class="section-title">Позиции закупки</div>
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">№</th>
+                    <th>Наименование</th>
+                    <th style="width: 120px;">Количество</th>
+                    <th style="width: 140px;">Цена за ед.</th>
+                    <th style="width: 90px;">Ед. изм.</th>
+                    <th>Код/категория</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of auction.items; let i = index">
+                    <td>{{ i + 1 }}</td>
+                    <td>
+                      <div class="item-name">{{ item.name || 'Без названия' }}</div>
+                      <div class="item-meta" *ngIf="item.productionDirectoryName">{{ item.productionDirectoryName }}</div>
+                    </td>
+                    <td>{{ item.currentValue || item.quantity || '—' }}</td>
+                    <td>{{ item.costPerUnit != null ? (item.costPerUnit | number: '1.2-2') : '—' }}</td>
+                    <td>{{ item.okeiName || '—' }}</td>
+                    <td>
+                      <div class="item-meta" *ngIf="item.okpdName">{{ item.okpdName }}</div>
+                      <div class="item-meta" *ngIf="item.skuId">SKU: {{ item.skuId }}</div>
+                      <div class="item-meta" *ngIf="item.id">ID: {{ item.id }}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section" *ngIf="auction.auctionItem?.length">
+              <div class="section-title">Стартовые позиции аукциона</div>
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">№</th>
+                    <th>Наименование</th>
+                    <th style="width: 120px;">Количество</th>
+                    <th style="width: 140px;">Цена за ед.</th>
+                    <th style="width: 90px;">Ед. изм.</th>
+                    <th>Код/категория</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of auction.auctionItem; let i = index">
+                    <td>{{ i + 1 }}</td>
+                    <td>
+                      <div class="item-name">{{ item.name || 'Без названия' }}</div>
+                      <div class="item-meta" *ngIf="item.productionDirectoryName">{{ item.productionDirectoryName }}</div>
+                    </td>
+                    <td>{{ item.currentValue || item.quantity || '—' }}</td>
+                    <td>{{ item.costPerUnit != null ? (item.costPerUnit | number: '1.2-2') : '—' }}</td>
+                    <td>{{ item.okeiName || '—' }}</td>
+                    <td>
+                      <div class="item-meta" *ngIf="item.okpdName">{{ item.okpdName }}</div>
+                      <div class="item-meta" *ngIf="item.skuId">SKU: {{ item.skuId }}</div>
+                      <div class="item-meta" *ngIf="item.id">ID: {{ item.id }}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section" *ngIf="auction.deliveries?.length">
+              <div class="section-title">Поставки</div>
+              <div class="delivery-card" *ngFor="let delivery of auction.deliveries">
+                <div class="delivery-header">
+                  <div class="delivery-dates" *ngIf="delivery.periodDateFrom || delivery.periodDateTo">
+                    <span class="label">Срок поставки</span>
+                    <div class="value">
+                      {{ delivery.periodDateFrom | date: 'd MMMM yyyy, HH:mm' }}
+                      <span *ngIf="delivery.periodDateTo">— {{ delivery.periodDateTo | date: 'd MMMM yyyy, HH:mm' }}</span>
+                    </div>
+                  </div>
+                  <div class="delivery-place" *ngIf="delivery.deliveryPlace">
+                    <span class="label">Адрес</span>
+                    <div class="value">{{ delivery.deliveryPlace }}</div>
+                  </div>
+                </div>
+
+                <table class="delivery-items" *ngIf="delivery.items?.length">
+                  <thead>
+                    <tr>
+                      <th style="width: 40px;">№</th>
+                      <th>Наименование</th>
+                      <th style="width: 120px;">Количество</th>
+                      <th style="width: 140px;">Цена за ед.</th>
+                      <th style="width: 140px;">Сумма</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of delivery.items; let i = index">
+                      <td>{{ i + 1 }}</td>
+                      <td>{{ item.name || '—' }}</td>
+                      <td>{{ item.quantity != null ? item.quantity : '—' }}</td>
+                      <td>{{ item.costPerUnit != null ? (item.costPerUnit | number: '1.2-2') : '—' }}</td>
+                      <td>{{ item.sum != null ? (item.sum | number: '1.2-2') : '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="section" *ngIf="auction.shortDescription?.data?.length">
+              <div class="section-title">Краткое описание документации</div>
+              <div class="summary-grid">
+                <div class="summary-card" *ngFor="let item of auction.shortDescription.data">
+                  <div class="summary-title">{{ item.title }}</div>
+                  <div class="summary-text">{{ item.summary }}</div>
+                </div>
+              </div>
             </div>
 
             <div class="section" *ngIf="auction.files?.length">
