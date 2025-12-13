@@ -224,12 +224,12 @@ public class MosTenderSyncService
         await _dbContext.Notices
             .Where(n => n.Id == noticeId)
             .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(n => n.Region, ResolveRegion(details.auctionRegion?.FirstOrDefault()?.id))
-                    .SetProperty(n => n.PublishDate, ParseRussianDateTime(details.startDate) ?? n.PublishDate)
-                    .SetProperty(n => n.PurchaseObjectInfo, details.name ?? n.PurchaseObjectInfo)
-                    .SetProperty(n => n.MaxPrice, (decimal?)details.startCost ?? n.MaxPrice)
-                    .SetProperty(n => n.RawJson, raw)
-                    .SetProperty(n => n.CollectingEnd, ParseRussianDateTime(details.endDate) ?? n.CollectingEnd),
+                    .SetProperty(n => n.Region, _ => ResolveRegion(details.auctionRegion?.FirstOrDefault()?.id))
+                    .SetProperty(n => n.PublishDate, n => ParseRussianDateTime(details.startDate) ?? n.PublishDate)
+                    .SetProperty(n => n.PurchaseObjectInfo, n => details.name ?? n.PurchaseObjectInfo)
+                    .SetProperty(n => n.MaxPrice, n => (decimal?)details.startCost ?? n.MaxPrice)
+                    .SetProperty(n => n.RawJson, _ => raw)
+                    .SetProperty(n => n.CollectingEnd, n => ParseRussianDateTime(details.endDate) ?? n.CollectingEnd),
                 cancellationToken);
 
         await _dbContext.NoticeVersions
@@ -329,7 +329,10 @@ public class MosTenderSyncService
                 .ToList();
 
             if (attachments.Count > 0)
-                version.Attachments.AddRange(attachments);
+            {
+                foreach (var attachment in attachments)
+                    version.Attachments.Add(attachment);
+            }
         }
 
         notice.Versions.Add(version);
