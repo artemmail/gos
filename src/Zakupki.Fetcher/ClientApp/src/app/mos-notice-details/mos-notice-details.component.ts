@@ -1,5 +1,6 @@
 import { Location } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
@@ -7,6 +8,10 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { MosNoticeDetails } from '../models/mos-notice.models';
 import { MosNoticesService } from '../services/mos-notices.service';
 import { UndocumentedAuctionDto } from '../models/undocumented-auction.models';
+import { RawJsonDialogData } from '../models/raw-json.models';
+import { RawJsonDialogComponent } from '../raw-json-dialog/raw-json-dialog.component';
+import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-dialog.component';
+import { AttachmentDialogData } from '../models/attachment.models';
 
 @Component({
   selector: 'app-mos-notice-details',
@@ -14,10 +19,12 @@ import { UndocumentedAuctionDto } from '../models/undocumented-auction.models';
   styleUrls: ['./mos-notice-details.component.css']
 })
 export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
+  noticeId = '';
   purchaseNumber = '';
   details: MosNoticeDetails | null = null;
   auctionDetails: UndocumentedAuctionDto | null = null;
   formattedJson = '';
+  rawJsonText = '';
   parseError = '';
   isLoading = false;
   errorMessage = '';
@@ -28,7 +35,8 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly mosNoticesService: MosNoticesService,
-    private readonly location: Location
+    private readonly location: Location,
+    private readonly dialog: MatDialog
   ) { }
 
   ngOnInit(): void {
@@ -75,7 +83,9 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.parseError = '';
     this.auctionDetails = null;
+    this.noticeId = '';
     this.formattedJson = '';
+    this.rawJsonText = '';
 
     this.mosNoticesService
       .getNotice(this.purchaseNumber)
@@ -86,13 +96,17 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: response => {
           this.details = response;
+          this.noticeId = response.id;
+          this.rawJsonText = response.rawJson ?? '';
           this.auctionDetails = this.parseDetails(response);
           this.formattedJson = this.formatJson(response);
         },
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные извещения.';
           this.details = null;
+          this.noticeId = '';
           this.formattedJson = '';
+          this.rawJsonText = '';
         }
       });
   }
@@ -172,5 +186,40 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
 
     const encodedId = encodeURIComponent(fileId.toString());
     return `https://zakupki.mos.ru/newapi/api/FileStorage/Download?id=${encodedId}`;
+  }
+
+  openRawJson(): void {
+    if (!this.rawJsonText || !this.details) {
+      return;
+    }
+
+    const data: RawJsonDialogData = {
+      purchaseNumber: this.details.purchaseNumber,
+      title: this.title,
+      rawJson: this.rawJsonText
+    };
+
+    this.dialog.open(RawJsonDialogComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      data
+    });
+  }
+
+  openAttachments(): void {
+    if (!this.noticeId || !this.details) {
+      return;
+    }
+
+    const data: AttachmentDialogData = {
+      noticeId: this.noticeId,
+      purchaseNumber: this.details.purchaseNumber,
+      title: this.title
+    };
+
+    this.dialog.open(AttachmentsDialogComponent, {
+      width: '900px',
+      data
+    });
   }
 }
