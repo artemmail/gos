@@ -21,6 +21,7 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
   parseError = '';
   isLoading = false;
   errorMessage = '';
+  private readonly mosDateTimePattern = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -98,6 +99,34 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.location.back();
+  }
+
+  parseDateTime(dateTime: string | null | undefined): Date | null {
+    if (!dateTime) {
+      return null;
+    }
+
+    const nativeDate = new Date(dateTime);
+    if (!Number.isNaN(nativeDate.getTime())) {
+      return nativeDate;
+    }
+
+    const matches = this.mosDateTimePattern.exec(dateTime);
+    if (!matches) {
+      return null;
+    }
+
+    const [, day, month, year, hours, minutes, seconds] = matches;
+    const parsed = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hours),
+      Number(minutes),
+      Number(seconds)
+    );
+
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private parseDetails(details: MosNoticeDetails): UndocumentedAuctionDto | null {
