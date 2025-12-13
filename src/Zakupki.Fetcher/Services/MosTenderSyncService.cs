@@ -190,7 +190,31 @@ public class MosTenderSyncService
         var now = DateTime.UtcNow;
         UpdateNoticeFromUndocumentedDetails(notice, activeVersion, undocumentedDetails, now);
 
-        activeVersion.Attachments = MapAttachmentsFromUndocumented(undocumentedDetails, activeVersion.Id, now);
+        await _dbContext.Entry(activeVersion)
+            .Collection(v => v.Attachments)
+            .LoadAsync(cancellationToken);
+
+        var newAttachments = MapAttachmentsFromUndocumented(undocumentedDetails, activeVersion.Id, now);
+
+        var existingContentIds = new HashSet<string>(
+            activeVersion.Attachments.Select(a => a.PublishedContentId),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attachment in newAttachments)
+        {
+            if (existingContentIds.Add(attachment.PublishedContentId))
+            {
+                activeVersion.Attachments.Add(attachment);
+            }
+        }
+
+        if (!activeVersion.Attachments.Any())
+        {
+            _logger.LogWarning(
+                "No MOS attachments were mapped for notice {PurchaseNumber}",
+                notice.PurchaseNumber);
+            return false;
+        }
         await LinkCompanyAsync(notice, ConvertCompany(undocumentedDetails.customer), cancellationToken);
 
         try
@@ -203,7 +227,60 @@ public class MosTenderSyncService
                 ex,
                 "Notice {PurchaseNumber} was updated concurrently while fetching MOS tender details",
                 notice.PurchaseNumber);
-            return false;
+
+            foreach (var entry in ex.Entries)
+            {
+                await entry.ReloadAsync(cancellationToken);
+            }
+
+            var pendingAttachments = _dbContext.ChangeTracker.Entries<NoticeAttachment>()
+                .Where(e => e.State == EntityState.Added && e.Entity.NoticeVersionId == activeVersion.Id)
+                .ToList();
+
+            foreach (var entry in pendingAttachments)
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            var storedAttachments = await _dbContext.NoticeAttachments
+                .AsNoTracking()
+                .Where(a => a.NoticeVersionId == activeVersion.Id)
+                .ToListAsync(cancellationToken);
+
+            var refreshedExisting = new HashSet<string>(
+                storedAttachments.Select(a => a.PublishedContentId),
+                StringComparer.OrdinalIgnoreCase);
+
+            var attachmentsToAdd = newAttachments
+                .Where(a => refreshedExisting.Add(a.PublishedContentId))
+                .ToList();
+
+            if (attachmentsToAdd.Count == 0)
+            {
+                return true;
+            }
+
+            foreach (var attachment in attachmentsToAdd)
+            {
+                activeVersion.Attachments.Add(attachment);
+            }
+
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException retryEx)
+            {
+                _logger.LogWarning(
+                    retryEx,
+                    "Second concurrency conflict while saving MOS attachments for {PurchaseNumber}",
+                    notice.PurchaseNumber);
+
+                var attachmentsAlreadyAdded = await _dbContext.NoticeAttachments
+                    .AnyAsync(a => a.NoticeVersionId == activeVersion.Id, cancellationToken);
+
+                return attachmentsAlreadyAdded;
+            }
         }
 
         return true;
@@ -253,11 +330,15 @@ public class MosTenderSyncService
         DateTime now)
     {
         var attachments = undocumentedDetails.files
-            ?.Select(f => new NoticeAttachment
+            ?.Select((f, index) => new NoticeAttachment
             {
                 Id = Guid.NewGuid(),
                 NoticeVersionId = noticeVersionId,
-                PublishedContentId = f.id?.ToString() ?? string.Empty,
+                PublishedContentId = !string.IsNullOrWhiteSpace(f.id?.ToString())
+                    ? f.id!.ToString()!
+                    : string.IsNullOrWhiteSpace(f.name)
+                        ? $"auto-{noticeVersionId:N}-{index}"
+                        : f.name!,
                 FileName = f.name ?? string.Empty,
                 Url = string.IsNullOrWhiteSpace(f.id?.ToString())
                     ? null
