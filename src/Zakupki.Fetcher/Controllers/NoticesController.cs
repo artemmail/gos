@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using System.Threading;
 using Microsoft.AspNetCore.Authorization;
@@ -647,6 +648,84 @@ public class NoticesController : ControllerBase
             .ToList();
 
         var result = new PagedResult<NoticeListItemDto>(items, totalCount, page, pageSize);
+        return Ok(result);
+    }
+
+    [HttpGet("mos")]
+    public async Task<ActionResult<PagedResult<MosNoticeListItemDto>>> GetMosNotices(
+        [FromQuery] string? search,
+        [FromQuery] string? sortField,
+        [FromQuery] string? sortDirection,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        if (pageSize < 1)
+        {
+            pageSize = 20;
+        }
+
+        pageSize = Math.Min(pageSize, 100);
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var query = context.Notices
+            .AsNoTracking()
+            .Where(n => n.Source == NoticeSource.Mos);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var trimmedSearch = search.Trim();
+            var likeTerm = $"%{trimmedSearch}%";
+            query = query.Where(n =>
+                EF.Functions.Like(n.PurchaseNumber, likeTerm) ||
+                (n.PurchaseObjectInfo != null && EF.Functions.Like(n.PurchaseObjectInfo, likeTerm)));
+        }
+
+        var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
+            ? "publishdate"
+            : sortField.Trim().ToLowerInvariant();
+
+        var descending = string.IsNullOrWhiteSpace(sortDirection)
+            ? true
+            : sortDirection.Trim().Equals("desc", StringComparison.OrdinalIgnoreCase);
+
+        var sortedQuery = normalizedSortField switch
+        {
+            "maxprice" => descending
+                ? query.OrderByDescending(n => n.MaxPrice)
+                : query.OrderBy(n => n.MaxPrice),
+            "collectingend" => descending
+                ? query.OrderByDescending(n => n.CollectingEnd)
+                : query.OrderBy(n => n.CollectingEnd),
+            "name" => descending
+                ? query.OrderByDescending(n => n.PurchaseObjectInfo).ThenByDescending(n => n.Id)
+                : query.OrderBy(n => n.PurchaseObjectInfo).ThenBy(n => n.Id),
+            "region" => descending
+                ? query.OrderByDescending(n => n.Region).ThenByDescending(n => n.Id)
+                : query.OrderBy(n => n.Region).ThenBy(n => n.Id),
+            _ => descending
+                ? query.OrderByDescending(n => n.PublishDate).ThenByDescending(n => n.Id)
+                : query.OrderBy(n => n.PublishDate).ThenBy(n => n.Id)
+        };
+
+        var totalCount = await sortedQuery.LongCountAsync(HttpContext.RequestAborted);
+        var offset = (page - 1) * pageSize;
+
+        var rows = await sortedQuery
+            .Skip(offset)
+            .Take(pageSize)
+            .ToListAsync(HttpContext.RequestAborted);
+
+        var items = rows
+            .Select(MapMosNotice)
+            .ToList();
+
+        var limitedTotal = (int)Math.Min(int.MaxValue, totalCount);
+        var result = new PagedResult<MosNoticeListItemDto>(items, limitedTotal, page, pageSize);
         return Ok(result);
     }
 
@@ -1436,6 +1515,40 @@ public class NoticesController : ControllerBase
 
         return "application/octet-stream";
     }
+
+    private static MosNoticeListItemDto MapMosNotice(Notice notice)
+    {
+        var details = TryParseUndocumentedAuction(notice.RawJson);
+
+        return new MosNoticeListItemDto(
+            notice.Id,
+            notice.PurchaseNumber,
+            details?.name ?? notice.PurchaseObjectInfo,
+            notice.PublishDate,
+            notice.CollectingEnd,
+            notice.MaxPrice,
+            details?.federalLawName,
+            notice.Region,
+            details?.customer?.inn,
+            details?.customer?.name);
+    }
+
+    private static UndocumentedAuctionDto? TryParseUndocumentedAuction(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<UndocumentedAuctionDto>(raw);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 }
 
 public class MissingPurchaseNumbersRequest
@@ -1473,6 +1586,18 @@ public record NoticeListItemDto(
     double? DecisionScore,
     bool IsFavorite,
     double? Similarity);
+
+public record MosNoticeListItemDto(
+    Guid Id,
+    string PurchaseNumber,
+    string? Name,
+    DateTime? PublishDate,
+    DateTime? CollectingEnd,
+    decimal? MaxPrice,
+    string? FederalLawName,
+    byte Region,
+    string? CustomerInn,
+    string? CustomerName);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 

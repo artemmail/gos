@@ -9,6 +9,7 @@ import { NoticeDetailsComponent } from './notice-details/notice-details.componen
 import { CompanyProfileComponent } from './company-profile/company-profile.component';
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 import { TendersStartComponent } from './tenders-start/tenders-start.component';
+import { MosNoticesComponent } from './mos-notices/mos-notices.component';
 
 export const appRoutes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -36,6 +37,10 @@ export const appRoutes: Routes = [
   {
     path: 'notices/:purchaseNumber',
     component: NoticeDetailsComponent
+  },
+  {
+    path: 'notices-mos',
+    component: MosNoticesComponent
   },
   {
     path: 'favorites',
