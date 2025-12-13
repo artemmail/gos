@@ -47,7 +47,7 @@
                 </h1>
 
                 <div class="badge-row">
-                  <span class="badge badge-status" *ngIf="auction.state?.name">{{ auction.state.name }}</span>
+                  <span class="badge badge-status" *ngIf="auction.state?.name">{{ auction.state?.name }}</span>
                   <span class="badge badge-secondary" *ngIf="auction.offersSigned">Подписание предложений</span>
                   <span class="badge badge-secondary" *ngIf="auction.isElectronicContractExecutionRequired">Электронное исполнение контракта</span>
                 </div>
@@ -72,7 +72,7 @@
                 <tbody>
                   <tr *ngIf="auction.state?.name">
                     <th>Статус</th>
-                    <td>{{ auction.state.name }}</td>
+                    <td>{{ auction.state?.name }}</td>
                   </tr>
                   <tr *ngIf="auction.startDate">
                     <th>Дата начала подачи</th>
@@ -289,7 +289,7 @@
             <div class="section" *ngIf="auction.shortDescription?.data?.length">
               <div class="section-title">Краткое описание документации</div>
               <div class="summary-grid">
-                <div class="summary-card" *ngFor="let item of auction.shortDescription.data">
+                <div class="summary-card" *ngFor="let item of auction.shortDescription?.data">
                   <div class="summary-title">{{ item.title }}</div>
                   <div class="summary-text">{{ item.summary }}</div>
                 </div>
