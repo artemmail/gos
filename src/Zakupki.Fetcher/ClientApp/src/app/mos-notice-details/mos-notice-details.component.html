@@ -33,19 +33,125 @@
       </div>
 
       <ng-container *ngIf="!isLoading && !errorMessage">
-        <div class="json-block" *ngIf="formattedJson; else noJson">
-          <div class="json-header">
-            <div class="json-title">Данные UndocumentedAuctionDto</div>
-            <div class="json-subtitle">Карточка построена на данных из zakupki.mos.ru (source = 2)</div>
-          </div>
-          <pre>{{ formattedJson }}</pre>
-          <div class="parse-error" *ngIf="parseError">{{ parseError }}</div>
-        </div>
+        <ng-container *ngIf="auctionDetails as auction; else noParsedData">
+          <div class="notice-layout">
+            <div class="notice-header">
+              <div class="notice-header-main">
+                <div class="notice-number">
+                  <span class="label">Номер извещения</span>
+                  <span class="value">{{ details?.purchaseNumber || purchaseNumber }}</span>
+                </div>
 
-        <ng-template #noJson>
-          <div class="error-block">
+                <h1 class="notice-title">
+                  {{ auction.name || 'Закупка zakupki.mos.ru' }}
+                </h1>
+              </div>
+
+              <div class="notice-header-aside">
+                <div class="price-block" *ngIf="auction.startCost != null">
+                  <div class="label">Начальная (максимальная) цена</div>
+                  <div class="price-value">{{ auction.startCost | number: '1.2-2' }}</div>
+                </div>
+
+                <div class="etp-block" *ngIf="auction.federalLawName">
+                  <div class="label">Закон</div>
+                  <div class="etp-name">{{ auction.federalLawName }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Общие сведения</div>
+              <table class="info-table">
+                <tbody>
+                  <tr *ngIf="auction.startDate">
+                    <th>Дата начала подачи</th>
+                    <td>{{ auction.startDate | date: 'd MMMM yyyy, HH:mm' }}</td>
+                  </tr>
+                  <tr *ngIf="auction.endDate">
+                    <th>Дата окончания подачи</th>
+                    <td>{{ auction.endDate | date: 'd MMMM yyyy, HH:mm' }}</td>
+                  </tr>
+                  <tr *ngIf="auction.auctionRegion?.length">
+                    <th>Регионы закупки</th>
+                    <td>
+                      <div class="badge-list">
+                        <span class="badge badge-neutral" *ngFor="let region of auction.auctionRegion">
+                          {{ region.id || '—' }}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="auction.id">
+                    <th>Идентификатор закупки</th>
+                    <td>{{ auction.id }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section" *ngIf="auction.customer as customer">
+              <div class="section-title">Заказчик</div>
+              <table class="info-table">
+                <tbody>
+                  <tr *ngIf="customer.name">
+                    <th>Наименование</th>
+                    <td>{{ customer.name }}</td>
+                  </tr>
+                  <tr *ngIf="customer.inn">
+                    <th>ИНН</th>
+                    <td>{{ customer.inn }}</td>
+                  </tr>
+                  <tr *ngIf="customer.id">
+                    <th>Идентификатор</th>
+                    <td>{{ customer.id }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section" *ngIf="auction.files?.length">
+              <div class="section-title">Документы закупки</div>
+              <table class="attachments-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">№</th>
+                    <th>Название файла</th>
+                    <th style="width: 200px;">Идентификатор</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let file of auction.files; let i = index">
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ file.name || 'Без названия' }}</td>
+                    <td>{{ file.id || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section" *ngIf="formattedJson">
+              <div class="section-title">Исходные данные</div>
+              <div class="json-block">
+                <pre>{{ formattedJson }}</pre>
+                <div class="parse-error" *ngIf="parseError">{{ parseError }}</div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-template #noParsedData>
+          <div class="error-block" *ngIf="!formattedJson">
             <mat-icon fontIcon="warning"></mat-icon>
             <p>Нет данных для отображения.</p>
+          </div>
+
+          <div class="section" *ngIf="formattedJson">
+            <div class="section-title">Исходные данные</div>
+            <div class="json-block">
+              <pre>{{ formattedJson }}</pre>
+              <div class="parse-error" *ngIf="parseError">{{ parseError }}</div>
+            </div>
           </div>
         </ng-template>
       </ng-container>
