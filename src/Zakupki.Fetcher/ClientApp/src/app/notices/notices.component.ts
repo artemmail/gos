@@ -471,6 +471,12 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     return value ? value : undefined;
   }
 
+  getNoticeLink(notice: NoticeListItem): string[] {
+    return notice.source === 2
+      ? ['/notices-mos', notice.purchaseNumber]
+      : ['/notices', notice.purchaseNumber];
+  }
+
   getRegionLabel(notice: NoticeListItem): string {
     const label = this.regionsService.getRegionLabel(notice.region);
 

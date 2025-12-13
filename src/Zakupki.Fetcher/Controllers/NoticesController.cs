@@ -330,6 +330,7 @@ public class NoticesController : ControllerBase
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
+                x.Notice.Source,
                 x.Notice.PublishDate,
                 x.Notice.EtpName,
                 x.Notice.Region,
@@ -626,6 +627,7 @@ public class NoticesController : ControllerBase
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
+                x.Notice.Source,
                 x.Notice.PublishDate,
                 x.Notice.EtpName,
                 x.Notice.Region,
@@ -906,6 +908,7 @@ public class NoticesController : ControllerBase
             .Select(x => new NoticeListItemDto(
                 x.Notice.Id,
                 x.Notice.PurchaseNumber,
+                x.Notice.Source,
                 x.Notice.PublishDate,
                 x.Notice.EtpName,
                 x.Notice.Region,
@@ -1594,6 +1597,7 @@ public record NoticeDetailsDto(
 public record NoticeListItemDto(
     Guid Id,
     string PurchaseNumber,
+    NoticeSource Source,
     DateTime? PublishDate,
     string? EtpName,
     byte Region,
