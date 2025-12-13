@@ -1,3 +1,5 @@
+import { UndocumentedAuctionDto } from './undocumented-auction.models';
+
 export interface MosNoticeListItem {
   id: string;
   purchaseNumber: string;
@@ -7,6 +9,7 @@ export interface MosNoticeListItem {
   maxPrice: number | null;
   federalLawName: string | null;
   region: number;
+  source: number;
   customerInn: string | null;
   customerName: string | null;
 }
@@ -24,4 +27,11 @@ export interface MosNoticeQuery {
   search?: string;
   sortField?: string;
   sortDirection?: string;
+}
+
+export interface MosNoticeDetails {
+  id: string;
+  purchaseNumber: string;
+  rawJson: string | null;
+  details: UndocumentedAuctionDto | null;
 }

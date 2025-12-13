@@ -1,0 +1,54 @@
+<div class="notice-details-page">
+  <div class="content-container page-container">
+    <mat-card>
+      <div class="page-header">
+        <button mat-button type="button" (click)="goBack()" class="back-button">
+          <mat-icon fontIcon="arrow_back"></mat-icon>
+          <span>Назад</span>
+        </button>
+
+        <div class="page-header-text">
+          <div class="notice-number">Закупка {{ details?.purchaseNumber || purchaseNumber }}</div>
+          <div class="notice-title">{{ title }}</div>
+        </div>
+
+        <div class="header-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="loadNotice()" [disabled]="isLoading">
+            <mat-icon fontIcon="refresh"></mat-icon>
+            <span>Обновить</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="loading-block" *ngIf="isLoading">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+
+      <div class="error-block" *ngIf="!isLoading && errorMessage">
+        <mat-icon fontIcon="error_outline"></mat-icon>
+        <p>{{ errorMessage }}</p>
+        <button mat-raised-button color="primary" type="button" (click)="loadNotice()">
+          Повторить
+        </button>
+      </div>
+
+      <ng-container *ngIf="!isLoading && !errorMessage">
+        <div class="json-block" *ngIf="formattedJson; else noJson">
+          <div class="json-header">
+            <div class="json-title">Данные UndocumentedAuctionDto</div>
+            <div class="json-subtitle">Карточка построена на данных из zakupki.mos.ru (source = 2)</div>
+          </div>
+          <pre>{{ formattedJson }}</pre>
+          <div class="parse-error" *ngIf="parseError">{{ parseError }}</div>
+        </div>
+
+        <ng-template #noJson>
+          <div class="error-block">
+            <mat-icon fontIcon="warning"></mat-icon>
+            <p>Нет данных для отображения.</p>
+          </div>
+        </ng-template>
+      </ng-container>
+    </mat-card>
+  </div>
+</div>
