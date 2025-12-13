@@ -58,8 +58,10 @@ public class MosTenderSyncService
         }
 
         _mosClient.ApiToken = options.Token;
+
         var now = DateTimeOffset.UtcNow;
         var latestDate = await _dbContext.Notices
+            .AsNoTracking()
             .Where(n => n.Source == NoticeSource.Mos)
             .OrderByDescending(n => n.PublishDate)
             .Select(n => n.PublishDate)
@@ -75,19 +77,11 @@ public class MosTenderSyncService
         {
             filter = new SearchQueryFilterDto
             {
-                publishDate = new DateTimeFilter
-                {
-                    start = since,
-                    end = now
-                }
+                publishDate = new DateTimeFilter { start = since, end = now }
             },
             order = new List<OrderDto>
             {
-                new()
-                {
-                    field = "PublishDate",
-                    desc = true
-                }
+                new() { field = "PublishDate", desc = true }
             },
             skip = 0,
             take = pageSize,
@@ -97,32 +91,55 @@ public class MosTenderSyncService
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var response = await _mosClient.AuctionSearchAsync(query, cancellationToken);
-            if (response?.items == null || response.items.Count == 0)
-            {
-                break;
-            }
 
-            foreach (var item in response.items)
+            var response = await _mosClient.AuctionSearchAsync(query, cancellationToken);
+            var items = response?.items;
+            if (items == null || items.Count == 0)
+                break;
+
+            // Batch check existing (avoid N+1)
+            var pageRegisterNumbers = items
+                .Select(i => i.id?.ToString())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            var existing = await _dbContext.Notices
+                .AsNoTracking()
+                .Where(n => n.Source == NoticeSource.Mos && pageRegisterNumbers.Contains(n.PurchaseNumber))
+                .Select(n => n.PurchaseNumber)
+                .ToListAsync(cancellationToken);
+
+            var existingSet = existing.ToHashSet(StringComparer.Ordinal);
+
+            foreach (var item in items)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var registerNumber = item.id?.ToString();
                 if (string.IsNullOrWhiteSpace(registerNumber))
+                    continue;
+
+                if (existingSet.Contains(registerNumber))
+                    continue;
+
+                if (!int.TryParse(registerNumber, out var auctionId))
                 {
+                    _logger.LogWarning("Unable to parse MOS auction id from item.id={Id}", registerNumber);
                     continue;
                 }
 
-                var exists = await _dbContext.Notices
-                    .AnyAsync(
-                        n => n.PurchaseNumber == registerNumber && n.Source == NoticeSource.Mos,
-                        cancellationToken);
+                // Load details immediately
+                var details = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
 
-                if (exists)
-                {
-                    continue;
-                }
+                var notice = MapNotice(registerNumber, item, details);
 
-                var notice = MapNotice(registerNumber, item);
-                await LinkCompanyAsync(notice, item.company, cancellationToken);
+                // company: prefer customer from details
+                await LinkCompanyAsync(
+                    notice,
+                    ConvertCompany(details?.customer) ?? item.company,
+                    cancellationToken);
+
                 _dbContext.Notices.Add(notice);
                 created++;
             }
@@ -133,16 +150,21 @@ public class MosTenderSyncService
             }
             catch (DbUpdateException ex) when (IsCompanyInnConflict(ex))
             {
-                _logger.LogWarning(ex, "Detected duplicate company INN during MOS sync, attempting to re-link notices.");
+                _logger.LogWarning(ex, "Duplicate company INN during MOS sync, attempting to re-link notices.");
                 await ResolveCompanyConflictsAsync(cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // Another worker inserted the same purchases concurrently
+                _logger.LogWarning(ex, "Unique violation during MOS sync, detaching conflicted graph and retrying.");
+                await DetachAlreadyExistingMosNoticesAsync(cancellationToken);
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
 
             var totalAvailable = response.count ?? 0;
-            if (response.items.Count < pageSize || (query.skip ?? 0) + pageSize >= totalAvailable)
-            {
+            if (items.Count < pageSize || (query.skip ?? 0) + pageSize >= totalAvailable)
                 break;
-            }
 
             query.skip = (query.skip ?? 0) + pageSize;
         }
@@ -151,159 +173,138 @@ public class MosTenderSyncService
         return created;
     }
 
+    /// <summary>
+    /// Lightweight loader (no tracked-graph merge, no DbUpdateConcurrencyException retries).
+    /// Updates Notice/Version via ExecuteUpdateAsync and inserts attachments; duplicates treated as success.
+    /// </summary>
     public async Task<bool> EnsureNoticeDetailsLoadedAsync(Guid noticeId, CancellationToken cancellationToken)
     {
-        var notice = await _dbContext.Notices
-            .Include(n => n.Versions.Where(v => v.IsActive))
-                .ThenInclude(v => v.Attachments)
-            .FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
+        var noticeRow = await _dbContext.Notices
+            .AsNoTracking()
+            .Where(n => n.Id == noticeId && n.Source == NoticeSource.Mos)
+            .Select(n => new { n.PurchaseNumber })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (notice == null || notice.Source != NoticeSource.Mos)
+        if (noticeRow == null)
+            return false;
+
+        var activeVersionId = await _dbContext.NoticeVersions
+            .AsNoTracking()
+            .Where(v => v.NoticeId == noticeId && v.IsActive)
+            .Select(v => v.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (activeVersionId == Guid.Empty)
+            return false;
+
+        var alreadyHas = await _dbContext.NoticeAttachments
+            .AsNoTracking()
+            .AnyAsync(a => a.NoticeVersionId == activeVersionId, cancellationToken);
+
+        if (alreadyHas)
+            return false;
+
+        if (!int.TryParse(noticeRow.PurchaseNumber, out var auctionId))
         {
+            _logger.LogWarning("Unable to parse MOS purchase number {PurchaseNumber}", noticeRow.PurchaseNumber);
             return false;
         }
 
-        var activeVersion = notice.Versions.FirstOrDefault();
-        if (activeVersion == null)
+        var details = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
+        if (details == null)
         {
-            return false;
-        }
-
-        if (activeVersion.Attachments.Any())
-        {
-            return false;
-        }
-
-        if (!int.TryParse(notice.PurchaseNumber, out var auctionId))
-        {
-            _logger.LogWarning("Unable to parse MOS purchase number {PurchaseNumber}", notice.PurchaseNumber);
-            return false;
-        }
-
-        var undocumentedDetails = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
-        if (undocumentedDetails == null)
-        {
-            _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", notice.PurchaseNumber);
+            _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", noticeRow.PurchaseNumber);
             return false;
         }
 
         var now = DateTime.UtcNow;
-        UpdateNoticeFromUndocumentedDetails(notice, activeVersion, undocumentedDetails, now);
+        var raw = JsonSerializer.Serialize(details);
 
-        await _dbContext.Entry(activeVersion)
-            .Collection(v => v.Attachments)
-            .LoadAsync(cancellationToken);
+        // Update Notice without tracking => avoid concurrency exceptions
+        await _dbContext.Notices
+            .Where(n => n.Id == noticeId)
+            .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(n => n.Region, ResolveRegion(details.auctionRegion?.FirstOrDefault()?.id))
+                    .SetProperty(n => n.PublishDate, ParseRussianDateTime(details.startDate) ?? n.PublishDate)
+                    .SetProperty(n => n.PurchaseObjectInfo, details.name ?? n.PurchaseObjectInfo)
+                    .SetProperty(n => n.MaxPrice, (decimal?)details.startCost ?? n.MaxPrice)
+                    .SetProperty(n => n.RawJson, raw)
+                    .SetProperty(n => n.CollectingEnd, ParseRussianDateTime(details.endDate) ?? n.CollectingEnd),
+                cancellationToken);
 
-        var newAttachments = MapAttachmentsFromUndocumented(undocumentedDetails, activeVersion.Id, now);
+        await _dbContext.NoticeVersions
+            .Where(v => v.Id == activeVersionId)
+            .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(v => v.RawJson, raw)
+                    .SetProperty(v => v.LastSeenAt, now),
+                cancellationToken);
 
-        var existingContentIds = new HashSet<string>(
-            activeVersion.Attachments.Select(a => a.PublishedContentId),
-            StringComparer.OrdinalIgnoreCase);
-
-        foreach (var attachment in newAttachments)
+        // Link company (needs tracked Notice, but tiny scope)
+        var noticeTracked = await _dbContext.Notices.FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
+        if (noticeTracked != null)
         {
-            if (existingContentIds.Add(attachment.PublishedContentId))
-            {
-                activeVersion.Attachments.Add(attachment);
-            }
+            await LinkCompanyAsync(noticeTracked, ConvertCompany(details.customer), cancellationToken);
         }
 
-        if (!activeVersion.Attachments.Any())
+        var attachments = MapAttachmentsFromUndocumented(details, activeVersionId, now)
+            .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        if (attachments.Count == 0)
         {
-            _logger.LogWarning(
-                "No MOS attachments were mapped for notice {PurchaseNumber}",
-                notice.PurchaseNumber);
+            _logger.LogWarning("No MOS attachments were mapped for notice {PurchaseNumber}", noticeRow.PurchaseNumber);
             return false;
         }
-        await LinkCompanyAsync(notice, ConvertCompany(undocumentedDetails.customer), cancellationToken);
+
+        _dbContext.NoticeAttachments.AddRange(attachments);
 
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
+            return true;
         }
-        catch (DbUpdateConcurrencyException ex)
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
-            _logger.LogWarning(
-                ex,
-                "Notice {PurchaseNumber} was updated concurrently while fetching MOS tender details",
-                notice.PurchaseNumber);
-
-            foreach (var entry in ex.Entries)
-            {
-                await entry.ReloadAsync(cancellationToken);
-            }
-
-            var pendingAttachments = _dbContext.ChangeTracker.Entries<NoticeAttachment>()
-                .Where(e => e.State == EntityState.Added && e.Entity.NoticeVersionId == activeVersion.Id)
-                .ToList();
-
-            foreach (var entry in pendingAttachments)
-            {
-                entry.State = EntityState.Detached;
-            }
-
-            var storedAttachments = await _dbContext.NoticeAttachments
+            // Another process inserted attachments concurrently => treat as success if any exist now
+            var existsNow = await _dbContext.NoticeAttachments
                 .AsNoTracking()
-                .Where(a => a.NoticeVersionId == activeVersion.Id)
-                .ToListAsync(cancellationToken);
+                .AnyAsync(a => a.NoticeVersionId == activeVersionId, cancellationToken);
 
-            var refreshedExisting = new HashSet<string>(
-                storedAttachments.Select(a => a.PublishedContentId),
-                StringComparer.OrdinalIgnoreCase);
-
-            var attachmentsToAdd = newAttachments
-                .Where(a => refreshedExisting.Add(a.PublishedContentId))
-                .ToList();
-
-            if (attachmentsToAdd.Count == 0)
-            {
-                return true;
-            }
-
-            foreach (var attachment in attachmentsToAdd)
-            {
-                activeVersion.Attachments.Add(attachment);
-            }
-
-            try
-            {
-                await _dbContext.SaveChangesAsync(cancellationToken);
-            }
-            catch (DbUpdateConcurrencyException retryEx)
-            {
-                _logger.LogWarning(
-                    retryEx,
-                    "Second concurrency conflict while saving MOS attachments for {PurchaseNumber}",
-                    notice.PurchaseNumber);
-
-                var attachmentsAlreadyAdded = await _dbContext.NoticeAttachments
-                    .AnyAsync(a => a.NoticeVersionId == activeVersion.Id, cancellationToken);
-
-                return attachmentsAlreadyAdded;
-            }
+            return existsNow;
         }
-
-        return true;
     }
 
-    private static Notice MapNotice(string registerNumber, SearchQueryListDto3 item)
+    // ============================
+    // Mapping
+    // ============================
+
+    private static Notice MapNotice(string registerNumber, SearchQueryListDto3 item, UndocumentedAuctionDto? details)
     {
         var now = DateTime.UtcNow;
         var noticeId = Guid.NewGuid();
-        var rawDetails = JsonSerializer.Serialize(item);
+
+        var raw = details != null
+            ? JsonSerializer.Serialize(details)
+            : JsonSerializer.Serialize(item);
 
         var notice = new Notice
         {
             Id = noticeId,
             Source = NoticeSource.Mos,
-            Region = ResolveRegion(null),
+            Region = ResolveRegion(details?.auctionRegion?.FirstOrDefault()?.id),
             PurchaseNumber = registerNumber,
-            PublishDate = item.beginDate?.UtcDateTime,
-            PurchaseObjectInfo = item.name,
-            MaxPrice = (decimal?)item.startPrice,
+            PublishDate = details != null
+                ? ParseRussianDateTime(details.startDate) ?? item.beginDate?.UtcDateTime
+                : item.beginDate?.UtcDateTime,
+            PurchaseObjectInfo = details?.name ?? item.name,
+            MaxPrice = details != null ? (decimal?)details.startCost : (decimal?)item.startPrice,
             FederalLaw = (int?)item.federalLaw,
-            RawJson = rawDetails,
-            CollectingEnd = item.endDate?.UtcDateTime
+            RawJson = raw,
+            CollectingEnd = details != null
+                ? ParseRussianDateTime(details.endDate) ?? item.endDate?.UtcDateTime
+                : item.endDate?.UtcDateTime,
+            Versions = new List<NoticeVersion>()
         };
 
         var version = new NoticeVersion
@@ -314,13 +315,24 @@ public class MosTenderSyncService
             VersionNumber = 1,
             IsActive = true,
             VersionReceivedAt = now,
-            RawJson = rawDetails,
+            RawJson = raw,
             InsertedAt = now,
-            LastSeenAt = now
+            LastSeenAt = now,
+            Attachments = new List<NoticeAttachment>()
         };
 
-        notice.Versions.Add(version);
+        if (details != null)
+        {
+            var attachments = MapAttachmentsFromUndocumented(details, version.Id, now)
+                .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
 
+            if (attachments.Count > 0)
+                version.Attachments.AddRange(attachments);
+        }
+
+        notice.Versions.Add(version);
         return notice;
     }
 
@@ -329,8 +341,8 @@ public class MosTenderSyncService
         Guid noticeVersionId,
         DateTime now)
     {
-        var attachments = undocumentedDetails.files
-            ?.Select((f, index) => new NoticeAttachment
+        return undocumentedDetails.files?
+            .Select((f, index) => new NoticeAttachment
             {
                 Id = Guid.NewGuid(),
                 NoticeVersionId = noticeVersionId,
@@ -346,14 +358,15 @@ public class MosTenderSyncService
                 InsertedAt = now,
                 LastSeenAt = now
             })
-            .ToList();
-
-        return attachments ?? new List<NoticeAttachment>();
+            .ToList()
+            ?? new List<NoticeAttachment>();
     }
 
-    private async Task<UndocumentedAuctionDto?> FetchUndocumentedAuctionAsync(
-        int auctionId,
-        CancellationToken cancellationToken)
+    // ============================
+    // HTTP undocumented details
+    // ============================
+
+    private async Task<UndocumentedAuctionDto?> FetchUndocumentedAuctionAsync(int auctionId, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
         var auctionUrl = $"https://zakupki.mos.ru/newapi/api/Auction/Get?auctionId={auctionId}";
@@ -383,12 +396,14 @@ public class MosTenderSyncService
         }
     }
 
+    // ============================
+    // Company mapping/linking (your logic)
+    // ============================
+
     private static SearchQueryCompanyDto? ConvertCompany(UndocumentedCompanyDto? company)
     {
         if (company == null)
-        {
             return null;
-        }
 
         return new SearchQueryCompanyDto
         {
@@ -398,22 +413,40 @@ public class MosTenderSyncService
         };
     }
 
-    private static void UpdateNoticeFromUndocumentedDetails(
-        Notice notice,
-        NoticeVersion version,
-        UndocumentedAuctionDto details,
-        DateTime now)
+    private async Task LinkCompanyAsync(Notice notice, SearchQueryCompanyDto? company, CancellationToken cancellationToken)
     {
-        notice.Region = ResolveRegion(details.auctionRegion?.FirstOrDefault()?.id);
-        notice.PublishDate = ParseRussianDateTime(details.startDate) ?? notice.PublishDate;
-        notice.PurchaseObjectInfo = details.name ?? notice.PurchaseObjectInfo;
-        notice.MaxPrice = (decimal?)details.startCost ?? notice.MaxPrice;
-        notice.RawJson = JsonSerializer.Serialize(details);
-        notice.CollectingEnd = ParseRussianDateTime(details.endDate) ?? notice.CollectingEnd;
+        if (string.IsNullOrWhiteSpace(company?.inn))
+            return;
 
-        version.RawJson = notice.RawJson;
-        version.LastSeenAt = now;
+        var inn = company.inn.Trim();
+
+        var companyEntity = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == inn)
+            ?? await _dbContext.Companies.FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
+
+        if (companyEntity is null)
+        {
+            companyEntity = new Company
+            {
+                Id = Guid.NewGuid(),
+                Inn = inn,
+                Region = notice.Region
+            };
+            _dbContext.Companies.Add(companyEntity);
+        }
+
+        if (!string.IsNullOrWhiteSpace(company.name) && string.IsNullOrWhiteSpace(companyEntity.Name))
+            companyEntity.Name = company.name;
+
+        if (companyEntity.Region == default)
+            companyEntity.Region = notice.Region;
+
+        notice.CompanyId = companyEntity.Id;
+        notice.Company = companyEntity;
     }
+
+    // ============================
+    // Date/region helpers
+    // ============================
 
     private static DateTime? ParseRussianDateTime(string? value)
     {
@@ -424,9 +457,7 @@ public class MosTenderSyncService
     private static DateTimeOffset? ParseRussianDateTimeOffset(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
-        {
             return null;
-        }
 
         var formats = new[] { "dd.MM.yyyy HH:mm:ss" };
         if (DateTimeOffset.TryParseExact(
@@ -454,56 +485,73 @@ public class MosTenderSyncService
     private static byte ResolveRegion(int? regionId)
     {
         if (regionId.HasValue && regionId.Value is >= byte.MinValue and <= byte.MaxValue)
-        {
             return (byte)regionId.Value;
-        }
 
         return 77;
     }
 
-    private async Task LinkCompanyAsync(
-        Notice notice,
-        SearchQueryCompanyDto? company,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(company?.inn))
-        {
-            return;
-        }
-
-        var inn = company.inn.Trim();
-
-        var companyEntity = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == inn)
-            ?? await _dbContext.Companies.FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
-
-        if (companyEntity is null)
-        {
-            companyEntity = new Company
-            {
-                Id = Guid.NewGuid(),
-                Inn = inn,
-                Region = notice.Region
-            };
-            _dbContext.Companies.Add(companyEntity);
-        }
-
-        if (!string.IsNullOrWhiteSpace(company.name) && string.IsNullOrWhiteSpace(companyEntity.Name))
-        {
-            companyEntity.Name = company.name;
-        }
-
-        if (companyEntity.Region == default)
-        {
-            companyEntity.Region = notice.Region;
-        }
-
-        notice.CompanyId = companyEntity.Id;
-        notice.Company = companyEntity;
-    }
+    // ============================
+    // Conflict detection / recovery
+    // ============================
 
     private static bool IsCompanyInnConflict(DbUpdateException ex)
+        => ex.InnerException?.Message.Contains("UX_Companies_Inn", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsUniqueViolation(DbUpdateException ex)
     {
-        return ex.InnerException?.Message.Contains("UX_Companies_Inn", StringComparison.OrdinalIgnoreCase) == true;
+        var inner = ex.InnerException;
+        if (inner == null)
+            return false;
+
+        // Try read SqlException.Number via reflection (no direct dependency)
+        var prop = inner.GetType().GetProperty("Number");
+        if (prop?.PropertyType == typeof(int))
+        {
+            var number = (int)(prop.GetValue(inner) ?? 0);
+            return number is 2601 or 2627; // SQL Server unique constraint/index
+        }
+
+        var msg = inner.Message ?? string.Empty;
+        return msg.Contains("Cannot insert duplicate key", StringComparison.OrdinalIgnoreCase)
+               || msg.Contains("duplicate", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task DetachAlreadyExistingMosNoticesAsync(CancellationToken cancellationToken)
+    {
+        var addedPurchaseNumbers = _dbContext.ChangeTracker.Entries<Notice>()
+            .Where(e => e.State == EntityState.Added && e.Entity.Source == NoticeSource.Mos)
+            .Select(e => e.Entity.PurchaseNumber)
+            .Where(pn => !string.IsNullOrWhiteSpace(pn))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (addedPurchaseNumbers.Count == 0)
+            return;
+
+        var existing = await _dbContext.Notices
+            .AsNoTracking()
+            .Where(n => n.Source == NoticeSource.Mos && addedPurchaseNumbers.Contains(n.PurchaseNumber))
+            .Select(n => n.PurchaseNumber)
+            .ToListAsync(cancellationToken);
+
+        var existingSet = existing.ToHashSet(StringComparer.Ordinal);
+
+        foreach (var entry in _dbContext.ChangeTracker.Entries<Notice>().Where(e => e.State == EntityState.Added).ToList())
+        {
+            if (entry.Entity.Source != NoticeSource.Mos)
+                continue;
+
+            if (!existingSet.Contains(entry.Entity.PurchaseNumber))
+                continue;
+
+            entry.State = EntityState.Detached;
+        }
+
+        foreach (var v in _dbContext.ChangeTracker.Entries<NoticeVersion>().Where(e => e.State == EntityState.Added).ToList())
+            v.State = EntityState.Detached;
+
+        foreach (var a in _dbContext.ChangeTracker.Entries<NoticeAttachment>().Where(e => e.State == EntityState.Added).ToList())
+            a.State = EntityState.Detached;
     }
 
     private async Task ResolveCompanyConflictsAsync(CancellationToken cancellationToken)
@@ -520,9 +568,7 @@ public class MosTenderSyncService
                 .FirstOrDefaultAsync(c => c.Inn == inn, cancellationToken);
 
             if (existing is null)
-            {
                 continue;
-            }
 
             RelinkNoticesToCompany(entry, existing);
         }
@@ -547,6 +593,10 @@ public class MosTenderSyncService
         }
     }
 }
+
+// ============================
+// Undocumented DTOs
+// ============================
 
 public class UndocumentedAuctionDto
 {
