@@ -220,11 +220,14 @@ public class MosTenderSyncService
         var now = DateTime.UtcNow;
         var raw = JsonSerializer.Serialize(details);
 
+        var firstAuctionRegion = details.auctionRegion?.FirstOrDefault();
+        var resolvedRegion = ResolveRegion(firstAuctionRegion?.id);
+
         // Update Notice without tracking => avoid concurrency exceptions
         await _dbContext.Notices
             .Where(n => n.Id == noticeId)
             .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(n => n.Region, _ => ResolveRegion(details.auctionRegion?.FirstOrDefault()?.id))
+                    .SetProperty(n => n.Region, _ => resolvedRegion)
                     .SetProperty(n => n.PublishDate, n => ParseRussianDateTime(details.startDate) ?? n.PublishDate)
                     .SetProperty(n => n.PurchaseObjectInfo, n => details.name ?? n.PurchaseObjectInfo)
                     .SetProperty(n => n.MaxPrice, n => (decimal?)details.startCost ?? n.MaxPrice)
