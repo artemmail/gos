@@ -10,6 +10,7 @@ export interface NoticeListItem {
   publishDate: string | null;
   etpName: string | null;
   region: string | null;
+  source: number;
   collectingEnd: string | null;
   submissionProcedureDateRaw: string | null;
   rawJson: string | null;
