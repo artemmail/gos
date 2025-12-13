@@ -1,0 +1,106 @@
+<div class="notices-page">
+  <div class="notices-header">
+    <div>
+      <h1>Закупки zakupki.mos.ru</h1>
+      <p class="subtitle">Извещения из MOS (source = 2) на основе данных UndocumentedAuctionDto</p>
+    </div>
+    <div class="actions">
+      <button mat-stroked-button color="primary" (click)="loadNotices()">Обновить</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <form class="filters-form" (ngSubmit)="loadNotices()">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Поиск</mat-label>
+        <input
+          matInput
+          placeholder="Номер закупки или предмет"
+          [formControl]="filtersForm.controls.search"
+          (keyup.enter)="loadNotices()" />
+      </mat-form-field>
+
+      <div class="filter-actions">
+        <button mat-raised-button color="primary" type="submit">Искать</button>
+        <button mat-button type="button" (click)="clearFilters()">Сбросить</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-container" *ngIf="!errorMessage">
+    <div class="table-overlay" *ngIf="isLoading">
+      <mat-spinner diameter="64"></mat-spinner>
+    </div>
+
+    <table mat-table [dataSource]="notices" matSort matSortActive="publishDate" matSortDirection="desc" matSortDisableClear>
+      <ng-container matColumnDef="purchaseNumber">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Номер закупки</th>
+        <td mat-cell *matCellDef="let element">
+          <a [routerLink]="['/notices', element.purchaseNumber]" class="purchase-link">{{ element.purchaseNumber }}</a>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Описание</th>
+        <td mat-cell *matCellDef="let element">
+          <div class="purchase-object" [matTooltip]="element.name">
+            {{ element.name || '—' }}
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="federalLawName">
+        <th mat-header-cell *matHeaderCellDef>Закон</th>
+        <td mat-cell *matCellDef="let element">{{ element.federalLawName || '—' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="maxPrice">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header="maxPrice">НМЦК</th>
+        <td mat-cell *matCellDef="let element" class="price-cell">
+          <ng-container *ngIf="element.maxPrice !== null; else noPrice">
+            {{ element.maxPrice | number: '1.0-2' }} ₽
+          </ng-container>
+          <ng-template #noPrice>—</ng-template>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="publishDate">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header="publishDate">Публикация</th>
+        <td mat-cell *matCellDef="let element">{{ element.publishDate | date: 'd MMMM yyyy' : 'UTC' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="collectingEnd">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header="collectingEnd">Окончание приёма</th>
+        <td mat-cell *matCellDef="let element">{{ element.collectingEnd | date: 'd MMMM yyyy' : 'UTC' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="customer">
+        <th mat-header-cell *matHeaderCellDef>Заказчик</th>
+        <td mat-cell *matCellDef="let element">{{ getCustomerDisplay(element) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="region">
+        <th mat-header-cell *matHeaderCellDef>Регион</th>
+        <td mat-cell *matCellDef="let element">{{ element.region || '—' }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+
+    <mat-paginator
+      [length]="totalCount"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[10, 20, 50, 100]"
+      showFirstLastButtons>
+    </mat-paginator>
+
+    <div class="no-data" *ngIf="hasNoData">
+      <p>Нет данных для отображения.</p>
+    </div>
+  </div>
+
+  <div class="error-message" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
+</div>
