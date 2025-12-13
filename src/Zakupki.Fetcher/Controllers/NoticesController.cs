@@ -729,6 +729,32 @@ public class NoticesController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("mos/{purchaseNumber}")]
+    public async Task<ActionResult<MosNoticeDetailsDto>> GetMosNotice(string purchaseNumber)
+    {
+        if (string.IsNullOrWhiteSpace(purchaseNumber))
+        {
+            return BadRequest("Не указан номер закупки.");
+        }
+
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var trimmedPurchaseNumber = purchaseNumber.Trim();
+        var notice = await context.Notices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                n => n.PurchaseNumber == trimmedPurchaseNumber && n.Source == NoticeSource.Mos,
+                HttpContext.RequestAborted);
+
+        if (notice == null)
+        {
+            return NotFound();
+        }
+
+        var details = TryParseUndocumentedAuction(notice.RawJson);
+        var result = new MosNoticeDetailsDto(notice.Id, notice.PurchaseNumber, notice.RawJson, details);
+        return Ok(result);
+    }
+
     [HttpGet("favorites")]
     [Authorize]
     public async Task<ActionResult<PagedResult<NoticeListItemDto>>> GetFavoriteNotices(
@@ -1529,6 +1555,7 @@ public class NoticesController : ControllerBase
             notice.MaxPrice,
             details?.federalLawName,
             notice.Region,
+            notice.Source,
             details?.customer?.inn,
             details?.customer?.name);
     }
@@ -1596,8 +1623,15 @@ public record MosNoticeListItemDto(
     decimal? MaxPrice,
     string? FederalLawName,
     byte Region,
+    NoticeSource Source,
     string? CustomerInn,
     string? CustomerName);
+
+public record MosNoticeDetailsDto(
+    Guid Id,
+    string PurchaseNumber,
+    string? RawJson,
+    UndocumentedAuctionDto? Details);
 
 public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
 

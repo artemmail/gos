@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-import { MosNoticeListResponse, MosNoticeQuery } from '../models/mos-notice.models';
+import { MosNoticeDetails, MosNoticeListResponse, MosNoticeQuery } from '../models/mos-notice.models';
 
 @Injectable({ providedIn: 'root' })
 export class MosNoticesService {
@@ -28,5 +28,9 @@ export class MosNoticesService {
     }
 
     return this.http.get<MosNoticeListResponse>(this.baseUrl, { params });
+  }
+
+  getNotice(purchaseNumber: string): Observable<MosNoticeDetails> {
+    return this.http.get<MosNoticeDetails>(`${this.baseUrl}/${encodeURIComponent(purchaseNumber)}`);
   }
 }

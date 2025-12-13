@@ -24,6 +24,7 @@ import { NoticeDetailsComponent } from './notice-details/notice-details.componen
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 import { TendersStartComponent } from './tenders-start/tenders-start.component';
 import { MosNoticesComponent } from './mos-notices/mos-notices.component';
+import { MosNoticeDetailsComponent } from './mos-notice-details/mos-notice-details.component';
 
 registerLocaleData(localeRu);
 
@@ -42,7 +43,8 @@ registerLocaleData(localeRu);
     NoticeDetailsComponent,
     PresentationPageComponent,
     TendersStartComponent,
-    MosNoticesComponent
+    MosNoticesComponent,
+    MosNoticeDetailsComponent
   ],
   imports: [
     BrowserModule,

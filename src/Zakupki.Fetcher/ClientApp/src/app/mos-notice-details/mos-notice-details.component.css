@@ -1,0 +1,115 @@
+.notice-details-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content-container {
+  flex: 1;
+}
+
+mat-card {
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.back-button {
+  min-width: 120px;
+}
+
+.page-header-text {
+  flex: 1 1 300px;
+}
+
+.notice-number {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.notice-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.loading-block,
+.error-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.error-block mat-icon {
+  font-size: 42px;
+  height: 42px;
+  width: 42px;
+}
+
+.json-block {
+  background: #f6f8fb;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.json-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.json-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.json-subtitle {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.json-block pre {
+  margin: 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.parse-error {
+  margin-top: 8px;
+  color: #c62828;
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+}
