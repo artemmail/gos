@@ -20,7 +20,6 @@ using Zakupki.Fetcher.Models;
 using Zakupki.Fetcher.Services;
 using Zakupki.Fetcher.Utilities;
 using Zakupki.EF2020;
-using Zakupki.MosApi.V2;
 
 namespace Zakupki.Fetcher.Controllers;
 
