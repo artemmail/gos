@@ -1,4 +1,3 @@
-using DocumentFormat.OpenXml.Drawing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
@@ -8,9 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Zakupki.Fetcher.Data;
@@ -25,28 +22,20 @@ namespace Zakupki.Fetcher.Services;
 
 public class MosTenderSyncService
 {
-    private static readonly JsonSerializerOptions UndocumentedSerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     private readonly NoticeDbContext _dbContext;
     private readonly MosSwaggerClientV2 _mosClient;
     private readonly ILogger<MosTenderSyncService> _logger;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptionsMonitor<MosApiOptions> _optionsMonitor;
 
     public MosTenderSyncService(
         NoticeDbContext dbContext,
         MosSwaggerClientV2 mosClient,
         ILogger<MosTenderSyncService> logger,
-        IHttpClientFactory httpClientFactory,
         IOptionsMonitor<MosApiOptions> optionsMonitor)
     {
         _dbContext = dbContext;
         _mosClient = mosClient;
         _logger = logger;
-        _httpClientFactory = httpClientFactory;
         _optionsMonitor = optionsMonitor;
     }
 
@@ -132,7 +121,10 @@ public class MosTenderSyncService
                 }
 
                 // Load details immediately
-                var details = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
+                var details = await _mosClient.FetchUndocumentedAuctionAsync(
+                    auctionId,
+                    cancellationToken,
+                    LogUndocumentedWarning);
 
                 var notice = MapNotice(registerNumber, item, details);
 
@@ -212,7 +204,10 @@ public class MosTenderSyncService
             return false;
         }
 
-        var details = await FetchUndocumentedAuctionAsync(auctionId, cancellationToken);
+        var details = await _mosClient.FetchUndocumentedAuctionAsync(
+            auctionId,
+            cancellationToken,
+            LogUndocumentedWarning);
         if (details?.Auction == null)
         {
             _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", noticeRow.PurchaseNumber);
@@ -373,121 +368,15 @@ public class MosTenderSyncService
             ?? new List<NoticeAttachment>();
     }
 
-    // ============================
-    // HTTP undocumented details
-    // ============================
-
-    private async Task<UndocumentedAuctionResult?> FetchUndocumentedAuctionAsync(
-        int auctionId,
-        CancellationToken cancellationToken)
+    private void LogUndocumentedWarning(Exception? exception, string message, params object?[] args)
     {
-        // В идеале: CreateClient("mos") и в DI повесить CookieContainer/Decompression на named client.
-        // Но даже без DI — ретраи+заголовки уже сильно снижают "рандомные" 402.
-        var client = _httpClientFactory.CreateClient("mos");
-
-        var auctionUrl = $"https://zakupki.mos.ru/newapi/api/Auction/Get?auctionId={auctionId}";
-
-        const int maxAttempts = 6;
-
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        if (exception != null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                using var req = new HttpRequestMessage(HttpMethod.Get, auctionUrl);
-
-                // Минимально "приближаемся к браузеру" — часто реально решает периодический 402/403
-                req.Headers.TryAddWithoutValidation("User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36");
-                req.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
-                req.Headers.TryAddWithoutValidation("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8");
-                req.Headers.TryAddWithoutValidation("Referer", $"https://zakupki.mos.ru/auction/{auctionId}");
-
-                using var response = await client.SendAsync(
-                    req,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var rawOk = await response.Content.ReadAsStringAsync(cancellationToken);
-                    var auctionOk = JsonSerializer.Deserialize<UndocumentedAuctionDto>(rawOk, UndocumentedSerializerOptions);
-                    return new UndocumentedAuctionResult(auctionOk, rawOk);
-                }
-
-                var status = (int)response.StatusCode;
-                var isRetryable = IsRetryableMosStatus(status);
-
-                // Немного диагностики по телу/типу (осторожно с размером)
-                var contentType = response.Content.Headers.ContentType?.ToString();
-                string bodySnippet = string.Empty;
-                try
-                {
-                    var rawErr = await response.Content.ReadAsStringAsync(cancellationToken);
-                    bodySnippet = rawErr.Length > 1500 ? rawErr[..1500] : rawErr;
-                }
-                catch
-                {
-                    // ignore
-                }
-
-                _logger.LogWarning(
-                    "Undocumented MOS auction API failed. Status={StatusCode} AuctionId={AuctionId} Attempt={Attempt}/{MaxAttempts} ContentType={ContentType} BodySnippet={BodySnippet}",
-                    status,
-                    auctionId,
-                    attempt + 1,
-                    maxAttempts,
-                    contentType,
-                    bodySnippet);
-
-                if (!isRetryable)
-                    return null;
-
-                var delay = GetRetryDelay(response, attempt);
-                await Task.Delay(delay, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to fetch undocumented MOS auction {AuctionId} attempt {Attempt}/{MaxAttempts}",
-                    auctionId,
-                    attempt + 1,
-                    maxAttempts);
-
-                await Task.Delay(TimeSpan.FromMilliseconds(200 + attempt * 200), cancellationToken);
-            }
+            _logger.LogWarning(exception, message, args);
+            return;
         }
 
-        return null;
-    }
-
-    private static bool IsRetryableMosStatus(int statusCode)
-        => statusCode is 402 or 403 or 429 or 500 or 502 or 503 or 504;
-
-    private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
-    {
-        // Уважим Retry-After, если сервис его прислал
-        if (response.Headers.RetryAfter?.Delta is { } delta)
-            return delta;
-
-        // Backoff “лесенкой”
-        var ms = attempt switch
-        {
-            0 => 300,
-            1 => 700,
-            2 => 1500,
-            3 => 3000,
-            4 => 6000,
-            _ => 10000
-        };
-
-        return TimeSpan.FromMilliseconds(ms);
+        _logger.LogWarning(message, args);
     }
 
     // ============================
@@ -686,78 +575,4 @@ public class MosTenderSyncService
             noticeEntry.Entity.Company = trackedCompany;
         }
     }
-}
-
-// ============================
-// Undocumented DTOs
-// ============================
-
-public class UndocumentedAuctionDto
-{
-    [JsonPropertyName("name")]
-    public string? name { get; set; }
-
-    [JsonPropertyName("startDate")]
-    public string? startDate { get; set; }
-
-    [JsonPropertyName("endDate")]
-    public string? endDate { get; set; }
-
-    [JsonPropertyName("startCost")]
-    public double? startCost { get; set; }
-
-    [JsonPropertyName("federalLawName")]
-    public string? federalLawName { get; set; }
-
-    [JsonPropertyName("auctionRegion")]
-    public List<UndocumentedAuctionRegionDto>? auctionRegion { get; set; }
-
-    [JsonPropertyName("files")]
-    public List<UndocumentedAuctionFileDto>? files { get; set; }
-
-    [JsonPropertyName("customer")]
-    public UndocumentedCompanyDto? customer { get; set; }
-
-    [JsonPropertyName("id")]
-    public int? id { get; set; }
-}
-
-public class UndocumentedAuctionResult
-{
-    public UndocumentedAuctionResult(UndocumentedAuctionDto? auction, string rawJson)
-    {
-        Auction = auction;
-        RawJson = rawJson;
-    }
-
-    public UndocumentedAuctionDto? Auction { get; }
-
-    public string RawJson { get; }
-}
-
-public class UndocumentedAuctionFileDto
-{
-    [JsonPropertyName("id")]
-    public long? id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string? name { get; set; }
-}
-
-public class UndocumentedAuctionRegionDto
-{
-    [JsonPropertyName("id")]
-    public int? id { get; set; }
-}
-
-public class UndocumentedCompanyDto
-{
-    [JsonPropertyName("inn")]
-    public string? inn { get; set; }
-
-    [JsonPropertyName("name")]
-    public string? name { get; set; }
-
-    [JsonPropertyName("id")]
-    public int? id { get; set; }
 }
