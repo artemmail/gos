@@ -6,6 +6,7 @@ import { finalize, takeUntil } from 'rxjs/operators';
 
 import { MosNoticeDetails } from '../models/mos-notice.models';
 import { MosNoticesService } from '../services/mos-notices.service';
+import { UndocumentedAuctionDto } from '../models/undocumented-auction.models';
 
 @Component({
   selector: 'app-mos-notice-details',
@@ -15,6 +16,7 @@ import { MosNoticesService } from '../services/mos-notices.service';
 export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
   purchaseNumber = '';
   details: MosNoticeDetails | null = null;
+  auctionDetails: UndocumentedAuctionDto | null = null;
   formattedJson = '';
   parseError = '';
   isLoading = false;
@@ -52,7 +54,15 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
   }
 
   get title(): string {
-    return this.details?.details?.name || (this.details ? `Закупка ${this.details.purchaseNumber}` : 'Закупка mos.ru');
+    if (this.auctionDetails?.name) {
+      return this.auctionDetails.name;
+    }
+
+    if (this.details) {
+      return `Закупка ${this.details.purchaseNumber}`;
+    }
+
+    return 'Закупка mos.ru';
   }
 
   loadNotice(): void {
@@ -63,6 +73,7 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.errorMessage = '';
     this.parseError = '';
+    this.auctionDetails = null;
     this.formattedJson = '';
 
     this.mosNoticesService
@@ -74,6 +85,7 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: response => {
           this.details = response;
+          this.auctionDetails = this.parseDetails(response);
           this.formattedJson = this.formatJson(response);
         },
         error: () => {
@@ -86,6 +98,24 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.location.back();
+  }
+
+  private parseDetails(details: MosNoticeDetails): UndocumentedAuctionDto | null {
+    if (details.details) {
+      return details.details;
+    }
+
+    if (details.rawJson) {
+      try {
+        return JSON.parse(details.rawJson) as UndocumentedAuctionDto;
+      } catch {
+        this.parseError = 'Не удалось разобрать JSON. Показан исходный текст.';
+        return null;
+      }
+    }
+
+    this.parseError = 'Нет данных извещения.';
+    return null;
   }
 
   private formatJson(details: MosNoticeDetails): string {
