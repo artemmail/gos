@@ -407,12 +407,9 @@ public class NoticesController : ControllerBase
                 x.Notice,
                 x.Analysis,
                 x.IsFavorite,
-                ProcedureSubmissionDate = x.Notice.Versions
-                    .Where(v => v.IsActive)
-                    .Select(v => v.ProcedureWindow != null
-                        ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
-                        : null)
-                    .FirstOrDefault()
+                ProcedureSubmissionDate = x.Notice.ProcedureWindow != null
+                    ? (string?)x.Notice.ProcedureWindow.SubmissionProcedureDateRaw
+                    : null
             })
             .ToListAsync();
 
@@ -688,12 +685,9 @@ public class NoticesController : ControllerBase
             {
                 x.Notice,
                 x.Analysis,
-                ProcedureSubmissionDate = x.Notice.Versions
-                    .Where(v => v.IsActive)
-                    .Select(v => v.ProcedureWindow != null
-                        ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
-                        : null)
-                    .FirstOrDefault()
+                ProcedureSubmissionDate = x.Notice.ProcedureWindow != null
+                    ? (string?)x.Notice.ProcedureWindow.SubmissionProcedureDateRaw
+                    : null
             })
             .ToListAsync();
 

@@ -168,12 +168,9 @@ public sealed class NoticeQueryService : INoticeQueryService
                     m.Notice,
                     m.Distance,
                     m.Analysis,
-                    ProcedureSubmissionDate = m.Notice.Versions
-                        .Where(v => v.IsActive)
-                        .Select(v => v.ProcedureWindow != null
-                            ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
-                            : null)
-                        .FirstOrDefault()
+                    ProcedureSubmissionDate = m.Notice.ProcedureWindow != null
+                        ? (string?)m.Notice.ProcedureWindow.SubmissionProcedureDateRaw
+                        : null
                 })
                 .ToListAsync(cancellationToken);
 
