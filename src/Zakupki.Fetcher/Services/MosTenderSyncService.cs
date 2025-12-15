@@ -180,9 +180,32 @@ public class MosTenderSyncService
         if (alreadyHas)
             return false;
 
-        if (!int.TryParse(noticeRow.PurchaseNumber, out var auctionId))
+        return await LoadAndPersistUndocumentedDetailsAsync(noticeRow.Id, noticeRow.PurchaseNumber, true, cancellationToken);
+    }
+
+    public async Task<bool> EnsureNoticeCompletedAsync(Guid noticeId, CancellationToken cancellationToken)
+    {
+        var noticeRow = await _dbContext.Notices
+            .AsNoTracking()
+            .Where(n => n.Id == noticeId && n.Source == NoticeSource.Mos)
+            .Select(n => new { n.PurchaseNumber, n.Id, n.Uncompleted })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (noticeRow == null || !noticeRow.Uncompleted)
+            return false;
+
+        return await LoadAndPersistUndocumentedDetailsAsync(noticeRow.Id, noticeRow.PurchaseNumber, true, cancellationToken);
+    }
+
+    private async Task<bool> LoadAndPersistUndocumentedDetailsAsync(
+        Guid noticeId,
+        string purchaseNumber,
+        bool saveAttachments,
+        CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(purchaseNumber, out var auctionId))
         {
-            _logger.LogWarning("Unable to parse MOS purchase number {PurchaseNumber}", noticeRow.PurchaseNumber);
+            _logger.LogWarning("Unable to parse MOS purchase number {PurchaseNumber}", purchaseNumber);
             return false;
         }
 
@@ -190,9 +213,20 @@ public class MosTenderSyncService
             auctionId,
             cancellationToken,
             LogUndocumentedWarning);
+
+        return await PersistUndocumentedDetailsAsync(noticeId, purchaseNumber, details, saveAttachments, cancellationToken);
+    }
+
+    private async Task<bool> PersistUndocumentedDetailsAsync(
+        Guid noticeId,
+        string purchaseNumber,
+        UndocumentedAuctionResult? details,
+        bool saveAttachments,
+        CancellationToken cancellationToken)
+    {
         if (details?.Auction == null)
         {
-            _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", noticeRow.PurchaseNumber);
+            _logger.LogWarning("Unable to fetch MOS tender details for {PurchaseNumber}", purchaseNumber);
             return false;
         }
 
@@ -202,7 +236,6 @@ public class MosTenderSyncService
         var firstAuctionRegion = details.Auction.auctionRegion?.FirstOrDefault();
         var resolvedRegion = ResolveRegion(firstAuctionRegion?.id);
 
-        // Update Notice without tracking => avoid concurrency exceptions
         await _dbContext.Notices
             .Where(n => n.Id == noticeId)
             .ExecuteUpdateAsync(setters => setters
@@ -211,43 +244,66 @@ public class MosTenderSyncService
                     .SetProperty(n => n.PurchaseObjectInfo, n => details.Auction.name ?? n.PurchaseObjectInfo)
                     .SetProperty(n => n.MaxPrice, n => (decimal?)details.Auction.startCost ?? n.MaxPrice)
                     .SetProperty(n => n.RawJson, _ => raw)
-                    .SetProperty(n => n.CollectingEnd, n => ParseRussianDateTime(details.Auction.endDate) ?? n.CollectingEnd),
+                    .SetProperty(n => n.CollectingEnd, n => ParseRussianDateTime(details.Auction.endDate) ?? n.CollectingEnd)
+                    .SetProperty(n => n.Uncompleted, _ => false),
                 cancellationToken);
 
-        // Link company (needs tracked Notice, but tiny scope)
         var noticeTracked = await _dbContext.Notices.FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
         if (noticeTracked != null)
         {
             await LinkCompanyAsync(noticeTracked, ConvertCompany(details.Auction.customer), cancellationToken);
         }
 
-        var attachments = MapAttachmentsFromUndocumented(details.Auction, noticeId, now)
-            .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
+        var attachmentsAdded = false;
 
-        if (attachments.Count == 0)
+        if (saveAttachments)
         {
-            _logger.LogWarning("No MOS attachments were mapped for notice {PurchaseNumber}", noticeRow.PurchaseNumber);
-            return false;
+            var attachments = MapAttachmentsFromUndocumented(details.Auction, noticeId, now)
+                .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            if (attachments.Count == 0)
+            {
+                _logger.LogWarning("No MOS attachments were mapped for notice {PurchaseNumber}", purchaseNumber);
+            }
+
+            var existingContentIds = new HashSet<string>(
+                await _dbContext.NoticeAttachments
+                    .AsNoTracking()
+                    .Where(a => a.NoticeId == noticeId)
+                    .Select(a => a.PublishedContentId)
+                    .ToListAsync(cancellationToken),
+                StringComparer.OrdinalIgnoreCase);
+
+            var newAttachments = attachments
+                .Where(a => !existingContentIds.Contains(a.PublishedContentId))
+                .ToList();
+
+            if (newAttachments.Count > 0)
+            {
+                _dbContext.NoticeAttachments.AddRange(newAttachments);
+                attachmentsAdded = true;
+            }
         }
 
-        _dbContext.NoticeAttachments.AddRange(attachments);
-
-        try
+        if (noticeTracked != null || attachmentsAdded)
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return true;
-        }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-        {
-            // Another process inserted attachments concurrently => treat as success if any exist now
-            var existsNow = await _dbContext.NoticeAttachments
-                .AsNoTracking()
-                .AnyAsync(a => a.NoticeId == noticeId, cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (attachmentsAdded && IsUniqueViolation(ex))
+            {
+                var existsNow = await _dbContext.NoticeAttachments
+                    .AsNoTracking()
+                    .AnyAsync(a => a.NoticeId == noticeId, cancellationToken);
 
-            return existsNow;
+                return existsNow;
+            }
         }
+
+        return true;
     }
 
     // ============================
@@ -278,6 +334,7 @@ public class MosTenderSyncService
             PurchaseObjectInfo = auction?.name ?? item.name,
             MaxPrice = auction != null ? (decimal?)auction.startCost : (decimal?)item.startPrice,
             FederalLaw = (int?)item.federalLaw,
+            Uncompleted = auction == null,
             RawJson = raw,
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,

@@ -32,6 +32,7 @@ public class NoticesController : ControllerBase
     private readonly AttachmentDownloadService _attachmentDownloadService;
     private readonly AttachmentMarkdownService _attachmentMarkdownService;
     private readonly AttachmentContentExtractor _attachmentContentExtractor;
+    private readonly MosTenderSyncService _mosTenderSyncService;
     private readonly NoticeAnalysisService _noticeAnalysisService;
     private readonly NoticeAnalysisReportService _noticeAnalysisReportService;
     private readonly ILogger<NoticesController> _logger;
@@ -47,6 +48,7 @@ public class NoticesController : ControllerBase
         AttachmentDownloadService attachmentDownloadService,
         AttachmentMarkdownService attachmentMarkdownService,
         AttachmentContentExtractor attachmentContentExtractor,
+        MosTenderSyncService mosTenderSyncService,
         NoticeAnalysisService noticeAnalysisService,
         NoticeAnalysisReportService noticeAnalysisReportService,
         IFavoriteSearchQueueService favoriteSearchQueueService,
@@ -59,6 +61,7 @@ public class NoticesController : ControllerBase
         _attachmentDownloadService = attachmentDownloadService;
         _attachmentMarkdownService = attachmentMarkdownService;
         _attachmentContentExtractor = attachmentContentExtractor;
+        _mosTenderSyncService = mosTenderSyncService;
         _noticeAnalysisService = noticeAnalysisService;
         _noticeAnalysisReportService = noticeAnalysisReportService;
         _favoriteSearchQueueService = favoriteSearchQueueService;
@@ -542,8 +545,25 @@ public class NoticesController : ControllerBase
             return NotFound();
         }
 
+        if (notice.Uncompleted)
+        {
+            var completed = await _mosTenderSyncService.EnsureNoticeCompletedAsync(
+                notice.Id,
+                HttpContext.RequestAborted);
+
+            if (completed)
+            {
+                notice = await context.Notices
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        n => n.PurchaseNumber == trimmedPurchaseNumber && n.Source == NoticeSource.Mos,
+                        HttpContext.RequestAborted)
+                    ?? notice;
+            }
+        }
+
         var details = TryParseUndocumentedAuction(notice.RawJson);
-        var result = new MosNoticeDetailsDto(notice.Id, notice.PurchaseNumber, notice.RawJson, details);
+        var result = new MosNoticeDetailsDto(notice.Id, notice.PurchaseNumber, notice.RawJson, notice.Uncompleted, details);
         return Ok(result);
     }
 
@@ -1346,6 +1366,7 @@ public class NoticesController : ControllerBase
             details?.federalLawName,
             notice.Region,
             notice.Source,
+            notice.Uncompleted,
             details?.customer?.inn,
             details?.customer?.name);
     }
