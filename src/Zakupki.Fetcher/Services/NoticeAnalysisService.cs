@@ -387,7 +387,7 @@ public sealed class NoticeAnalysisService
                 user.CompanyInfo!,
                 regions,
                 attachments,
-                activeVersion.ProcedureWindow,
+                notice.ProcedureWindow,
                 out var attachmentContents);
 
             var answer = await RequestAnalysisAsync(prompt, attachmentContents, cancellationToken);
