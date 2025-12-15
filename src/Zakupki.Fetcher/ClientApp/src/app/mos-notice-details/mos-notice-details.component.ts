@@ -162,10 +162,6 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
   }
 
   private formatJson(details: MosNoticeDetails): string {
-    if (details.details) {
-      return JSON.stringify(details.details, null, 2);
-    }
-
     if (details.rawJson) {
       try {
         return JSON.stringify(JSON.parse(details.rawJson), null, 2);
@@ -173,6 +169,10 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
         this.parseError = 'Не удалось разобрать JSON. Показан исходный текст.';
         return details.rawJson;
       }
+    }
+
+    if (details.details) {
+      return JSON.stringify(details.details, null, 2);
     }
 
     this.parseError = 'Нет данных извещения.';
