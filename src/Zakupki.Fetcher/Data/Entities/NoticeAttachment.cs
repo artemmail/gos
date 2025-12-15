@@ -7,7 +7,7 @@ public class NoticeAttachment
 {
     public Guid Id { get; set; }
 
-    public Guid NoticeVersionId { get; set; }
+    public Guid NoticeId { get; set; }
 
     public string PublishedContentId { get; set; } = null!;
 
@@ -37,7 +37,7 @@ public class NoticeAttachment
 
     public string? SourceFileName { get; set; }
 
-    public NoticeVersion NoticeVersion { get; set; } = null!;
+    public Notice Notice { get; set; } = null!;
 
     public ICollection<AttachmentSignature> Signatures { get; set; } = new List<AttachmentSignature>();
 }

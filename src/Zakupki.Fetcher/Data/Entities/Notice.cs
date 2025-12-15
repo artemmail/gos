@@ -8,6 +8,8 @@ public class Notice
 {
     public Guid Id { get; set; }
 
+    public string ExternalId { get; set; } = null!;
+
     public NoticeSource Source { get; set; }
 
     public byte Region { get; set; }
@@ -41,6 +43,22 @@ public class Notice
 
     public string? RawJson { get; set; }
 
+    public string? Hash { get; set; }
+
+    public int VersionNumber { get; set; }
+
+    public DateTime VersionReceivedAt { get; set; }
+
+    public DateTime InsertedAt { get; set; }
+
+    public DateTime LastSeenAt { get; set; }
+
+    public string? SourceFileName { get; set; }
+
+    public Guid? ImportBatchId { get; set; }
+
+    public ImportBatch? ImportBatch { get; set; }
+
     public DateTime? CollectingEnd { get; set; }
 
     public Guid? CompanyId { get; set; }
@@ -49,7 +67,11 @@ public class Notice
 
     public SqlVector<float>? Vector { get; set; } = null!;
 
-    public ICollection<NoticeVersion> Versions { get; set; } = new List<NoticeVersion>();
+    public ProcedureWindow? ProcedureWindow { get; set; }
+
+    public NoticeSearchVector? SearchVector { get; set; }
+
+    public ICollection<NoticeAttachment> Attachments { get; set; } = new List<NoticeAttachment>();
 
     public ICollection<NoticeAnalysis> Analyses { get; set; } = new List<NoticeAnalysis>();
 

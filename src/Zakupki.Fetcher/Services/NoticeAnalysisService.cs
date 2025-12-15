@@ -535,7 +535,7 @@ public sealed class NoticeAnalysisService
                     ex,
                     "Failed to download attachment {AttachmentId} while preparing notice {NoticeId} for analysis",
                     attachment.Id,
-                    attachment.NoticeVersion.NoticeId);
+                    attachment.NoticeId);
             }
             catch (IOException ex)
             {
@@ -543,7 +543,7 @@ public sealed class NoticeAnalysisService
                     ex,
                     "Failed to process attachment {AttachmentId} content while preparing notice {NoticeId} for analysis",
                     attachment.Id,
-                    attachment.NoticeVersion.NoticeId);
+                    attachment.NoticeId);
             }
             catch (Exception ex)
             {
@@ -551,7 +551,7 @@ public sealed class NoticeAnalysisService
                     ex,
                     "Unexpected error while downloading attachment {AttachmentId} for notice {NoticeId}",
                     attachment.Id,
-                    attachment.NoticeVersion.NoticeId);
+                    attachment.NoticeId);
             }
         }
 
@@ -597,7 +597,7 @@ public sealed class NoticeAnalysisService
                     _logger.LogWarning(
                         "Markdown conversion produced empty result for attachment {AttachmentId} while preparing notice {NoticeId} for analysis",
                         attachment.Id,
-                        attachment.NoticeVersion.NoticeId);
+                        attachment.NoticeId);
                     continue;
                 }
 
@@ -614,7 +614,7 @@ public sealed class NoticeAnalysisService
                     ex,
                     "Failed to convert attachment {AttachmentId} to Markdown while preparing notice {NoticeId} for analysis",
                     attachment.Id,
-                    attachment.NoticeVersion.NoticeId);
+                    attachment.NoticeId);
             }
         }
 
