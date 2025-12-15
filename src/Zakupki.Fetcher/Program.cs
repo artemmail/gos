@@ -1,26 +1,27 @@
 using AspNet.Security.OAuth.Vkontakte;
 using AspNet.Security.OAuth.Yandex;
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SpaServices.Extensions;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Linq;
-using Serilog;
 using Zakupki.Fetcher;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
@@ -59,9 +60,14 @@ builder.Services.Configure<EventBusOptions>(builder.Configuration.GetSection("Ev
 builder.Services.Configure<QueryVectorOptions>(builder.Configuration.GetSection("QueryVector"));
 builder.Services.Configure<NoticeEmbeddingOptions>(builder.Configuration.GetSection("NoticeEmbedding"));
 builder.Services.Configure<MosApiOptions>(builder.Configuration.GetSection(MosApiOptions.SectionName));
+
 builder.Services.AddMemoryCache();
+
+// общий контейнер куков (на домены cookiecontainer сам разделяет)
 builder.Services.AddSingleton(new CookieContainer());
+
 builder.Services.AddHttpClient();
+
 builder.Services
     .AddHttpClient<AttachmentDownloadService>()
     .ConfigurePrimaryHttpMessageHandler(sp => new HttpClientHandler
@@ -75,7 +81,28 @@ builder.Services
 
 builder.Services.AddHttpClient<ZakupkiClient>();
 builder.Services.AddHttpClient<NoticeAnalysisService>();
-builder.Services.AddHttpClient("MosSwaggerClient");
+
+// ✅ ВАЖНО: MosSwaggerClient теперь с CookieContainer + декомпрессия + пул соединений
+builder.Services
+    .AddHttpClient("MosSwaggerClient")
+    .ConfigurePrimaryHttpMessageHandler(sp =>
+    {
+        var cookies = sp.GetRequiredService<CookieContainer>();
+
+        return new SocketsHttpHandler
+        {
+            UseCookies = true,
+            CookieContainer = cookies,
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.GZip
+                                     | DecompressionMethods.Deflate
+                                     | DecompressionMethods.Brotli,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+            MaxConnectionsPerServer = 8
+        };
+    });
+
 builder.Services.AddSingleton(sp =>
 {
     var options = sp.GetRequiredService<IOptions<MosApiOptions>>().Value;
@@ -86,9 +113,14 @@ builder.Services.AddSingleton(sp =>
     var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
     var httpClient = httpClientFactory.CreateClient("MosSwaggerClient");
 
-    return new MosSwaggerClientV2(httpClient, baseUrl!, options.Token);
+    var cookies = sp.GetRequiredService<CookieContainer>();
+
+    // ✅ новый ctor: (httpClient, baseUrl, token, cookies)
+    return new MosSwaggerClientV2(httpClient, baseUrl!, options.Token, cookies);
 });
+
 builder.Services.AddSingleton<AttachmentContentExtractor>();
+
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
 if (string.IsNullOrWhiteSpace(connectionString))
