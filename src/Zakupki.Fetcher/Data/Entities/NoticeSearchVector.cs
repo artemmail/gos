@@ -6,11 +6,11 @@ public class NoticeSearchVector
 {
     public Guid Id { get; set; }
 
-    public Guid NoticeVersionId { get; set; }
+    public Guid NoticeId { get; set; }
 
     public string AggregatedText { get; set; } = null!;
 
     public byte[]? EmbeddingVector { get; set; }
 
-    public NoticeVersion NoticeVersion { get; set; } = null!;
+    public Notice Notice { get; set; } = null!;
 }

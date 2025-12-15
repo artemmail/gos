@@ -19,5 +19,5 @@ public class ImportBatch
 
     public DateTime? CompletedAt { get; set; }
 
-    public ICollection<NoticeVersion> NoticeVersions { get; set; } = new List<NoticeVersion>();
+    public ICollection<Notice> Notices { get; set; } = new List<Notice>();
 }

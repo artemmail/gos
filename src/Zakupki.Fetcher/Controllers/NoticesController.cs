@@ -896,7 +896,7 @@ public class NoticesController : ControllerBase
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var attachments = await context.NoticeAttachments
             .AsNoTracking()
-            .Where(a => a.NoticeVersion.NoticeId == noticeId)
+            .Where(a => a.NoticeId == noticeId)
             .OrderBy(a => a.FileName)
             .Select(a => new NoticeAttachmentDto(
                 a.Id,
@@ -1006,7 +1006,7 @@ public class NoticesController : ControllerBase
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var attachments = await context.NoticeAttachments
-            .Where(a => a.NoticeVersion.NoticeId == noticeId && a.BinaryContent == null)
+            .Where(a => a.NoticeId == noticeId && a.BinaryContent == null)
             .ToListAsync(cancellationToken);
 
         if (attachments.Count == 0)
@@ -1064,7 +1064,7 @@ public class NoticesController : ControllerBase
     {
         await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var attachments = await context.NoticeAttachments
-            .Where(a => a.NoticeVersion.NoticeId == noticeId)
+            .Where(a => a.NoticeId == noticeId)
             .ToListAsync(cancellationToken);
 
         if (attachments.Count == 0)

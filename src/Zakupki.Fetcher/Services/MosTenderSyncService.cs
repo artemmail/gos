@@ -165,24 +165,15 @@ public class MosTenderSyncService
         var noticeRow = await _dbContext.Notices
             .AsNoTracking()
             .Where(n => n.Id == noticeId && n.Source == NoticeSource.Mos)
-            .Select(n => new { n.PurchaseNumber })
+            .Select(n => new { n.PurchaseNumber, n.Id })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (noticeRow == null)
             return false;
 
-        var activeVersionId = await _dbContext.NoticeVersions
-            .AsNoTracking()
-            .Where(v => v.NoticeId == noticeId && v.IsActive)
-            .Select(v => v.Id)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (activeVersionId == Guid.Empty)
-            return false;
-
         var alreadyHas = await _dbContext.NoticeAttachments
             .AsNoTracking()
-            .AnyAsync(a => a.NoticeVersionId == activeVersionId, cancellationToken);
+            .AnyAsync(a => a.NoticeId == noticeId, cancellationToken);
 
         if (alreadyHas)
             return false;
@@ -221,13 +212,6 @@ public class MosTenderSyncService
                     .SetProperty(n => n.CollectingEnd, n => ParseRussianDateTime(details.Auction.endDate) ?? n.CollectingEnd),
                 cancellationToken);
 
-        await _dbContext.NoticeVersions
-            .Where(v => v.Id == activeVersionId)
-            .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(v => v.RawJson, raw)
-                    .SetProperty(v => v.LastSeenAt, now),
-                cancellationToken);
-
         // Link company (needs tracked Notice, but tiny scope)
         var noticeTracked = await _dbContext.Notices.FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
         if (noticeTracked != null)
@@ -235,7 +219,7 @@ public class MosTenderSyncService
             await LinkCompanyAsync(noticeTracked, ConvertCompany(details.Auction.customer), cancellationToken);
         }
 
-        var attachments = MapAttachmentsFromUndocumented(details.Auction, activeVersionId, now)
+        var attachments = MapAttachmentsFromUndocumented(details.Auction, noticeId, now)
             .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
@@ -258,7 +242,7 @@ public class MosTenderSyncService
             // Another process inserted attachments concurrently => treat as success if any exist now
             var existsNow = await _dbContext.NoticeAttachments
                 .AsNoTracking()
-                .AnyAsync(a => a.NoticeVersionId == activeVersionId, cancellationToken);
+                .AnyAsync(a => a.NoticeId == noticeId, cancellationToken);
 
             return existsNow;
         }
@@ -274,7 +258,6 @@ public class MosTenderSyncService
         UndocumentedAuctionResult? details)
     {
         var now = DateTime.UtcNow;
-        var noticeId = Guid.NewGuid();
 
         var raw = details?.RawJson ?? JsonSerializer.Serialize(item);
 
@@ -282,8 +265,9 @@ public class MosTenderSyncService
 
         var notice = new Notice
         {
-            Id = noticeId,
+            Id = Guid.NewGuid(),
             Source = NoticeSource.Mos,
+            ExternalId = registerNumber,
             Region = ResolveRegion(auction?.auctionRegion?.FirstOrDefault()?.id),
             PurchaseNumber = registerNumber,
             PublishDate = auction != null
@@ -293,29 +277,20 @@ public class MosTenderSyncService
             MaxPrice = auction != null ? (decimal?)auction.startCost : (decimal?)item.startPrice,
             FederalLaw = (int?)item.federalLaw,
             RawJson = raw,
+            Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
+            VersionNumber = 1,
+            VersionReceivedAt = now,
+            InsertedAt = now,
+            LastSeenAt = now,
             CollectingEnd = auction != null
                 ? ParseRussianDateTime(auction.endDate) ?? item.endDate?.UtcDateTime
                 : item.endDate?.UtcDateTime,
-            Versions = new List<NoticeVersion>()
-        };
-
-        var version = new NoticeVersion
-        {
-            Id = Guid.NewGuid(),
-            NoticeId = noticeId,
-            ExternalId = registerNumber,
-            VersionNumber = 1,
-            IsActive = true,
-            VersionReceivedAt = now,
-            RawJson = raw,
-            InsertedAt = now,
-            LastSeenAt = now,
             Attachments = new List<NoticeAttachment>()
         };
 
         if (auction != null)
         {
-            var attachments = MapAttachmentsFromUndocumented(auction, version.Id, now)
+            var attachments = MapAttachmentsFromUndocumented(auction, notice.Id, now)
                 .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.First())
                 .ToList();
@@ -323,28 +298,26 @@ public class MosTenderSyncService
             if (attachments.Count > 0)
             {
                 foreach (var attachment in attachments)
-                    version.Attachments.Add(attachment);
+                    notice.Attachments.Add(attachment);
             }
         }
-
-        notice.Versions.Add(version);
         return notice;
     }
 
     private static List<NoticeAttachment> MapAttachmentsFromUndocumented(
         UndocumentedAuctionDto undocumentedDetails,
-        Guid noticeVersionId,
+        Guid noticeId,
         DateTime now)
     {
         return undocumentedDetails.files?
             .Select((f, index) => new NoticeAttachment
             {
                 Id = Guid.NewGuid(),
-                NoticeVersionId = noticeVersionId,
+                NoticeId = noticeId,
                 PublishedContentId = !string.IsNullOrWhiteSpace(f.id?.ToString())
                     ? f.id!.ToString()!
                     : string.IsNullOrWhiteSpace(f.name)
-                        ? $"auto-{noticeVersionId:N}-{index}"
+                        ? $"auto-{noticeId:N}-{index}"
                         : f.name!,
                 FileName = f.name ?? string.Empty,
                 Url = string.IsNullOrWhiteSpace(f.id?.ToString())
@@ -518,9 +491,6 @@ public class MosTenderSyncService
 
             entry.State = EntityState.Detached;
         }
-
-        foreach (var v in _dbContext.ChangeTracker.Entries<NoticeVersion>().Where(e => e.State == EntityState.Added).ToList())
-            v.State = EntityState.Detached;
 
         foreach (var a in _dbContext.ChangeTracker.Entries<NoticeAttachment>().Where(e => e.State == EntityState.Added).ToList())
             a.State = EntityState.Detached;

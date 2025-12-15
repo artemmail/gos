@@ -6,7 +6,7 @@ public class ProcedureWindow
 {
     public Guid Id { get; set; }
 
-    public Guid NoticeVersionId { get; set; }
+    public Guid NoticeId { get; set; }
 
     public DateTime? CollectingStart { get; set; }
 
@@ -22,5 +22,5 @@ public class ProcedureWindow
 
     public string? SecondPartsDateRaw { get; set; }
 
-    public NoticeVersion NoticeVersion { get; set; } = null!;
+    public Notice Notice { get; set; } = null!;
 }

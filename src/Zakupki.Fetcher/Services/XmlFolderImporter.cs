@@ -158,7 +158,7 @@ public sealed class XmlFolderImporter
     private async Task<bool> IsDuplicateAsync(string hash, CancellationToken cancellationToken)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.NoticeVersions
+        return await dbContext.Notices
             .AsNoTracking()
             .AnyAsync(v => v.Hash == hash, cancellationToken);
     }

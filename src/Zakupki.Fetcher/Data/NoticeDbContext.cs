@@ -24,7 +24,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     }
 
     public DbSet<Notice> Notices => Set<Notice>();
-    public DbSet<NoticeVersion> NoticeVersions => Set<NoticeVersion>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<ProcedureWindow> ProcedureWindows => Set<ProcedureWindow>();
     public DbSet<NoticeAttachment> NoticeAttachments => Set<NoticeAttachment>();
@@ -47,7 +46,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     {
         base.OnModelCreating(modelBuilder);
         ConfigureNotice(modelBuilder);
-        ConfigureNoticeVersion(modelBuilder);
         ConfigureContract(modelBuilder);
         ConfigureProcedureWindow(modelBuilder);
         ConfigureNoticeAttachment(modelBuilder);
@@ -138,6 +136,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(n => n.Source)
             .HasColumnType("tinyint")
             .HasDefaultValue(NoticeSource.Unknown);
+        entity.Property(n => n.ExternalId).HasMaxLength(128);
         entity.Property(n => n.Region)
             .HasColumnType("tinyint");
         entity.Property(n => n.PurchaseNumber).HasMaxLength(64);
@@ -153,16 +152,38 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(n => n.KvrCode).HasMaxLength(64);
         entity.Property(n => n.KvrName).HasMaxLength(512);
         entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
+        entity.Property(n => n.Hash).HasMaxLength(128);
+        entity.Property(n => n.SourceFileName).HasMaxLength(256);
+        entity.Property(n => n.InsertedAt).HasDefaultValueSql("GETUTCDATE()");
+        entity.Property(n => n.LastSeenAt).HasDefaultValueSql("GETUTCDATE()");
         entity.Property(n => n.Vector)
             .HasColumnType($"vector({NoticeVectorDimensions})")
             .IsRequired(false);
 
+        entity.HasIndex(n => n.ExternalId)
+            .IsUnique()
+            .HasDatabaseName("UX_Notices_ExternalId");
         entity.HasIndex(n => n.PurchaseNumber).HasDatabaseName("IX_Notices_PurchaseNumber");
         entity.HasIndex(n => n.CollectingEnd).HasDatabaseName("IX_Notices_CollectingEnd");
 
-        entity.HasMany(n => n.Versions)
-            .WithOne(v => v.Notice)
-            .HasForeignKey(v => v.NoticeId)
+        entity.HasOne(n => n.ImportBatch)
+            .WithMany(b => b.Notices)
+            .HasForeignKey(n => n.ImportBatchId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        entity.HasMany(n => n.Attachments)
+            .WithOne(a => a.Notice)
+            .HasForeignKey(a => a.NoticeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasOne(n => n.ProcedureWindow)
+            .WithOne(p => p.Notice)
+            .HasForeignKey<ProcedureWindow>(p => p.NoticeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasOne(n => n.SearchVector)
+            .WithOne(s => s.Notice)
+            .HasForeignKey<NoticeSearchVector>(s => s.NoticeId)
             .OnDelete(DeleteBehavior.Cascade);
 
         entity.HasMany(n => n.Analyses)
@@ -194,36 +215,6 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .IsUnique()
             .HasDatabaseName("UX_FavoriteNotices_User_Notice");
     }
-
-    private static void ConfigureNoticeVersion(ModelBuilder modelBuilder)
-    {
-        var entity = modelBuilder.Entity<NoticeVersion>();
-        entity.ToTable("NoticeVersions");
-        entity.HasKey(v => v.Id);
-
-        entity.Property(v => v.ExternalId).HasMaxLength(128);
-        entity.Property(v => v.Hash).HasMaxLength(128);
-        entity.Property(v => v.SourceFileName).HasMaxLength(256);
-        entity.Property(v => v.RawJson).HasColumnType("nvarchar(max)");
-
-        entity.HasIndex(v => new { v.ExternalId, v.VersionNumber })
-            .IsUnique()
-            .HasDatabaseName("UX_NoticeVersions_External_Version");
-
-        entity.HasOne(v => v.ImportBatch)
-            .WithMany(b => b.NoticeVersions)
-            .HasForeignKey(v => v.ImportBatchId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        entity.HasOne(v => v.ProcedureWindow)
-            .WithOne(p => p.NoticeVersion)
-            .HasForeignKey<ProcedureWindow>(p => p.NoticeVersionId);
-
-        entity.HasOne(v => v.SearchVector)
-            .WithOne(s => s.NoticeVersion)
-            .HasForeignKey<NoticeSearchVector>(s => s.NoticeVersionId);
-    }
-
 
     private static void ConfigureUserQueryVector(ModelBuilder modelBuilder)
     {
@@ -314,9 +305,9 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
 
         entity.HasIndex(a => a.FileName).HasDatabaseName("IX_NoticeAttachments_FileName");
         entity.HasIndex(a => a.DocumentKindCode).HasDatabaseName("IX_NoticeAttachments_DocKindCode");
-        entity.HasIndex(a => new { a.PublishedContentId, a.NoticeVersionId })
+        entity.HasIndex(a => new { a.PublishedContentId, a.NoticeId })
             .IsUnique()
-            .HasDatabaseName("UX_NoticeAttachments_ContentId_Version");
+            .HasDatabaseName("UX_NoticeAttachments_ContentId_Notice");
 
         entity.HasMany(a => a.Signatures)
             .WithOne(s => s.Attachment)

@@ -96,17 +96,21 @@ public sealed class NoticeProcessor
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var now = DateTime.UtcNow;
 
-        var existingVersion = await dbContext.NoticeVersions
-            .Include(v => v.Notice)
-            .FirstOrDefaultAsync(v => v.ExternalId == externalId, cancellationToken);
+        var notice = await dbContext.Notices
+            .Include(n => n.Attachments)
+                .ThenInclude(a => a.Signatures)
+            .Include(n => n.ProcedureWindow)
+            .FirstOrDefaultAsync(n => n.ExternalId == externalId, cancellationToken);
 
-        var notice = existingVersion?.Notice;
         var isNewNotice = notice is null;
         if (isNewNotice)
         {
             notice = new Notice
             {
-                Id = Guid.NewGuid()
+                Id = Guid.NewGuid(),
+                ExternalId = externalId,
+                InsertedAt = now,
+                LastSeenAt = now
             };
         }
 
@@ -128,33 +132,12 @@ public sealed class NoticeProcessor
 
         await LinkCompanyAsync(dbContext, notice!, notification, cancellationToken);
 
-        var version = await dbContext.NoticeVersions
-            .Include(v => v.Attachments)
-                .ThenInclude(a => a.Signatures)
-            .Include(v => v.ProcedureWindow)
-            .FirstOrDefaultAsync(v => v.NoticeId == notice!.Id && v.VersionNumber == notification.VersionNumber, cancellationToken);
-
-        var isNewVersion = version is null;
-        if (isNewVersion)
-        {
-            version = new NoticeVersion
-            {
-                Id = Guid.NewGuid(),
-                NoticeId = notice!.Id,
-                Notice = notice!,
-                InsertedAt = now
-            };
-            notice!.Versions.Add(version);
-            dbContext.NoticeVersions.Add(version);
-        }
-
-        MapNoticeVersion(version!, document, serializedNotification, notification, externalId, now);
-        UpdateProcedureWindow(version!, notification.NotificationInfo?.ProcedureInfo);
-        UpdateAttachments(dbContext, version!, notification.AttachmentsInfo?.Items, document.EntryName, now);
-        await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
+        MapNoticeVersion(notice!, document, serializedNotification, notification, externalId, now);
+        UpdateProcedureWindow(notice!, notification.NotificationInfo?.ProcedureInfo);
+        UpdateAttachments(dbContext, notice!, notification.AttachmentsInfo?.Items, document.EntryName, now);
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Imported notice {ExternalId} version {VersionNumber}", externalId, version!.VersionNumber);
+        _logger.LogInformation("Imported notice {ExternalId} version {VersionNumber}", externalId, notice!.VersionNumber);
     }
 
     private async Task ProcessContractAsync(ContractExport contract, NoticeDocument document, CancellationToken cancellationToken)
@@ -171,17 +154,21 @@ public sealed class NoticeProcessor
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         var now = DateTime.UtcNow;
 
-        var existingVersion = await dbContext.NoticeVersions
-            .Include(v => v.Notice)
-            .FirstOrDefaultAsync(v => v.ExternalId == externalId, cancellationToken);
+        var notice = await dbContext.Notices
+            .Include(n => n.Attachments)
+                .ThenInclude(a => a.Signatures)
+            .Include(n => n.ProcedureWindow)
+            .FirstOrDefaultAsync(n => n.ExternalId == externalId, cancellationToken);
 
-        var notice = existingVersion?.Notice;
         var isNewNotice = notice is null;
         if (isNewNotice)
         {
             notice = new Notice
             {
-                Id = Guid.NewGuid()
+                Id = Guid.NewGuid(),
+                ExternalId = externalId,
+                InsertedAt = now,
+                LastSeenAt = now
             };
         }
 
@@ -192,27 +179,7 @@ public sealed class NoticeProcessor
             dbContext.Notices.Add(notice!);
         }
 
-        var version = await dbContext.NoticeVersions
-            .Include(v => v.Attachments)
-                .ThenInclude(a => a.Signatures)
-            .Include(v => v.ProcedureWindow)
-            .FirstOrDefaultAsync(v => v.NoticeId == notice!.Id && v.VersionNumber == contract.VersionNumber, cancellationToken);
-
-        var isNewVersion = version is null;
-        if (isNewVersion)
-        {
-            version = new NoticeVersion
-            {
-                Id = Guid.NewGuid(),
-                NoticeId = notice!.Id,
-                Notice = notice!,
-                InsertedAt = now
-            };
-            notice!.Versions.Add(version);
-            dbContext.NoticeVersions.Add(version);
-        }
-
-        MapContractNoticeVersion(version!, document, serializedContract, contract, externalId, now);
+        MapContractNoticeVersion(notice!, document, serializedContract, contract, externalId, now);
 
         var contractEntity = await dbContext.Contracts
             .FirstOrDefaultAsync(c => c.ExternalId == externalId, cancellationToken);
@@ -234,10 +201,9 @@ public sealed class NoticeProcessor
             dbContext.Contracts.Add(contractEntity!);
         }
 
-        await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Imported contract {ExternalId} version {VersionNumber}", externalId, version!.VersionNumber);
+        _logger.LogInformation("Imported contract {ExternalId} version {VersionNumber}", externalId, notice!.VersionNumber);
     }
 
     private static Export LoadExport(NoticeDocument document)
@@ -569,57 +535,55 @@ public sealed class NoticeProcessor
     }
 
     private static void MapNoticeVersion(
-        NoticeVersion version,
+        Notice notice,
         NoticeDocument document,
         string serializedNotification,
         EpNotificationEf2020 notification,
         string externalId,
         DateTime now)
     {
-        version.ExternalId = externalId;
-        version.VersionNumber = notification.VersionNumber;
-        version.IsActive = true;
-        version.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
-        version.RawJson = serializedNotification;
-        version.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
-        version.LastSeenAt = now;
-        version.SourceFileName = document.EntryName;
+        notice.ExternalId = externalId;
+        notice.VersionNumber = notification.VersionNumber;
+        notice.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
+        notice.RawJson = serializedNotification;
+        notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
+        notice.LastSeenAt = now;
+        notice.SourceFileName = document.EntryName;
     }
 
     private static void MapContractNoticeVersion(
-        NoticeVersion version,
+        Notice notice,
         NoticeDocument document,
         string serializedContract,
         ContractExport contract,
         string externalId,
         DateTime now)
     {
-        version.ExternalId = externalId;
-        version.VersionNumber = contract.VersionNumber;
-        version.IsActive = true;
-        version.VersionReceivedAt = contract.PublishDate ?? contract.SignDate ?? now;
-        version.RawJson = serializedContract;
-        version.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedContract));
-        version.LastSeenAt = now;
-        version.SourceFileName = document.EntryName;
+        notice.ExternalId = externalId;
+        notice.VersionNumber = contract.VersionNumber;
+        notice.VersionReceivedAt = contract.PublishDate ?? contract.SignDate ?? now;
+        notice.RawJson = serializedContract;
+        notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedContract));
+        notice.LastSeenAt = now;
+        notice.SourceFileName = document.EntryName;
     }
 
-    private static void UpdateProcedureWindow(NoticeVersion version, ProcedureInfo? procedureInfo)
+    private static void UpdateProcedureWindow(Notice notice, ProcedureInfo? procedureInfo)
     {
         if (procedureInfo is null)
         {
             return;
         }
 
-        var window = version.ProcedureWindow;
+        var window = notice.ProcedureWindow;
         if (window is null)
         {
             window = new ProcedureWindow
             {
                 Id = Guid.NewGuid(),
-                NoticeVersionId = version.Id
+                NoticeId = notice.Id
             };
-            version.ProcedureWindow = window;
+            notice.ProcedureWindow = window;
         }
 
         window.CollectingStart = procedureInfo.CollectingInfo?.StartDt;
@@ -633,7 +597,7 @@ public sealed class NoticeProcessor
 
     private static void UpdateAttachments(
         NoticeDbContext dbContext,
-        NoticeVersion version,
+        Notice notice,
         IList<AttachmentInfo>? attachments,
         string sourceFileName,
         DateTime now)
@@ -644,13 +608,13 @@ public sealed class NoticeProcessor
             .Where(a => !string.IsNullOrWhiteSpace(a.PublishedContentId))
             .ToList();
 
-        var existing = version.Attachments.ToDictionary(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase);
+        var existing = notice.Attachments.ToDictionary(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase);
         var incomingIds = new HashSet<string>(incoming.Select(a => a.PublishedContentId!), StringComparer.OrdinalIgnoreCase);
 
-        foreach (var attachment in version.Attachments.Where(a => !incomingIds.Contains(a.PublishedContentId)).ToList())
+        foreach (var attachment in notice.Attachments.Where(a => !incomingIds.Contains(a.PublishedContentId)).ToList())
         {
             dbContext.AttachmentSignatures.RemoveRange(attachment.Signatures);
-            version.Attachments.Remove(attachment);
+            notice.Attachments.Remove(attachment);
             dbContext.NoticeAttachments.Remove(attachment);
         }
 
@@ -662,12 +626,12 @@ public sealed class NoticeProcessor
                 entity = new NoticeAttachment
                 {
                     Id = Guid.NewGuid(),
-                    NoticeVersionId = version.Id,
+                    NoticeId = notice.Id,
                     PublishedContentId = key,
                     InsertedAt = now,
                     LastSeenAt = now
                 };
-                version.Attachments.Add(entity);
+                notice.Attachments.Add(entity);
                 existing[key] = entity;
             }
 
@@ -726,25 +690,4 @@ public sealed class NoticeProcessor
         }
     }
 
-    private static async Task DeactivateOtherVersionsAsync(
-        NoticeDbContext dbContext,
-        Guid noticeId,
-        Guid activeVersionId,
-        DateTime now,
-        CancellationToken cancellationToken)
-    {
-        var otherVersions = await dbContext.NoticeVersions
-            .Where(v => v.NoticeId == noticeId && v.Id != activeVersionId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var version in otherVersions)
-        {
-            if (version.IsActive)
-            {
-                version.IsActive = false;
-            }
-
-            version.LastSeenAt = now;
-        }
-    }
 }
