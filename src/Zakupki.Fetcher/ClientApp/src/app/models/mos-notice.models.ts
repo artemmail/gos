@@ -10,6 +10,7 @@ export interface MosNoticeListItem {
   federalLawName: string | null;
   region: number;
   source: number;
+  uncompleted: boolean;
   customerInn: string | null;
   customerName: string | null;
 }
@@ -33,5 +34,6 @@ export interface MosNoticeDetails {
   id: string;
   purchaseNumber: string;
   rawJson: string | null;
+  uncompleted: boolean;
   details: UndocumentedAuctionDto | null;
 }

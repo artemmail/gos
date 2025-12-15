@@ -147,6 +147,9 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         entity.Property(n => n.Okpd2Name).HasMaxLength(512);
         entity.Property(n => n.KvrCode).HasMaxLength(64);
         entity.Property(n => n.KvrName).HasMaxLength(512);
+        entity.Property(n => n.Uncompleted)
+            .HasColumnType("bit")
+            .HasDefaultValue(false);
         entity.Property(n => n.RawJson).HasColumnType("nvarchar(max)");
         entity.Property(n => n.Hash).HasMaxLength(128);
         entity.Property(n => n.SourceFileName).HasMaxLength(256);

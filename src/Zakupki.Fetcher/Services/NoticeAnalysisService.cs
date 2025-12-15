@@ -178,6 +178,22 @@ public sealed class NoticeAnalysisService
             .FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken)
             ?? throw new NoticeAnalysisException("Закупка не найдена.", true);
 
+        if (notice.Source == NoticeSource.Mos && notice.Uncompleted)
+        {
+            var completed = await _mosTenderSyncService.EnsureNoticeCompletedAsync(notice.Id, cancellationToken);
+            if (completed)
+            {
+                await context.Entry(notice).ReloadAsync(cancellationToken);
+                context.Entry(notice).Collection(n => n.Attachments).IsLoaded = false;
+                await context.Entry(notice)
+                    .Collection(n => n.Attachments)
+                    .LoadAsync(cancellationToken);
+                await context.Entry(notice)
+                    .Reference(n => n.ProcedureWindow)
+                    .LoadAsync(cancellationToken);
+            }
+        }
+
         var attachments = notice.Attachments
             .OrderBy(a => a.FileName)
             .ToList();

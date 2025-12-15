@@ -41,6 +41,8 @@ public class Notice
 
     public string? KvrName { get; set; }
 
+    public bool Uncompleted { get; set; }
+
     public string? RawJson { get; set; }
 
     public string? Hash { get; set; }

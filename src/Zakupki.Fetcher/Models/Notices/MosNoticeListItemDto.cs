@@ -12,5 +12,6 @@ public record MosNoticeListItemDto(
     string? FederalLawName,
     byte Region,
     NoticeSource Source,
+    bool Uncompleted,
     string? CustomerInn,
     string? CustomerName);
