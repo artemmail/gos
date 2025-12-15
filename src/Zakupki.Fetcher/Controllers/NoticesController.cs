@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Models;
+using Zakupki.Fetcher.Models.Notices;
 using Zakupki.Fetcher.Services;
 using Zakupki.Fetcher.Utilities;
 using Zakupki.EF2020;
@@ -37,6 +38,7 @@ public class NoticesController : ControllerBase
     private readonly IFavoriteSearchQueueService _favoriteSearchQueueService;
     private readonly UserCompanyService _userCompanyService;
     private readonly IXmlImportQueue _xmlImportQueue;
+    private readonly INoticeQueryService _noticeQueryService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
 
@@ -50,7 +52,8 @@ public class NoticesController : ControllerBase
         IFavoriteSearchQueueService favoriteSearchQueueService,
         ILogger<NoticesController> logger,
         UserCompanyService userCompanyService,
-        IXmlImportQueue xmlImportQueue)
+        IXmlImportQueue xmlImportQueue,
+        INoticeQueryService noticeQueryService)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
@@ -62,6 +65,7 @@ public class NoticesController : ControllerBase
         _logger = logger;
         _userCompanyService = userCompanyService;
         _xmlImportQueue = xmlImportQueue;
+        _noticeQueryService = noticeQueryService;
     }
 
     [HttpPost("xml-import")]
@@ -117,19 +121,10 @@ public class NoticesController : ControllerBase
             return Ok(Array.Empty<string>());
         }
 
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var missingNumbers = await _noticeQueryService
+            .GetMissingPurchaseNumbersAsync(regionCode, normalizedNumbers, cancellationToken);
 
-        var existingNumbers = await context.Notices
-            .AsNoTracking()
-            .Where(n => n.Region == regionCode && normalizedNumbers.Contains(n.PurchaseNumber))
-            .Select(n => n.PurchaseNumber)
-            .ToListAsync(cancellationToken);
-
-        var missingNumbers = normalizedNumbers
-            .Except(existingNumbers, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        return Ok(missingNumbers);
+        return Ok(missingNumbers.ToArray());
     }
 
 
@@ -197,246 +192,44 @@ public class NoticesController : ControllerBase
 
         pageSize = Math.Min(pageSize, 100);
 
-        var similarityThreshold = Math.Clamp(similarityThresholdPercent, 40, 90) / 100.0;
-        // VECTOR_DISTANCE('cosine', ...) = 1 - cosine_similarity
-        // similarity >= T  <=>  distance <= 1 - T
-        var distanceThreshold = 1.0 - similarityThreshold;
-
-        var normalizedCollectingEnd = (collectingEndLimit ?? DateTimeOffset.UtcNow).UtcDateTime;
-        var offset = (page - 1) * pageSize;
-
-        var normalizedSortField = string.IsNullOrWhiteSpace(sortField)
-            ? "similarity"
-            : sortField.Trim().ToLowerInvariant();
-
-        var normalizedSortDirection = string.IsNullOrWhiteSpace(sortDirection)
-            ? "desc"
-            : sortDirection.Trim().ToLowerInvariant();
-
-        await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        // 1. Берём сохранённый вектор запроса
-        var queryVectorEntity = await context.UserQueryVectors
-            .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.Id == queryVectorId && v.UserId == currentUserId, cancellationToken);
-
-        if (queryVectorEntity is null)
-            return NotFound(new { message = "Запрос не найден" });
-
-        if (queryVectorEntity.Vector is null)
-            return BadRequest(new { message = "Вектор запроса ещё не готов" });
-
-        var queryVector = queryVectorEntity.Vector.Value; // SqlVector<float>
-
-        string[]? userRegions = null;
-        string[]? userOkpd2Codes = null;
-
-        if (filterByUserRegions)
+        var request = new VectorSearchRequest
         {
-            userRegions = await GetUserRegionCodesAsync(currentUserId, cancellationToken);
-
-            if (userRegions.Length == 0)
-            {
-                return BadRequest(new { message = "В профиле не указаны регионы для фильтрации." });
-            }
-        }
-
-        if (filterByUserOkpd2Codes)
-        {
-            userOkpd2Codes = await GetUserOkpd2CodesAsync(currentUserId, cancellationToken);
-        }
-
-        // 2. Базовый запрос по Notices c векторной дистанцией
-        //    Всё на LINQ + EF.Functions.VectorDistance
-        var noticesQuery = context.Notices
-            .AsNoTracking();
-
-        if (userRegions is not null)
-        {
-            noticesQuery = ApplyRegionFilter(noticesQuery, userRegions);
-        }
-
-        if (userOkpd2Codes is not null && userOkpd2Codes.Length > 0)
-        {
-            noticesQuery = ApplyOkpd2Filter(noticesQuery, userOkpd2Codes);
-        }
-
-        var includeFavorites = !string.IsNullOrEmpty(currentUserId);
-
-        var matchesQuery = noticesQuery
-            .Where(n => n.Vector != null)
-            .Select(n => new NoticeVectorMatch
-            {
-                Notice = n,
-                Distance = EF.Functions.VectorDistance("cosine", n.Vector.Value, queryVector),
-                Analysis = currentUserId != null
-                    ? n.Analyses
-                        .Where(a => a.UserId == currentUserId)
-                        .OrderByDescending(a => a.UpdatedAt)
-                        .Select(a => new NoticeAnalysisSummary
-                        {
-                            Status = a.Status,
-                            UpdatedAt = a.UpdatedAt,
-                            HasResult = a.Result != null && a.Result != "",
-                            Recommended = a.Recommended,
-                            DecisionScore = a.DecisionScore
-                        })
-                        .FirstOrDefault()
-                    : null
-            })
-            .Where(m => m.Distance <= distanceThreshold);
-
-        if (!expiredOnly)
-        {
-            matchesQuery = matchesQuery
-                .Where(m => m.Notice.CollectingEnd == null || m.Notice.CollectingEnd > normalizedCollectingEnd);
-        }
-
-        var sortedMatches = ApplyVectorSorting(matchesQuery, normalizedSortField, normalizedSortDirection);
-
-        // 3. Общее количество
-        var totalCount = await sortedMatches.LongCountAsync(cancellationToken);
-
-        if (totalCount == 0)
-        {
-            return Ok(new PagedResult<NoticeListItemDto>(
-                Array.Empty<NoticeListItemDto>(),
-                0,
-                page,
-                pageSize));
-        }
-
-        // 4. Пагинация + выборка нужных данных
-        var rows = await sortedMatches
-            .Skip(offset)
-            .Take(pageSize)
-            .Select(m => new
-            {
-                Notice = m.Notice,
-                m.Distance,
-                m.Analysis,
-                ProcedureSubmissionDate = m.Notice.Versions
-                    .Where(v => v.IsActive)
-                    .Select(v => v.ProcedureWindow != null
-                        ? (string?)v.ProcedureWindow.SubmissionProcedureDateRaw
-                        : null)
-                    .FirstOrDefault(),
-                IsFavorite = includeFavorites && m.Notice.Favorites.Any(f => f.UserId == currentUserId)
-            })
-            .ToListAsync(cancellationToken);
-
-        // 5. Собираем DTO и используем similarity = 1 - distance
-        var items = rows
-            .Select(x => new NoticeListItemDto(
-                x.Notice.Id,
-                x.Notice.PurchaseNumber,
-                x.Notice.Source,
-                x.Notice.PublishDate,
-                x.Notice.EtpName,
-                x.Notice.Region,
-                x.Notice.PurchaseObjectInfo,
-                x.Notice.MaxPrice,
-                x.Notice.Okpd2Code,
-                x.Notice.Okpd2Name,
-                x.Notice.KvrCode,
-                BuildKvrNameWithRegionDebug(x.Notice),
-                x.Notice.RawJson,
-                x.Notice.CollectingEnd,
-                x.ProcedureSubmissionDate,
-                x.Analysis != null &&
-                x.Analysis.Status == NoticeAnalysisStatus.Completed &&
-                x.Analysis.HasResult,
-                x.Analysis != null ? x.Analysis.Status : null,
-                x.Analysis != null ? (DateTime?)x.Analysis.UpdatedAt : null,
-                x.Analysis != null ? x.Analysis.Recommended : null,
-                x.Analysis != null ? x.Analysis.DecisionScore : null,
-                x.IsFavorite,
-                1.0 - x.Distance
-            ))
-            .ToList();
-
-        var total = (int)Math.Min(int.MaxValue, totalCount);
-        var result = new PagedResult<NoticeListItemDto>(items, total, page, pageSize);
-
-        return Ok(result);
-    }
-
-    private static IOrderedQueryable<NoticeVectorMatch> ApplyVectorSorting(
-        IQueryable<NoticeVectorMatch> query,
-        string sortField,
-        string sortDirection)
-    {
-        var descending = sortDirection == "desc";
-
-        return sortField switch
-        {
-            "similarity" => descending
-                ? query.OrderBy(m => m.Distance).ThenByDescending(m => m.Notice.Id)
-                : query.OrderByDescending(m => m.Distance).ThenByDescending(m => m.Notice.Id),
-            "purchasenumber" => descending
-                ? query.OrderByDescending(m => m.Notice.PurchaseNumber).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.PurchaseNumber).ThenBy(m => m.Distance),
-            "etpname" => descending
-                ? query.OrderByDescending(m => m.Notice.EtpName).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.EtpName).ThenBy(m => m.Distance),
-            "region" => descending
-                ? query.OrderByDescending(m => m.Notice.Region).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.Region).ThenBy(m => m.Distance),
-            "purchaseobjectinfo" => descending
-                ? query.OrderByDescending(m => m.Notice.PurchaseObjectInfo).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.PurchaseObjectInfo).ThenBy(m => m.Distance),
-            "okpd2code" => descending
-                ? query.OrderByDescending(m => m.Notice.Okpd2Code).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.Okpd2Code).ThenBy(m => m.Distance),
-            "okpd2name" => descending
-                ? query.OrderByDescending(m => m.Notice.Okpd2Name).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.Okpd2Name).ThenBy(m => m.Distance),
-            "kvrcode" => descending
-                ? query.OrderByDescending(m => m.Notice.KvrCode).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.KvrCode).ThenBy(m => m.Distance),
-            "kvrname" => descending
-                ? query.OrderByDescending(m => m.Notice.KvrName).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.KvrName).ThenBy(m => m.Distance),
-            "maxprice" => descending
-                ? query.OrderByDescending(m => m.Notice.MaxPrice).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.MaxPrice).ThenBy(m => m.Distance),
-            "collectingend" => descending
-                ? query.OrderByDescending(m => m.Notice.CollectingEnd).ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Notice.CollectingEnd).ThenBy(m => m.Distance),
-            "analysisstatus" => descending
-                ? query.OrderByDescending(m => m.Analysis != null ? m.Analysis.Status : null)
-                    .ThenByDescending(m => m.Analysis != null ? m.Analysis.UpdatedAt : null)
-                    .ThenBy(m => m.Distance)
-                : query.OrderBy(m => m.Analysis != null ? m.Analysis.Status : null)
-                    .ThenBy(m => m.Analysis != null ? m.Analysis.UpdatedAt : null)
-                    .ThenBy(m => m.Distance),
-            _ => descending
-                ? query.OrderByDescending(m => m.Notice.PublishDate).ThenByDescending(m => m.Notice.Id)
-                : query.OrderBy(m => m.Notice.PublishDate).ThenBy(m => m.Notice.Id)
+            UserId = currentUserId,
+            QueryVectorId = queryVectorId,
+            SimilarityThresholdPercent = similarityThresholdPercent,
+            ExpiredOnly = expiredOnly,
+            FilterByUserRegions = filterByUserRegions,
+            FilterByUserOkpd2Codes = filterByUserOkpd2Codes,
+            CollectingEndLimit = collectingEndLimit,
+            SortField = sortField,
+            SortDirection = sortDirection,
+            Page = page,
+            PageSize = pageSize
         };
-    }
 
-    private sealed class NoticeVectorMatch
-    {
-        public Notice Notice { get; init; } = null!;
-        public double Distance { get; init; }
-        public NoticeAnalysisSummary? Analysis { get; init; }
-    }
+        var result = await _noticeQueryService.SearchVectorAsync(request, cancellationToken);
 
-    private sealed class NoticeWithAnalysis
-    {
-        public Notice Notice { get; init; } = null!;
-        public NoticeAnalysisSummary? Analysis { get; init; }
-        public bool IsFavorite { get; init; }
-    }
+        if (result.Error == VectorSearchError.QueryNotFound)
+        {
+            return NotFound(new { message = result.Message ?? "Запрос не найден" });
+        }
 
-    private sealed class NoticeAnalysisSummary
-    {
-        public string? Status { get; init; }
-        public DateTime? UpdatedAt { get; init; }
-        public bool HasResult { get; init; }
-        public bool? Recommended { get; init; }
-        public double? DecisionScore { get; init; }
+        if (result.Error == VectorSearchError.QueryNotReady)
+        {
+            return BadRequest(new { message = result.Message ?? "Вектор запроса ещё не готов" });
+        }
+
+        if (result.Error == VectorSearchError.MissingRegions)
+        {
+            return BadRequest(new { message = result.Message ?? "В профиле не указаны регионы для фильтрации." });
+        }
+
+        if (!result.Success || result.Data is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = result.Message ?? "Не удалось выполнить поиск" });
+        }
+
+        return Ok(result.Data);
     }
 
     [HttpGet("by-number/{purchaseNumber}")]
@@ -1580,87 +1373,3 @@ public class NoticesController : ControllerBase
         }
     }
 }
-
-public class MissingPurchaseNumbersRequest
-{
-    public string? Region { get; set; }
-
-    public List<string> PurchaseNumbers { get; set; } = new();
-}
-
-public record NoticeDetailsDto(
-    Guid Id,
-    string PurchaseNumber,
-    string? PurchaseObjectInfo,
-    string? RawJson);
-
-public record NoticeListItemDto(
-    Guid Id,
-    string PurchaseNumber,
-    NoticeSource Source,
-    DateTime? PublishDate,
-    string? EtpName,
-    byte Region,
-    string? PurchaseObjectInfo,
-    decimal? MaxPrice,
-    string? Okpd2Code,
-    string? Okpd2Name,
-    string? KvrCode,
-    string? KvrName,
-    string? RawJson,
-    DateTime? CollectingEnd,
-    string? SubmissionProcedureDateRaw,
-    bool HasAnalysisAnswer,
-    string? AnalysisStatus,
-    DateTime? AnalysisUpdatedAt,
-    bool? Recommended,
-    double? DecisionScore,
-    bool IsFavorite,
-    double? Similarity);
-
-public record MosNoticeListItemDto(
-    Guid Id,
-    string PurchaseNumber,
-    string? Name,
-    DateTime? PublishDate,
-    DateTime? CollectingEnd,
-    decimal? MaxPrice,
-    string? FederalLawName,
-    byte Region,
-    NoticeSource Source,
-    string? CustomerInn,
-    string? CustomerName);
-
-public record MosNoticeDetailsDto(
-    Guid Id,
-    string PurchaseNumber,
-    string? RawJson,
-    UndocumentedAuctionDto? Details);
-
-public record PagedResult<T>(IReadOnlyCollection<T> Items, int TotalCount, int Page, int PageSize);
-
-public record NoticeAttachmentDto(
-    Guid Id,
-    string PublishedContentId,
-    string FileName,
-    long? FileSize,
-    string? Description,
-    DateTime? DocumentDate,
-    string? DocumentKindCode,
-    string? DocumentKindName,
-    string? Url,
-    string? SourceFileName,
-    DateTime InsertedAt,
-    DateTime LastSeenAt,
-    bool HasBinaryContent,
-    bool HasMarkdownContent);
-
-public record AttachmentDownloadResultDto(int Total, int Downloaded, int Failed);
-
-public record AttachmentMarkdownConversionResultDto(
-    int Total,
-    int Converted,
-    int MissingContent,
-    int Unsupported,
-    int Failed);
-
