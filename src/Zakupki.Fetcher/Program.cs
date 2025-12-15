@@ -117,6 +117,7 @@ builder.Services
 builder.Services.AddScoped<UserCompanyService>();
 builder.Services.AddScoped<Okpd2CodeService>();
 builder.Services.AddScoped<NoticeAnalysisReportService>();
+builder.Services.AddScoped<INoticeQueryService, NoticeQueryService>();
 builder.Services.AddSingleton<Okpd2ImportService>();
 builder.Services.AddSingleton<IEventBusPublisher, RabbitMqEventBusPublisher>();
 builder.Services.AddSingleton<IFavoriteSearchQueueService, FavoriteSearchQueueService>();
