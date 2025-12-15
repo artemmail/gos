@@ -173,17 +173,12 @@ public sealed class NoticeAnalysisService
         }
 
         var notice = await context.Notices
-            .Include(n => n.Versions.Where(v => v.IsActive))
-                .ThenInclude(v => v.Attachments)
-            .Include(n => n.Versions.Where(v => v.IsActive))
-                .ThenInclude(v => v.ProcedureWindow)
+            .Include(n => n.Attachments)
+            .Include(n => n.ProcedureWindow)
             .FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken)
             ?? throw new NoticeAnalysisException("Закупка не найдена.", true);
 
-        var activeVersion = notice.Versions.FirstOrDefault(v => v.IsActive)
-            ?? throw new NoticeAnalysisException("Для закупки отсутствует активная версия.", true);
-
-        var attachments = activeVersion.Attachments
+        var attachments = notice.Attachments
             .OrderBy(a => a.FileName)
             .ToList();
 
@@ -192,12 +187,12 @@ public sealed class NoticeAnalysisService
             var loaded = await _mosTenderSyncService.EnsureNoticeDetailsLoadedAsync(notice.Id, cancellationToken);
             if (loaded)
             {
-                context.Entry(activeVersion).Collection(v => v.Attachments).IsLoaded = false;
-                await context.Entry(activeVersion)
+                context.Entry(notice).Collection(v => v.Attachments).IsLoaded = false;
+                await context.Entry(notice)
                     .Collection(v => v.Attachments)
                     .LoadAsync(cancellationToken);
 
-                attachments = activeVersion.Attachments
+                attachments = notice.Attachments
                     .OrderBy(a => a.FileName)
                     .ToList();
             }
@@ -353,17 +348,12 @@ public sealed class NoticeAnalysisService
             }
 
             var notice = await context.Notices
-                .Include(n => n.Versions.Where(v => v.IsActive))
-                    .ThenInclude(v => v.Attachments)
-                .Include(n => n.Versions.Where(v => v.IsActive))
-                    .ThenInclude(v => v.ProcedureWindow)
+                .Include(n => n.Attachments)
+                .Include(n => n.ProcedureWindow)
                 .FirstOrDefaultAsync(n => n.Id == analysis.NoticeId, cancellationToken)
                 ?? throw new NoticeAnalysisException("Закупка не найдена.", true);
 
-            var activeVersion = notice.Versions.FirstOrDefault(v => v.IsActive)
-                ?? throw new NoticeAnalysisException("Для закупки отсутствует активная версия.", true);
-
-            var attachments = activeVersion.Attachments
+            var attachments = notice.Attachments
                 .OrderBy(a => a.FileName)
                 .ToList();
 
