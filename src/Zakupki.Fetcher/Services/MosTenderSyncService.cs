@@ -51,15 +51,18 @@ public class MosTenderSyncService
         _mosClient.ApiToken = options.Token;
 
         var now = DateTimeOffset.UtcNow;
-        var latestDate = await _dbContext.Notices
-            .AsNoTracking()
-            .Where(n => n.Source == NoticeSource.Mos)
-            .OrderByDescending(n => n.PublishDate)
-            .Select(n => n.PublishDate)
-            .FirstOrDefaultAsync(cancellationToken);
+        var since = now.AddDays(-options.LookbackDays);
+        _logger.LogInformation("Syncing MOS tenders from last {LookbackDays} days ({Since} to {Now})", options.LookbackDays, since, now);
 
-        var since = latestDate ?? now.AddDays(-options.LookbackDays);
-        _logger.LogInformation("Syncing MOS tenders from {Since} to {Now}", since, now);
+        var existingPurchaseNumbers = await _dbContext.Notices
+            .AsNoTracking()
+            .Where(n => n.Source == NoticeSource.Mos && n.PublishDate >= since && n.PublishDate <= now)
+            .Select(n => n.PurchaseNumber)
+            .ToListAsync(cancellationToken);
+
+        var existingSet = existingPurchaseNumbers
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToHashSet(StringComparer.Ordinal);
 
         var pageSize = Math.Max(1, options.PageSize);
         var created = 0;
@@ -72,7 +75,7 @@ public class MosTenderSyncService
             },
             order = new List<OrderDto>
             {
-                new() { field = "PublishDate", desc = true }
+                new() { field = "PublishDate", desc = false }
             },
             skip = 0,
             take = pageSize,
@@ -87,21 +90,6 @@ public class MosTenderSyncService
             var items = response?.items;
             if (items == null || items.Count == 0)
                 break;
-
-            // Batch check existing (avoid N+1)
-            var pageRegisterNumbers = items
-                .Select(i => i.id?.ToString())
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
-
-            var existing = await _dbContext.Notices
-                .AsNoTracking()
-                .Where(n => n.Source == NoticeSource.Mos && pageRegisterNumbers.Contains(n.PurchaseNumber))
-                .Select(n => n.PurchaseNumber)
-                .ToListAsync(cancellationToken);
-
-            var existingSet = existing.ToHashSet(StringComparer.Ordinal);
 
             foreach (var item in items)
             {
@@ -135,6 +123,7 @@ public class MosTenderSyncService
                     cancellationToken);
 
                 _dbContext.Notices.Add(notice);
+                existingSet.Add(registerNumber);
                 created++;
             }
 
