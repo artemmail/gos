@@ -144,10 +144,6 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
   }
 
   private parseDetails(details: MosNoticeDetails): UndocumentedAuctionDto | null {
-    if (details.details) {
-      return details.details;
-    }
-
     if (details.rawJson) {
       try {
         return JSON.parse(details.rawJson) as UndocumentedAuctionDto;
@@ -155,6 +151,10 @@ export class MosNoticeDetailsComponent implements OnInit, OnDestroy {
         this.parseError = 'Не удалось разобрать JSON. Показан исходный текст.';
         return null;
       }
+    }
+
+    if (details.details) {
+      return details.details;
     }
 
     this.parseError = 'Нет данных извещения.';
