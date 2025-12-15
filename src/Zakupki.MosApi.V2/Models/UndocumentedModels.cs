@@ -18,7 +18,7 @@ namespace Zakupki.MosApi.V2
         public string? startDate { get; set; }
 
         [JsonPropertyName("initialDuration")]
-        public int? initialDuration { get; set; }
+        public double? initialDuration { get; set; }
 
         [JsonPropertyName("endDate")]
         public string? endDate { get; set; }
@@ -306,11 +306,23 @@ namespace Zakupki.MosApi.V2
         [JsonPropertyName("id")]
         public long? id { get; set; }
 
-        [JsonPropertyName("amount")]
-        public double? amount { get; set; }
+        [JsonPropertyName("num")]
+        public int? num { get; set; }
 
-        [JsonPropertyName("createdAt")]
-        public string? createdAt { get; set; }
+        [JsonPropertyName("cost")]
+        public double? cost { get; set; }
+
+        [JsonPropertyName("serverTime")]
+        public string? serverTime { get; set; }
+
+        [JsonPropertyName("isAutoBet")]
+        public bool? isAutoBet { get; set; }
+
+        [JsonPropertyName("auctionId")]
+        public long? auctionId { get; set; }
+
+        [JsonPropertyName("lastManualServerTime")]
+        public string? lastManualServerTime { get; set; }
 
         [JsonPropertyName("supplier")]
         public UndocumentedCompanyDto? supplier { get; set; }
