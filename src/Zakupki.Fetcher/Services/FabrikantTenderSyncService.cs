@@ -106,8 +106,7 @@ public class FabrikantTenderSyncService
 
             try
             {
-                var notice = MapNotice(procedure, options, now);
-                await LinkCompanyAsync(notice, procedure.CustomerInn, procedure.CustomerName, cancellationToken);
+                var notice = await MapNotice(procedure, options, now, cancellationToken);
                 _dbContext.Notices.Add(notice);
                 existingSet.Add(purchaseNumber);
             }
@@ -234,7 +233,11 @@ public class FabrikantTenderSyncService
         return result;
     }
 
-    private Notice MapNotice(FabrikantProcedure procedure, FabrikantOptions options, DateTime now)
+    private async Task<Notice> MapNotice(
+        FabrikantProcedure procedure,
+        FabrikantOptions options,
+        DateTime now,
+        CancellationToken cancellationToken)
     {
         var raw = JsonSerializer.Serialize(procedure, SerializerOptions);
         var purchaseNumber = !string.IsNullOrWhiteSpace(procedure.ProcedureNumber)
@@ -288,6 +291,40 @@ public class FabrikantTenderSyncService
             Region = DetermineRegion(procedure, options)
         };
 
+        if (!string.IsNullOrWhiteSpace(procedure.CustomerInn))
+        {
+            var normalizedInn = procedure.CustomerInn.Trim();
+
+            var company = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == normalizedInn)
+                          ?? await _dbContext.Companies.FirstOrDefaultAsync(
+                              c => c.Inn == normalizedInn,
+                              cancellationToken);
+
+            if (company is null)
+            {
+                company = new Company
+                {
+                    Id = Guid.NewGuid(),
+                    Inn = normalizedInn,
+                    Name = procedure.CustomerName,
+                    Region = notice.Region
+                };
+
+                _dbContext.Companies.Add(company);
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(company.Name) && !string.IsNullOrWhiteSpace(procedure.CustomerName))
+                    company.Name = procedure.CustomerName;
+
+                if (company.Region == default)
+                    company.Region = notice.Region;
+            }
+
+            notice.CompanyId = company.Id;
+            notice.Company = company;
+        }
+
         foreach (var attachment in MapAttachments(procedure, notice.Id, now))
             notice.Attachments.Add(attachment);
 
@@ -326,37 +363,6 @@ public class FabrikantTenderSyncService
             .GroupBy(a => a.PublishedContentId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
-    }
-
-    private async Task LinkCompanyAsync(Notice notice, string? inn, string? name, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(inn))
-            return;
-
-        var normalizedInn = inn.Trim();
-
-        var company = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == normalizedInn)
-                      ?? await _dbContext.Companies.FirstOrDefaultAsync(c => c.Inn == normalizedInn, cancellationToken);
-
-        if (company is null)
-        {
-            company = new Company
-            {
-                Id = Guid.NewGuid(),
-                Inn = normalizedInn,
-                Region = notice.Region
-            };
-            _dbContext.Companies.Add(company);
-        }
-
-        if (!string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(company.Name))
-            company.Name = name;
-
-        if (company.Region == default)
-            company.Region = notice.Region;
-
-        notice.CompanyId = company.Id;
-        notice.Company = company;
     }
 
     private static List<KeyValuePair<string, string>> BuildSearchParameters(FabrikantOptions options, int pageNumber)
