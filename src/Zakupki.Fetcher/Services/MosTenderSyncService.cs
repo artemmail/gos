@@ -249,9 +249,23 @@ public class MosTenderSyncService
                 cancellationToken);
 
         var noticeTracked = await _dbContext.Notices.FirstOrDefaultAsync(n => n.Id == noticeId, cancellationToken);
+        var companyAddressUpdated = false;
+
         if (noticeTracked != null)
         {
             await LinkCompanyAsync(noticeTracked, ConvertCompany(details.Auction.customer), cancellationToken);
+
+            var companyAddress = ExtractCompanyAddress(details.Auction);
+            if (!string.IsNullOrWhiteSpace(companyAddress)
+                && noticeTracked.Company != null
+                && string.IsNullOrWhiteSpace(noticeTracked.Company.Address))
+            {
+                noticeTracked.Company.Address = companyAddress;
+                companyAddressUpdated = true;
+
+                var companyEntry = _dbContext.Entry(noticeTracked.Company);
+                companyEntry.Property(c => c.Address).IsModified = true;
+            }
         }
 
         var attachmentsAdded = false;
@@ -287,7 +301,7 @@ public class MosTenderSyncService
             }
         }
 
-        if (noticeTracked != null || attachmentsAdded)
+        if (noticeTracked != null || attachmentsAdded || companyAddressUpdated)
         {
             try
             {
@@ -403,6 +417,13 @@ public class MosTenderSyncService
     // ============================
     // Company mapping/linking (your logic)
     // ============================
+
+    private static string? ExtractCompanyAddress(UndocumentedAuctionDto? auction)
+    {
+        return auction?.deliveries?
+            .Select(d => d.deliveryPlace)
+            .FirstOrDefault(a => !string.IsNullOrWhiteSpace(a));
+    }
 
     private static SearchQueryCompanyDto? ConvertCompany(UndocumentedCompanyDto? company)
     {
