@@ -39,6 +39,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<UserQueryVector> UserQueryVectors => Set<UserQueryVector>();
     public DbSet<VectorSearchMatch> VectorSearchMatches => Set<VectorSearchMatch>();
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<PostalIndex> PostalIndices => Set<PostalIndex>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +59,7 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
         ConfigureUserQueryVector(modelBuilder);
         ConfigureVectorSearchMatch(modelBuilder);
         ConfigureCompany(modelBuilder);
+        ConfigurePostalIndex(modelBuilder);
     }
 
     private static byte? ParseRegion(string? region)
@@ -199,6 +201,27 @@ public class NoticeDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(c => c.Notices)
             .HasForeignKey(n => n.CompanyId)
             .OnDelete(DeleteBehavior.SetNull);
+    }
+
+    private static void ConfigurePostalIndex(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<PostalIndex>();
+
+        entity.ToTable("PostalIndices");
+        entity.HasKey(p => p.Id);
+
+        entity.Property(p => p.Index).HasColumnName("Index");
+        entity.Property(p => p.RegionId).HasColumnType("tinyint");
+        entity.Property(p => p.ActDate).HasColumnType("date");
+        entity.Property(p => p.OPSName).HasMaxLength(256);
+        entity.Property(p => p.OPSType).HasMaxLength(32);
+        entity.Property(p => p.Autonom).HasMaxLength(128);
+        entity.Property(p => p.Area).HasMaxLength(128);
+        entity.Property(p => p.City).HasMaxLength(128);
+        entity.Property(p => p.City1).HasMaxLength(128);
+        entity.Property(p => p.IndexOld).HasMaxLength(32);
+
+        entity.HasIndex(p => p.Index).IsUnique();
     }
 
     private static void ConfigureFavoriteNotice(ModelBuilder modelBuilder)

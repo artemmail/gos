@@ -282,6 +282,8 @@ public sealed class UserCompanyService
         return regionCode.ToString(CultureInfo.InvariantCulture);
     }
 
+    public static byte? TryMapRegionToCode(string? region) => MapRegionToCode(region);
+
     private readonly NoticeDbContext _dbContext;
     private readonly Okpd2CodeService _okpd2CodeService;
 
