@@ -10,6 +10,19 @@ namespace FabrikantGrabber.Parsers;
 
 public sealed class ProcedurePageParser
 {
+    public HtmlNode? ExtractColMd8Content(HtmlDocument doc, string panelGroupClass)
+    {
+        
+        return ExtractColMd8Content(doc.DocumentNode, panelGroupClass);
+    }
+
+    private static HtmlNode? ExtractColMd8Content(HtmlNode root, string panelGroupClass)
+    {
+        var panel = root.SelectSingleNode($"//div[contains(@class, '{panelGroupClass}')]");
+        var colMd8 = panel?.SelectSingleNode(".//div[contains(@class, 'col-md-8')]");
+
+        return colMd8;
+    }
     public FabrikantProcedure Parse(string html, string procedureId)
     {
         var doc = new HtmlDocument();
@@ -34,6 +47,21 @@ public sealed class ProcedurePageParser
                        GetValueAfterLabel(doc, "Предмет закупки") ??
                        string.Empty;
 
+
+        var nn = ExtractColMd8Content(doc, "panel-group panel-group-element-procedure_organizer");
+
+        if (nn != null)
+        {
+            try
+            {
+                result.OrganizerName = HtmlEntity.DeEntitize(nn?.ChildNodes[1].InnerHtml).Replace("\t", "").Replace("\n", "");
+            }
+            catch { };
+            result.OrganizerInn = GetValueAfterLabel(nn, "ИНН");
+            result.OrganizerAddress = GetValueAfterLabel(nn, "Почтовый адрес");
+            result.OrganizerKpp = GetValueAfterLabel(nn, "КПП");
+        }
+
         result.ProcedureType = GetValueAfterLabel(doc, "Тип процедуры") ??
                                 GetValueAfterLabel(doc, "Способ закупки") ??
                                 GetValueAfterLabel(doc, "Способ проведения закупки") ??
@@ -43,10 +71,11 @@ public sealed class ProcedurePageParser
                         GetValueAfterLabel(doc, "Статус") ??
                         string.Empty;
 
+        /*
         result.OrganizerName = GetValueAfterLabel(doc, "Информация об организаторе") ??
                                GetValueAfterLabel(doc, "Организатор") ??
                                string.Empty;
-
+        */
         var inns = GetAllValuesAfterLabel(doc, "ИНН");
         var kpps = GetAllValuesAfterLabel(doc, "КПП");
 

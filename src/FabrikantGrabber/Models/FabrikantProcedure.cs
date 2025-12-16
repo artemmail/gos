@@ -15,6 +15,7 @@ public sealed class FabrikantProcedure
     public string OrganizerName { get; set; } = string.Empty;
     public string OrganizerInn { get; set; } = string.Empty;
     public string OrganizerKpp { get; set; } = string.Empty;
+    public string OrganizerAddress { get; set; } = string.Empty;
 
     public string CustomerName { get; set; } = string.Empty;
     public string CustomerFullName { get; set; } = string.Empty;
