@@ -67,6 +67,7 @@ public sealed class ProcedurePageParser
 
         var nmckText = GetValueAfterLabel(doc, "Начальная (максимальная) цена") ??
                        GetValueAfterLabel(doc, "Цена с НДС") ??
+                       GetValueAfterLabel(doc, "Цена без НДС") ??
                        string.Empty;
         result.Nmck = ParseMoney(nmckText);
 

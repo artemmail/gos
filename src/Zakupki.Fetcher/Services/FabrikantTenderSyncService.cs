@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Zakupki.EF2020;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
 using Zakupki.Fetcher.Options;
@@ -103,10 +104,18 @@ public class FabrikantTenderSyncService
             if (existingSet.Contains(purchaseNumber))
                 continue;
 
-            var notice = MapNotice(procedure, options, now);
-            await LinkCompanyAsync(notice, procedure.CustomerInn, procedure.CustomerName, cancellationToken);
-            _dbContext.Notices.Add(notice);
-            existingSet.Add(purchaseNumber);
+            try
+            {
+                var notice = MapNotice(procedure, options, now);
+                await LinkCompanyAsync(notice, procedure.CustomerInn, procedure.CustomerName, cancellationToken);
+                _dbContext.Notices.Add(notice);
+                existingSet.Add(purchaseNumber);
+            }
+            catch(Exception e)
+            {
+
+            }
+
             created++;
         }
 
@@ -131,6 +140,10 @@ public class FabrikantTenderSyncService
             _logger.LogWarning(ex, "Unique violation during Fabrikant sync, detaching conflicted graph and retrying.");
             await DetachAlreadyExistingFabrikantNoticesAsync(cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch(Exception ex)
+        {
+
         }
 
         _logger.LogInformation("Synced {Count} new Fabrikant tenders", created);
@@ -228,6 +241,28 @@ public class FabrikantTenderSyncService
             ? procedure.ProcedureNumber
             : procedure.ExternalId;
 
+
+
+        var okpd =  (procedure.Okpd2??"").Trim();
+        string okpd2 = okpd;
+        string name = okpd2;
+        var i = okpd2.IndexOf(' ');
+
+
+        
+
+        if (i<16 && i>0)
+        {
+            okpd2 = okpd.Substring(0, i).Trim();
+            name = okpd.Substring(i).Trim();
+        }
+        else
+        {
+            okpd2 = "0000";            
+        }
+
+        
+
         var notice = new Notice
         {
             Id = Guid.NewGuid(),
@@ -238,9 +273,10 @@ public class FabrikantTenderSyncService
             Href = options.BaseUrl.TrimEnd('/') + ViewPath + procedure.ExternalId,
             EtpName = "Фабрикант",
             EtpUrl = options.BaseUrl,
-            PurchaseObjectInfo = string.IsNullOrWhiteSpace(procedure.ItemName) ? procedure.Title : procedure.ItemName,
+            PurchaseObjectInfo = procedure.Title,
             MaxPrice = procedure.Nmck,
-            Okpd2Code = procedure.Okpd2,
+            Okpd2Code = okpd2,
+            Okpd2Name = name,
             RawJson = raw,
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,
