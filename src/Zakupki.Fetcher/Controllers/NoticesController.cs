@@ -525,7 +525,7 @@ public class NoticesController : ControllerBase
     }
 
     [HttpGet("mos/{purchaseNumber}")]
-    public async Task<ActionResult<MosNoticeDetailsDto>> GetMosNotice(string purchaseNumber)
+    public async Task<ActionResult<string>> GetMosNotice(string purchaseNumber)
     {
         if (string.IsNullOrWhiteSpace(purchaseNumber))
         {
