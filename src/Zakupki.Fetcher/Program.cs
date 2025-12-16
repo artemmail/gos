@@ -1,6 +1,7 @@
 using AspNet.Security.OAuth.Vkontakte;
 using AspNet.Security.OAuth.Yandex;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using FabrikantGrabber.Parsers;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
@@ -60,6 +61,7 @@ builder.Services.Configure<EventBusOptions>(builder.Configuration.GetSection("Ev
 builder.Services.Configure<QueryVectorOptions>(builder.Configuration.GetSection("QueryVector"));
 builder.Services.Configure<NoticeEmbeddingOptions>(builder.Configuration.GetSection("NoticeEmbedding"));
 builder.Services.Configure<MosApiOptions>(builder.Configuration.GetSection(MosApiOptions.SectionName));
+builder.Services.Configure<FabrikantOptions>(builder.Configuration.GetSection(FabrikantOptions.SectionName));
 
 builder.Services.AddMemoryCache();
 
@@ -81,6 +83,18 @@ builder.Services
 
 builder.Services.AddHttpClient<ZakupkiClient>();
 builder.Services.AddHttpClient<NoticeAnalysisService>();
+
+builder.Services.AddHttpClient("Fabrikant", (sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<FabrikantOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+        ? "https://www.fabrikant.ru"
+        : options.BaseUrl;
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("FabrikantGrabber/1.0");
+});
 
 // ✅ ВАЖНО: MosSwaggerClient теперь с CookieContainer + декомпрессия + пул соединений
 builder.Services
@@ -120,6 +134,9 @@ builder.Services.AddSingleton(sp =>
 });
 
 builder.Services.AddSingleton<AttachmentContentExtractor>();
+builder.Services.AddSingleton<ProcedurePageParser>();
+builder.Services.AddSingleton<DocumentationParser>();
+builder.Services.AddSingleton<SearchPageParser>();
 
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
@@ -158,11 +175,13 @@ builder.Services.AddSingleton<IXmlImportQueue, XmlImportQueue>();
 builder.Services.AddScoped<IQueryVectorQueueService, QueryVectorQueueService>();
 builder.Services.AddScoped<INoticeEmbeddingService, NoticeEmbeddingService>();
 builder.Services.AddScoped<MosTenderSyncService>();
+builder.Services.AddScoped<FabrikantTenderSyncService>();
 builder.Services.AddHostedService<QueryVectorResultListener>();
 builder.Services.AddHostedService<NoticeEmbeddingVectorizer>();
 builder.Services.AddHostedService<NoticeAnalysisQueueWorker>();
 builder.Services.AddHostedService<XmlImportWorker>();
 builder.Services.AddHostedService<MosTenderSyncWorker>();
+builder.Services.AddHostedService<FabrikantTenderSyncWorker>();
 
 builder.Services.ConfigureExternalCookie(options =>
 {
