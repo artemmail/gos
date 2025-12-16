@@ -119,6 +119,22 @@ public sealed class ProcedurePageParser
         return result;
     }
 
+    public string? ExtractColMd8Content(string html, string panelGroupClass)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        return ExtractColMd8Content(doc.DocumentNode, panelGroupClass);
+    }
+
+    private static string? ExtractColMd8Content(HtmlNode root, string panelGroupClass)
+    {
+        var panel = root.SelectSingleNode($"//div[contains(@class, '{panelGroupClass}')]");
+        var colMd8 = panel?.SelectSingleNode(".//div[contains(@class, 'col-md-8')]");
+
+        return colMd8?.InnerHtml?.Trim();
+    }
+
     private static string? GetValueAfterLabel(HtmlDocument doc, string labelText) => GetValueAfterLabel(doc.DocumentNode, labelText);
 
     private static string? GetValueAfterLabel(HtmlNode root, string labelText)
