@@ -78,8 +78,10 @@ namespace Zakupki.Fetcher.Services
             return detected ?? 0;
         }
 
-        private byte ExtractRegionFromAddress(string? address)
+        public byte ExtractRegionFromAddress(string? address)
         {
+             
+
             if (string.IsNullOrWhiteSpace(address))
             {
                 return 0;
@@ -308,14 +310,14 @@ namespace Zakupki.Fetcher.Services
             }
         }
 
-        private static string NormalizeRegionText(string source)
+        public static string NormalizeRegionText(string source)
         {
             var withoutParentheses = Regex.Replace(source, "\\s*\\([^)]*\\)", " ", RegexOptions.CultureInvariant);
             var lower = withoutParentheses.ToLowerInvariant();
             var normalizedDashes = lower.Replace('—', ' ').Replace('-', ' ');
             var withoutCommonWords = Regex.Replace(
                 normalizedDashes,
-                "\\b(обл\\.?|область|респ\\.?|республика|г\\.?|город)\\b",
+                "\\b(обл\\.?|область|автономная|автономный|респ\\.?|республика|г\\.?|город)\\b",
                 " ",
                 RegexOptions.CultureInvariant);
             var withoutPunctuation = Regex.Replace(withoutCommonWords, "[.,]", " ", RegexOptions.CultureInvariant);
@@ -327,7 +329,7 @@ namespace Zakupki.Fetcher.Services
     (01, new[] { "адыгея", "адыгейская", "майкоп" }),
     (02, new[] { "башкортостан", "башкирия", "башкирская", "уфа" }),
     (03, new[] { "бурятия", "бурятская", "улан удэ", "улан-удэ" }),
-    (04, new[] { "алтай республика", "республика алтай", "горный алтай", "алтай респ", "горно алтайск", "горно-алтайск" }),
+    (04, new[] { "алтай", "алтай республика", "республика алтай", "горный алтай", "алтай респ", "горно алтайск", "горно-алтайск" }),
     (05, new[] { "дагестан", "дагестанская", "махачкала" }),
     (06, new[] { "ингушетия", "ингушская", "магас" }),
     (07, new[] { "кабардино балкария", "кабардино-балкария", "кабардино балкарская", "кабардино-балкарская", "налчик" }),
@@ -430,7 +432,7 @@ namespace Zakupki.Fetcher.Services
     (95, new[] { "херсонская", "херсон" }),
 
     // При желании можно ещё добавить:
-    // (99, new[] { "байконур", "иные территории" }),
+    (99, new[] { "байконур", "казахстан","германия" }),
 };
 
 

@@ -21,14 +21,16 @@ public sealed class PostalIndexImportService
         PropertyNameCaseInsensitive = true,
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
-
+    private readonly RegionDeterminationService _rs;
     private readonly ILogger<PostalIndexImportService> _logger;
     private readonly IDbContextFactory<NoticeDbContext> _dbContextFactory;
 
     public PostalIndexImportService(
+        RegionDeterminationService rs,
         ILogger<PostalIndexImportService> logger,
         IDbContextFactory<NoticeDbContext> dbContextFactory)
     {
+        _rs = rs;
         _logger = logger;
         _dbContextFactory = dbContextFactory;
     }
@@ -93,13 +95,17 @@ public sealed class PostalIndexImportService
                 continue;
             }
 
+           
+
+
+
             var entry = new PostalIndexEntry(
                 Index: payload.Index,
                 OPSName: payload.OPSName?.Trim(),
                 OPSType: payload.OPSType?.Trim(),
                 OPSSubm: payload.OPSSubm,
                 Region: payload.Region?.Trim(),
-                RegionId: UserCompanyService.TryMapRegionToCode(payload.Region),
+                RegionId:  _rs.ExtractRegionFromAddress(string.IsNullOrWhiteSpace(payload.Region)?payload.Autonom: payload.Region),
                 Autonom: payload.Autonom?.Trim(),
                 Area: payload.Area?.Trim(),
                 City: payload.City?.Trim(),
