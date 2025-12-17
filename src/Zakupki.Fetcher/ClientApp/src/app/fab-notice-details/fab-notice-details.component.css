@@ -1,0 +1,133 @@
+.notice-details-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.back-button {
+  min-width: 120px;
+}
+
+.page-header-text {
+  flex: 1 1 280px;
+}
+
+.notice-number {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.notice-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.loading-block,
+.error-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.error-block mat-icon {
+  font-size: 42px;
+  height: 42px;
+  width: 42px;
+}
+
+.content-card {
+  padding: 20px;
+}
+
+.notice-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 16px;
+}
+
+.header-main .label,
+.header-side .label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.header-main .value,
+.header-side .value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.section-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+  border-bottom: 2px solid #0054a6;
+  padding-bottom: 4px;
+}
+
+.info-table,
+.attachments-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.info-table th,
+.info-table td,
+.attachments-table th,
+.attachments-table td {
+  border: 1px solid #e0e0e0;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.info-table th {
+  width: 220px;
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.attachments-table thead th {
+  background: #f5f5f5;
+}
+
+.meta {
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 13px;
+}
+
+.raw-block {
+  max-height: 400px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fafafa;
+}
