@@ -86,6 +86,14 @@ export class FabNoticeDetailsComponent implements OnInit, OnDestroy {
       });
   }
 
+  get fabrikLink(): string | null {
+    if (!this.details?.externalId) {
+      return null;
+    }
+
+    return `https://www.fabrikant.ru/v2/trades/procedure/view/${this.details.externalId}`;
+  }
+
   goBack(): void {
     this.location.back();
   }

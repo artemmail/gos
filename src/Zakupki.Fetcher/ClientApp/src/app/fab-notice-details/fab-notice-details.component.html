@@ -6,6 +6,17 @@
       <div class="notice-title">{{ title }}</div>
     </div>
     <div class="header-actions">
+      <a
+        *ngIf="fabrikLink"
+        mat-stroked-button
+        color="primary"
+        class="external-link"
+        [href]="fabrikLink"
+        target="_blank"
+        rel="noopener"
+      >
+        Открыть на Fabrikant
+      </a>
       <button mat-stroked-button color="primary" (click)="loadNotice()">Обновить</button>
     </div>
   </div>
@@ -27,8 +38,13 @@
           <div class="value">{{ details.status || '—' }}</div>
         </div>
         <div class="header-side">
-          <div class="label">НМЦК</div>
-          <div class="value">{{ (details.nmck ?? 0) | number: '1.0-2' }} {{ details.currency || '₽' }}</div>
+          <div class="label">НМЦК (максимальная начальная цена)</div>
+          <div class="value">
+            <ng-container *ngIf="details.nmck !== null; else nmckAbsent">
+              {{ details.nmck | number: '1.0-2' }} {{ details.currency || '₽' }}
+            </ng-container>
+            <ng-template #nmckAbsent>—</ng-template>
+          </div>
         </div>
       </div>
 
