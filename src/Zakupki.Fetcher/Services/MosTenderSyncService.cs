@@ -332,7 +332,11 @@ public class MosTenderSyncService
     {
         var now = DateTime.UtcNow;
 
-        var raw = details?.RawJson ?? JsonSerializer.Serialize(item);
+        var raw = details?.RawJson ?? JsonSerializer.Serialize(item, new()
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+        });
 
         var auction = details?.Auction;
 
@@ -350,7 +354,7 @@ public class MosTenderSyncService
             MaxPrice = auction != null ? (decimal?)auction.startCost : (decimal?)item.startPrice,
             FederalLaw = (int?)item.federalLaw,
             Uncompleted = auction == null,
-            RawJson = Regex.Unescape( raw),
+            RawJson = ( raw),
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,
             VersionReceivedAt = now,

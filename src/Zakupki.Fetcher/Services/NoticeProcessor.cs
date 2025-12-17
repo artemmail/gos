@@ -247,7 +247,7 @@ public sealed class NoticeProcessor
         notice.Okpd2Name = classifiers.Okpd2Name;
         notice.KvrCode = classifiers.KvrCode;
         notice.KvrName = classifiers.KvrName;
-        notice.RawJson = Regex.Unescape( serializedNotification);
+        notice.RawJson =( serializedNotification);
         notice.CollectingEnd = procedureInfo?.CollectingInfo?.EndDt;
     }
 
@@ -273,7 +273,7 @@ public sealed class NoticeProcessor
         notice.Okpd2Name = okpd2.Name;
         notice.KvrCode = null;
         notice.KvrName = null;
-        notice.RawJson = Regex.Unescape(serializedContract);
+        notice.RawJson = (serializedContract);
         notice.CollectingEnd = null;
     }
 
@@ -546,7 +546,7 @@ public sealed class NoticeProcessor
         notice.ExternalId = externalId;
         notice.VersionNumber = notification.VersionNumber;
         notice.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
-        notice.RawJson = Regex.Unescape(serializedNotification);
+        notice.RawJson = (serializedNotification);
         notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
         notice.LastSeenAt = now;
         notice.SourceFileName = document.EntryName;
@@ -563,7 +563,7 @@ public sealed class NoticeProcessor
         notice.ExternalId = externalId;
         notice.VersionNumber = contract.VersionNumber;
         notice.VersionReceivedAt = contract.PublishDate ?? contract.SignDate ?? now;
-        notice.RawJson = Regex.Unescape( serializedContract);
+        notice.RawJson = ( serializedContract);
         notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedContract));
         notice.LastSeenAt = now;
         notice.SourceFileName = document.EntryName;

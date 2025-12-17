@@ -9,9 +9,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Text.Unicode;
 using System.Threading;
 using System.Threading.Tasks;
 using Zakupki.EF2020;
@@ -30,7 +32,8 @@ public class FabrikantTenderSyncService
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
     };
 
     private readonly NoticeDbContext _dbContext;
@@ -287,7 +290,7 @@ public class FabrikantTenderSyncService
             MaxPrice = procedure.Nmck,
             Okpd2Code = okpd2,
             Okpd2Name = name.Substring(0,Math.Min(510,name.Length)),
-            RawJson = Regex.Unescape(raw),
+            RawJson = raw,
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,
             VersionReceivedAt = now,
