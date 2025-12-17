@@ -472,9 +472,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getNoticeLink(notice: NoticeListItem): string[] {
-    return notice.source === 2
-      ? ['/notices-mos', notice.purchaseNumber]
-      : ['/notices', notice.purchaseNumber];
+    if (notice.source === 2) {
+      return ['/notices-mos', notice.purchaseNumber];
+    }
+
+    if (notice.source === 3) {
+      return ['/notices-fab', notice.purchaseNumber];
+    }
+
+    return ['/notices', notice.purchaseNumber];
   }
 
   getRegionLabel(notice: NoticeListItem): string {
