@@ -8,7 +8,7 @@
           <div class="notice-title">{{ title }}</div>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button color="primary" type="button" (click)="loadNotice()" [disabled]="isLoading">
+          <button mat-stroked-button color="primary" type="button" (click)="refreshNotice()" [disabled]="isLoading">
             Обновить
           </button>
           <button mat-stroked-button color="primary" type="button" (click)="openAttachments()" [disabled]="isLoading">

@@ -35,25 +35,13 @@ export class FabNoticesService {
   getNotice(procedureNumber: string): Observable<FabrikantProcedure> {
     return this.http
       .get<MosNoticeDetails>(`/api/notices/mos/${encodeURIComponent(procedureNumber)}`)
-      .pipe(
-        map(response => {
-          if (!response?.rawJson) {
-            throw new Error('Ответ не содержит данных извещения Fabrikant.');
-          }
+      .pipe(map(response => this.parseNoticeResponse(response)));
+  }
 
-          try {
-            const rawNotice = JSON.parse(response.rawJson) as Record<string, unknown>;
-            return this.mapFabrikantProcedure(
-              rawNotice,
-              response.rawJson,
-              response.id,
-              response.purchaseNumber
-            );
-          } catch (error) {
-            throw new Error('Не удалось обработать данные извещения Fabrikant.');
-          }
-        })
-      );
+  refreshNotice(procedureNumber: string): Observable<FabrikantProcedure> {
+    return this.http
+      .post<MosNoticeDetails>(`/api/notices/fab/${encodeURIComponent(procedureNumber)}/refresh`, {})
+      .pipe(map(response => this.parseNoticeResponse(response)));
   }
 
   private mapFabrikantProcedure(
@@ -129,5 +117,23 @@ export class FabNoticesService {
       additionalFields: (lot['AdditionalFields'] as Record<string, string>) ?? {},
       rawRow: (lot['RawRow'] as string) ?? ''
     };
+  }
+
+  private parseNoticeResponse(response: MosNoticeDetails): FabrikantProcedure {
+    if (!response?.rawJson) {
+      throw new Error('Ответ не содержит данных извещения Fabrikant.');
+    }
+
+    try {
+      const rawNotice = JSON.parse(response.rawJson) as Record<string, unknown>;
+      return this.mapFabrikantProcedure(
+        rawNotice,
+        response.rawJson,
+        response.id,
+        response.purchaseNumber
+      );
+    } catch (error) {
+      throw new Error('Не удалось обработать данные извещения Fabrikant.');
+    }
   }
 }

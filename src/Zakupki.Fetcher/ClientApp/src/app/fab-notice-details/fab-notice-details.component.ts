@@ -92,6 +92,32 @@ export class FabNoticeDetailsComponent implements OnInit, OnDestroy {
       });
   }
 
+  refreshNotice(): void {
+    if (!this.procedureNumber) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.details = null;
+
+    this.fabNoticesService
+      .refreshNotice(this.procedureNumber)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => (this.isLoading = false))
+      )
+      .subscribe({
+        next: response => {
+          this.details = response;
+        },
+        error: () => {
+          this.errorMessage = 'Не удалось обновить извещение Fabrikant.';
+          this.details = null;
+        }
+      });
+  }
+
   get fabrikLink(): string | null {
     if (!this.details?.externalId) {
       return null;
