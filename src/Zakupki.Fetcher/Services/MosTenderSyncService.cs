@@ -8,8 +8,11 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Text.Unicode;
 using System.Threading;
 using System.Threading.Tasks;
 using Zakupki.Fetcher.Data;
@@ -324,6 +327,11 @@ public class MosTenderSyncService
     // ============================
     // Mapping
     // ============================
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+    };
 
     private static Notice MapNotice(
         string registerNumber,
@@ -332,11 +340,7 @@ public class MosTenderSyncService
     {
         var now = DateTime.UtcNow;
 
-        var raw = details?.RawJson ?? JsonSerializer.Serialize(item, new()
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
-        });
+        var raw = details?.RawJson ?? JsonSerializer.Serialize(item, SerializerOptions);
 
         var auction = details?.Auction;
 
