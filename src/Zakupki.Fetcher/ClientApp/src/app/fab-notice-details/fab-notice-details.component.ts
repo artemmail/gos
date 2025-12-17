@@ -1,11 +1,16 @@
 import { Location } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
 import { FabNoticesService } from '../services/fab-notices.service';
 import { FabrikantProcedure } from '../models/fab-notice.models';
+import { RawJsonDialogComponent } from '../raw-json-dialog/raw-json-dialog.component';
+import { RawJsonDialogData } from '../models/raw-json.models';
+import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-dialog.component';
+import { AttachmentDialogData } from '../models/attachment.models';
 
 @Component({
   selector: 'app-fab-notice-details',
@@ -23,7 +28,8 @@ export class FabNoticeDetailsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly fabNoticesService: FabNoticesService,
-    private readonly location: Location
+    private readonly location: Location,
+    private readonly dialog: MatDialog
   ) { }
 
   ngOnInit(): void {
@@ -96,5 +102,40 @@ export class FabNoticeDetailsComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.location.back();
+  }
+
+  openRawJson(): void {
+    if (!this.details?.rawJson) {
+      return;
+    }
+
+    const data: RawJsonDialogData = {
+      purchaseNumber: this.details.procedureNumber || this.procedureNumber,
+      title: this.title,
+      rawJson: this.details.rawJson
+    };
+
+    this.dialog.open(RawJsonDialogComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      data
+    });
+  }
+
+  openAttachments(): void {
+    if (!this.details?.noticeId) {
+      return;
+    }
+
+    const data: AttachmentDialogData = {
+      noticeId: this.details.noticeId,
+      purchaseNumber: this.details.procedureNumber || this.procedureNumber,
+      title: this.title
+    };
+
+    this.dialog.open(AttachmentsDialogComponent, {
+      width: '900px',
+      data
+    });
   }
 }

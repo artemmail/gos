@@ -19,6 +19,7 @@ export interface FabrikantDocumentLink {
 }
 
 export interface FabrikantProcedure {
+  noticeId: string;
   externalId: string;
   procedureNumber: string;
   lawSection: string;
@@ -58,6 +59,7 @@ export interface FabrikantProcedure {
   lots: FabrikantLot[];
   documents: FabrikantDocumentLink[];
 
+  rawJson: string;
   rawHtml: string;
 }
 
