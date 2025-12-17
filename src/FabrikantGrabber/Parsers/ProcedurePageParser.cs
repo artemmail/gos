@@ -122,11 +122,7 @@ public sealed class ProcedurePageParser
     }
     public FabrikantProcedure Parse(string html, string procedureId)
     {
-        if(procedureId== "Y7IIaUyrdCUJvlot8E4ltw")
-        {
-            int a = 0;
-
-        }
+        
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -184,11 +180,7 @@ public sealed class ProcedurePageParser
                         GetValueAfterLabel(doc, "Статус") ??
                         string.Empty;
 
-        /*
-        result.OrganizerName = GetValueAfterLabel(doc, "Информация об организаторе") ??
-                               GetValueAfterLabel(doc, "Организатор") ??
-                               string.Empty;
-        */
+     
         var inns = GetAllValuesAfterLabel(doc, "ИНН");
         var kpps = GetAllValuesAfterLabel(doc, "КПП");
 

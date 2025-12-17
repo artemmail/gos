@@ -77,7 +77,7 @@ public class FabrikantTenderSyncService
         var existingPurchaseNumbers = await _dbContext.Notices
             .AsNoTracking()
             .Where(n => n.Source == NoticeSource.Fabrikant)
-            .Select(n => n.PurchaseNumber)
+            .Select(n => n.ExternalId)
             .ToListAsync(cancellationToken);
 
         var existingSet = existingPurchaseNumbers
@@ -163,7 +163,7 @@ public class FabrikantTenderSyncService
 
         var pageSize = ExtractPageSize(parameters, searchResult.Procedures.Count, options.PageSize);
         var totalPages = CalculateTotalPages(searchResult.TotalCount, pageSize);
-        var pagesToFetch = Math.Min(totalPages, Math.Max(1, options.MaxPages));
+        var pagesToFetch = totalPages;// Math.Min(totalPages, Math.Max(1, options.MaxPages));
 
         _logger.LogInformation(
             "Found {Total} Fabrikant procedures on page 1 (page size {PageSize}, total pages {TotalPages}, capped to {PagesToFetch})",
