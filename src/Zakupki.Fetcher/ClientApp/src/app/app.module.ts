@@ -23,6 +23,7 @@ import { NoticeCommonInfoComponent } from './notice-common-info/notice-common-in
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 import { TendersStartComponent } from './tenders-start/tenders-start.component';
+import { FabNoticesComponent } from './fab-notices/fab-notices.component';
 
 registerLocaleData(localeRu);
 
@@ -40,7 +41,8 @@ registerLocaleData(localeRu);
     NoticeCommonInfoComponent,
     NoticeDetailsComponent,
     PresentationPageComponent,
-    TendersStartComponent
+    TendersStartComponent,
+    FabNoticesComponent
   ],
   imports: [
     BrowserModule,

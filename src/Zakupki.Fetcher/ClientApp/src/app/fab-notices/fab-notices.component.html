@@ -1,0 +1,48 @@
+<div class="fab-notices-container">
+  <h1>Процедуры Фабрикант</h1>
+
+  <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+
+  <div class="loading" *ngIf="isLoading">
+    <mat-progress-spinner diameter="48" mode="indeterminate"></mat-progress-spinner>
+  </div>
+
+  <div *ngIf="!isLoading && procedures.length === 0 && !errorMessage" class="no-data">
+    Нет данных для отображения.
+  </div>
+
+  <table mat-table [dataSource]="procedures" class="mat-elevation-z1" *ngIf="procedures.length > 0">
+    <ng-container matColumnDef="procedureNumber">
+      <th mat-header-cell *matHeaderCellDef>Номер</th>
+      <td mat-cell *matCellDef="let procedure">{{ procedure.procedureNumber }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="title">
+      <th mat-header-cell *matHeaderCellDef>Название</th>
+      <td mat-cell *matCellDef="let procedure">{{ procedure.title }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Статус</th>
+      <td mat-cell *matCellDef="let procedure">{{ procedure.status }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="publishDate">
+      <th mat-header-cell *matHeaderCellDef>Публикация</th>
+      <td mat-cell *matCellDef="let procedure">{{ procedure.publishDate | date: 'shortDate' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="applyEndDate">
+      <th mat-header-cell *matHeaderCellDef>Окончание подачи</th>
+      <td mat-cell *matCellDef="let procedure">{{ procedure.applyEndDate | date: 'shortDate' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="nmck">
+      <th mat-header-cell *matHeaderCellDef>НМЦК</th>
+      <td mat-cell *matCellDef="let procedure">{{ procedure.nmck | number:'1.0-2' }} {{ procedure.currency }}</td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</div>
