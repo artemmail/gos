@@ -84,7 +84,7 @@ public class FabrikantTenderSyncService
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .ToHashSet(StringComparer.Ordinal);
 
-        var procedures = await FetchProceduresWithContentAsync(httpClient, options, cancellationToken);
+        var procedures = await FetchProceduresWithContentAsync(httpClient, options, existingSet, cancellationToken);
         var created = 0;
 
         foreach (var procedure in procedures)
@@ -152,6 +152,7 @@ public class FabrikantTenderSyncService
     private async Task<List<FabrikantProcedure>> FetchProceduresWithContentAsync(
         HttpClient httpClient,
         FabrikantOptions options,
+        ISet<string> existingPurchaseNumbers,
         CancellationToken cancellationToken)
     {
         var parameters = BuildSearchParameters(options, pageNumber: 1);
@@ -197,6 +198,9 @@ public class FabrikantTenderSyncService
             cancellationToken.ThrowIfCancellationRequested();
 
             var procedureId = procedure.ProcedureId;
+            if (existingPurchaseNumbers.Contains(procedureId))
+                continue;
+
             var viewUrl = procedure.Url ?? new Uri(options.BaseUrl + ViewPath + procedureId);
             FabrikantProcedure? parsed = null;
 
@@ -215,6 +219,13 @@ public class FabrikantTenderSyncService
 
             parsed.ExternalId = procedureId;
             parsed.Title = string.IsNullOrWhiteSpace(parsed.Title) ? procedure.Title : parsed.Title;
+
+            var purchaseNumber = !string.IsNullOrWhiteSpace(parsed.ProcedureNumber)
+                ? parsed.ProcedureNumber
+                : parsed.ExternalId;
+
+            if (!string.IsNullOrWhiteSpace(purchaseNumber) && existingPurchaseNumbers.Contains(purchaseNumber))
+                continue;
 
             var docsUrl = new Uri(options.BaseUrl + DocsPath + procedureId);
             try
