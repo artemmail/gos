@@ -23,9 +23,7 @@ import { NoticeCommonInfoComponent } from './notice-common-info/notice-common-in
 import { NoticeDetailsComponent } from './notice-details/notice-details.component';
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 import { TendersStartComponent } from './tenders-start/tenders-start.component';
-import { MosNoticesComponent } from './mos-notices/mos-notices.component';
 import { MosNoticeDetailsComponent } from './mos-notice-details/mos-notice-details.component';
-import { FabNoticesComponent } from './fab-notices/fab-notices.component';
 import { FabNoticeDetailsComponent } from './fab-notice-details/fab-notice-details.component';
 
 registerLocaleData(localeRu);
@@ -45,9 +43,7 @@ registerLocaleData(localeRu);
     NoticeDetailsComponent,
     PresentationPageComponent,
     TendersStartComponent,
-    MosNoticesComponent,
     MosNoticeDetailsComponent,
-    FabNoticesComponent,
     FabNoticeDetailsComponent
   ],
   imports: [
