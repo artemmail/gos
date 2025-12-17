@@ -1,3 +1,9 @@
+using FabrikantGrabber.Models;
+using FabrikantGrabber.Parsers;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,14 +11,9 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using FabrikantGrabber.Models;
-using FabrikantGrabber.Parsers;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Zakupki.EF2020;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
@@ -286,7 +287,7 @@ public class FabrikantTenderSyncService
             MaxPrice = procedure.Nmck,
             Okpd2Code = okpd2,
             Okpd2Name = name.Substring(0,Math.Min(510,name.Length)),
-            RawJson = raw,
+            RawJson = Regex.Unescape(raw),
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,
             VersionReceivedAt = now,

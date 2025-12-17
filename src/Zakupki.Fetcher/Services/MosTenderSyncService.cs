@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Zakupki.Fetcher.Data;
@@ -349,7 +350,7 @@ public class MosTenderSyncService
             MaxPrice = auction != null ? (decimal?)auction.startCost : (decimal?)item.startPrice,
             FederalLaw = (int?)item.federalLaw,
             Uncompleted = auction == null,
-            RawJson = raw,
+            RawJson = Regex.Unescape( raw),
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,
             VersionReceivedAt = now,

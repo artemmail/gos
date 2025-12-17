@@ -1,16 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.Encodings.Web;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Zakupki.EF2020;
 using Zakupki.Fetcher.Data;
 using Zakupki.Fetcher.Data.Entities;
@@ -246,7 +247,7 @@ public sealed class NoticeProcessor
         notice.Okpd2Name = classifiers.Okpd2Name;
         notice.KvrCode = classifiers.KvrCode;
         notice.KvrName = classifiers.KvrName;
-        notice.RawJson = serializedNotification;
+        notice.RawJson = Regex.Unescape( serializedNotification);
         notice.CollectingEnd = procedureInfo?.CollectingInfo?.EndDt;
     }
 
@@ -272,7 +273,7 @@ public sealed class NoticeProcessor
         notice.Okpd2Name = okpd2.Name;
         notice.KvrCode = null;
         notice.KvrName = null;
-        notice.RawJson = serializedContract;
+        notice.RawJson = Regex.Unescape(serializedContract);
         notice.CollectingEnd = null;
     }
 
@@ -545,7 +546,7 @@ public sealed class NoticeProcessor
         notice.ExternalId = externalId;
         notice.VersionNumber = notification.VersionNumber;
         notice.VersionReceivedAt = notification.CommonInfo?.PublishDtInEis ?? now;
-        notice.RawJson = serializedNotification;
+        notice.RawJson = Regex.Unescape(serializedNotification);
         notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
         notice.LastSeenAt = now;
         notice.SourceFileName = document.EntryName;
@@ -562,7 +563,7 @@ public sealed class NoticeProcessor
         notice.ExternalId = externalId;
         notice.VersionNumber = contract.VersionNumber;
         notice.VersionReceivedAt = contract.PublishDate ?? contract.SignDate ?? now;
-        notice.RawJson = serializedContract;
+        notice.RawJson = Regex.Unescape( serializedContract);
         notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedContract));
         notice.LastSeenAt = now;
         notice.SourceFileName = document.EntryName;
