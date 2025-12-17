@@ -43,7 +43,12 @@ export class FabNoticesService {
 
           try {
             const rawNotice = JSON.parse(response.rawJson) as Record<string, unknown>;
-            return this.mapFabrikantProcedure(rawNotice);
+            return this.mapFabrikantProcedure(
+              rawNotice,
+              response.rawJson,
+              response.id,
+              response.purchaseNumber
+            );
           } catch (error) {
             throw new Error('Не удалось обработать данные извещения Fabrikant.');
           }
@@ -51,13 +56,19 @@ export class FabNoticesService {
       );
   }
 
-  private mapFabrikantProcedure(raw: Record<string, unknown>): FabrikantProcedure {
+  private mapFabrikantProcedure(
+    raw: Record<string, unknown>,
+    rawJson: string,
+    noticeId: string,
+    purchaseNumber: string
+  ): FabrikantProcedure {
     const lots = Array.isArray(raw['Lots']) ? raw['Lots'] : [];
     const documents = Array.isArray(raw['Documents']) ? raw['Documents'] : [];
 
     return {
+      noticeId: noticeId ?? '',
       externalId: (raw['ExternalId'] as string) ?? '',
-      procedureNumber: (raw['ProcedureNumber'] as string) ?? '',
+      procedureNumber: (raw['ProcedureNumber'] as string) ?? purchaseNumber ?? '',
       lawSection: (raw['LawSection'] as string) ?? '',
       title: (raw['Title'] as string) ?? '',
       procedureType: (raw['ProcedureType'] as string) ?? '',
@@ -98,6 +109,7 @@ export class FabNoticesService {
         fileName: (doc['FileName'] as string) ?? ''
       })),
 
+      rawJson: rawJson ?? '',
       rawHtml: (raw['RawHtml'] as string) ?? ''
     };
   }

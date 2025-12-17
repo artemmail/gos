@@ -1,170 +1,184 @@
 <div class="notice-details-page">
-  <div class="page-header">
-    <button mat-stroked-button color="primary" class="back-button" (click)="goBack()">Назад</button>
-    <div class="page-header-text">
-      <div class="notice-number">Номер закупки: {{ procedureNumber }}</div>
-      <div class="notice-title">{{ title }}</div>
-    </div>
-    <div class="header-actions">
-      <a
-        *ngIf="fabrikLink"
-        mat-stroked-button
-        color="primary"
-        class="external-link"
-        [href]="fabrikLink"
-        target="_blank"
-        rel="noopener"
-      >
-        Открыть на Fabrikant
-      </a>
-      <button mat-stroked-button color="primary" (click)="loadNotice()">Обновить</button>
-    </div>
-  </div>
-
-  <mat-card *ngIf="isLoading" class="loading-block">
-    <mat-spinner diameter="64"></mat-spinner>
-    <div>Загрузка данных...</div>
-  </mat-card>
-
-  <mat-card *ngIf="errorMessage && !isLoading" class="error-block">
-    <mat-icon color="warn">error_outline</mat-icon>
-    <div>{{ errorMessage }}</div>
-  </mat-card>
-
-  <mat-card *ngIf="details && !isLoading" class="content-card">
-      <div class="notice-header">
-        <div class="header-main">
-          <div class="label">Статус</div>
-          <div class="value">{{ details.status || '—' }}</div>
+  <div class="content-container page-container">
+    <mat-card>
+      <div class="page-header">
+        <button mat-stroked-button color="primary" class="back-button" (click)="goBack()">Назад</button>
+        <div class="page-header-text">
+          <div class="notice-number">Номер закупки: {{ procedureNumber }}</div>
+          <div class="notice-title">{{ title }}</div>
         </div>
-        <div class="header-side">
-          <div class="label">НМЦК (максимальная начальная цена)</div>
-          <div class="value">
-            <ng-container *ngIf="details.nmck !== null; else nmckAbsent">
-              {{ details.nmck | number: '1.0-2' }} {{ details.currency || '₽' }}
-            </ng-container>
-            <ng-template #nmckAbsent>—</ng-template>
-          </div>
+        <div class="header-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="loadNotice()" [disabled]="isLoading">
+            Обновить
+          </button>
+          <button mat-stroked-button color="primary" type="button" (click)="openAttachments()" [disabled]="isLoading">
+            <mat-icon fontIcon="attach_file"></mat-icon>
+            <span>Вложения</span>
+          </button>
+          <button mat-stroked-button color="primary" type="button" (click)="openRawJson()" [disabled]="isLoading">
+            <mat-icon fontIcon="code"></mat-icon>
+            <span>Открыть JSON</span>
+          </button>
+          <a
+            *ngIf="fabrikLink"
+            mat-stroked-button
+            color="primary"
+            class="external-link"
+            [href]="fabrikLink"
+            target="_blank"
+            rel="noopener"
+          >
+            Открыть на Fabrikant
+          </a>
         </div>
       </div>
 
-    <div class="section">
-      <div class="section-title">Основные данные</div>
-      <table class="info-table">
-        <tr>
-          <th>Тип процедуры</th>
-          <td>{{ details.procedureType || '—' }}</td>
-        </tr>
-        <tr>
-          <th>Закон</th>
-          <td>{{ details.lawSection || '—' }}</td>
-        </tr>
-        <tr>
-          <th>Предмет</th>
-          <td>{{ details.itemName || details.title || '—' }}</td>
-        </tr>
-        <tr>
-          <th>Коды</th>
-          <td>ОКПД2: {{ details.okpd2 || '—' }}; ОКВЭД2: {{ details.okved2 || '—' }}</td>
-        </tr>
-        <tr>
-          <th>Публикация</th>
-          <td>{{ details.publishDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }}</td>
-        </tr>
-        <tr>
-          <th>Приём заявок</th>
-          <td>с {{ details.applyStartDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }} до {{ details.applyEndDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }}</td>
-        </tr>
-        <tr>
-          <th>Подведение итогов</th>
-          <td>{{ details.resultDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }}</td>
-        </tr>
-      </table>
-    </div>
+      <div class="loading-block" *ngIf="isLoading">
+        <mat-spinner diameter="64"></mat-spinner>
+        <div>Загрузка данных...</div>
+      </div>
 
-    <div class="section">
-      <div class="section-title">Стороны</div>
-      <table class="info-table">
-        <tr>
-          <th>Заказчик</th>
-          <td>
-            <div>{{ details.customerName || details.customerFullName || '—' }}</div>
-            <div class="meta" *ngIf="details.customerInn">ИНН: {{ details.customerInn }} <span *ngIf="details.customerKpp">/ КПП: {{ details.customerKpp }}</span></div>
-          </td>
-        </tr>
-        <tr>
-          <th>Организатор</th>
-          <td>
-            <div>{{ details.organizerName || '—' }}</div>
-            <div class="meta" *ngIf="details.organizerInn">ИНН: {{ details.organizerInn }} <span *ngIf="details.organizerKpp">/ КПП: {{ details.organizerKpp }}</span></div>
-            <div class="meta" *ngIf="details.organizerAddress">Адрес: {{ details.organizerAddress }}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
+      <div class="error-block" *ngIf="errorMessage && !isLoading">
+        <mat-icon color="warn">error_outline</mat-icon>
+        <div>{{ errorMessage }}</div>
+      </div>
 
-    <div class="section">
-      <div class="section-title">Условия</div>
-      <table class="info-table">
-        <tr>
-          <th>Поставка</th>
-          <td>
-            <div>Адрес: {{ details.deliveryAddress || '—' }}</div>
-            <div class="meta">Сроки: {{ details.deliveryTerm || '—' }}</div>
-          </td>
-        </tr>
-        <tr>
-          <th>Платежи</th>
-          <td>{{ details.paymentTerms || '—' }}</td>
-        </tr>
-        <tr>
-          <th>Обеспечение</th>
-          <td>
-            <div>Заявка: {{ details.applicationSecurity ?? '—' }}</div>
-            <div>Контракт: {{ details.contractSecurity ?? '—' }}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
+      <ng-container *ngIf="details && !isLoading && !errorMessage">
+        <div class="notice-header">
+          <div class="header-main">
+            <div class="label">Статус</div>
+            <div class="value">{{ details.status || '—' }}</div>
+          </div>
+          <div class="header-side">
+            <div class="label">НМЦК (максимальная начальная цена)</div>
+            <div class="value">
+              <ng-container *ngIf="details.nmck !== null; else nmckAbsent">
+                {{ details.nmck | number: '1.0-2' }} {{ details.currency || '₽' }}
+              </ng-container>
+              <ng-template #nmckAbsent>—</ng-template>
+            </div>
+          </div>
+        </div>
 
-    <div class="section" *ngIf="details.lots?.length">
-      <div class="section-title">Лоты</div>
-      <table class="info-table">
-        <tr *ngFor="let lot of details.lots">
-          <th>Лот {{ lot.number || '—' }}</th>
-          <td>
-            <div class="meta">{{ lot.name || '—' }}</div>
-            <div class="meta" *ngIf="lot.startPrice !== null">Начальная цена: {{ lot.startPrice | number: '1.0-2' }} {{ lot.currency || '₽' }}</div>
-            <div class="meta" *ngIf="lot.quantity !== null">Количество: {{ lot.quantity }} {{ lot.unit }}</div>
-            <div class="meta" *ngIf="lot.deliveryAddress">Поставка: {{ lot.deliveryAddress }}</div>
-            <div class="meta" *ngIf="lot.deliveryTerm">Сроки: {{ lot.deliveryTerm }}</div>
-            <div class="meta" *ngIf="lot.paymentTerms">Оплата: {{ lot.paymentTerms }}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
+        <div class="section">
+          <div class="section-title">Основные данные</div>
+          <table class="info-table">
+            <tr>
+              <th>Тип процедуры</th>
+              <td>{{ details.procedureType || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Закон</th>
+              <td>{{ details.lawSection || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Предмет</th>
+              <td>{{ details.itemName || details.title || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Коды</th>
+              <td>ОКПД2: {{ details.okpd2 || '—' }}; ОКВЭД2: {{ details.okved2 || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Публикация</th>
+              <td>{{ details.publishDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }}</td>
+            </tr>
+            <tr>
+              <th>Приём заявок</th>
+              <td>с {{ details.applyStartDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }} до {{ details.applyEndDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }}</td>
+            </tr>
+            <tr>
+              <th>Подведение итогов</th>
+              <td>{{ details.resultDate | date: 'd MMMM yyyy HH:mm' : 'UTC' }}</td>
+            </tr>
+          </table>
+        </div>
 
-    <div class="section" *ngIf="details.documents?.length">
-      <div class="section-title">Документы</div>
-      <table class="attachments-table">
-        <thead>
-          <tr>
-            <th>Файл</th>
-            <th>Ссылка</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let doc of details.documents">
-            <td>{{ doc.fileName || '—' }}</td>
-            <td><a [href]="doc.url" target="_blank" rel="noopener">{{ doc.url }}</a></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        <div class="section">
+          <div class="section-title">Стороны</div>
+          <table class="info-table">
+            <tr>
+              <th>Заказчик</th>
+              <td>
+                <div>{{ details.customerName || details.customerFullName || '—' }}</div>
+                <div class="meta" *ngIf="details.customerInn">ИНН: {{ details.customerInn }} <span *ngIf="details.customerKpp">/ КПП: {{ details.customerKpp }}</span></div>
+              </td>
+            </tr>
+            <tr>
+              <th>Организатор</th>
+              <td>
+                <div>{{ details.organizerName || '—' }}</div>
+                <div class="meta" *ngIf="details.organizerInn">ИНН: {{ details.organizerInn }} <span *ngIf="details.organizerKpp">/ КПП: {{ details.organizerKpp }}</span></div>
+                <div class="meta" *ngIf="details.organizerAddress">Адрес: {{ details.organizerAddress }}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
 
-    <div class="section" *ngIf="details.rawHtml">
-      <div class="section-title">Сырой HTML</div>
-      <div class="raw-block" [innerHTML]="details.rawHtml"></div>
-    </div>
-  </mat-card>
+        <div class="section">
+          <div class="section-title">Условия</div>
+          <table class="info-table">
+            <tr>
+              <th>Поставка</th>
+              <td>
+                <div>Адрес: {{ details.deliveryAddress || '—' }}</div>
+                <div class="meta">Сроки: {{ details.deliveryTerm || '—' }}</div>
+              </td>
+            </tr>
+            <tr>
+              <th>Платежи</th>
+              <td>{{ details.paymentTerms || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Обеспечение</th>
+              <td>
+                <div>Заявка: {{ details.applicationSecurity ?? '—' }}</div>
+                <div>Контракт: {{ details.contractSecurity ?? '—' }}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="section" *ngIf="details.lots?.length">
+          <div class="section-title">Лоты</div>
+          <table class="info-table">
+            <tr *ngFor="let lot of details.lots">
+              <th>Лот {{ lot.number || '—' }}</th>
+              <td>
+                <div class="meta">{{ lot.name || '—' }}</div>
+                <div class="meta" *ngIf="lot.startPrice !== null">Начальная цена: {{ lot.startPrice | number: '1.0-2' }} {{ lot.currency || '₽' }}</div>
+                <div class="meta" *ngIf="lot.quantity !== null">Количество: {{ lot.quantity }} {{ lot.unit }}</div>
+                <div class="meta" *ngIf="lot.deliveryAddress">Поставка: {{ lot.deliveryAddress }}</div>
+                <div class="meta" *ngIf="lot.deliveryTerm">Сроки: {{ lot.deliveryTerm }}</div>
+                <div class="meta" *ngIf="lot.paymentTerms">Оплата: {{ lot.paymentTerms }}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="section" *ngIf="details.documents?.length">
+          <div class="section-title">Документы</div>
+          <table class="attachments-table">
+            <thead>
+              <tr>
+                <th>Файл</th>
+                <th>Ссылка</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let doc of details.documents">
+                <td>{{ doc.fileName || '—' }}</td>
+                <td><a [href]="doc.url" target="_blank" rel="noopener">{{ doc.url }}</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section" *ngIf="details.rawHtml">
+          <div class="section-title">Сырой HTML</div>
+          <div class="raw-block" [innerHTML]="details.rawHtml"></div>
+        </div>
+      </ng-container>
+    </mat-card>
+  </div>
 </div>

@@ -1,8 +1,17 @@
 .notice-details-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  min-height: 100vh;
+}
+
+.content-container {
+  flex: 1;
+}
+
+mat-card {
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -11,6 +20,7 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 .back-button {
@@ -35,6 +45,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .loading-block,
@@ -52,10 +63,6 @@
   font-size: 42px;
   height: 42px;
   width: 42px;
-}
-
-.content-card {
-  padding: 20px;
 }
 
 .notice-header {
