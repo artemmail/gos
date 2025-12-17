@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using FabrikantGrabber.Models;
 using HtmlAgilityPack;
@@ -29,25 +30,51 @@ public sealed class DocumentationParser
 
         foreach (var row in rows)
         {
-            var fileCell = row.SelectSingleNode(".//td[1]");
-            if (fileCell == null) continue;
+            var cells = row.SelectNodes(".//td");
+            if (cells == null || cells.Count == 0) continue;
+
+            var fileCell = cells[0];
+
+            string? extension = null;
+            if (cells.Count > 1)
+            {
+                var extText = HtmlEntity.DeEntitize(cells[1].InnerText ?? string.Empty).Trim();
+                if (!string.IsNullOrWhiteSpace(extText))
+                {
+                    var extMatch = Regex.Match(extText, @"\.([\p{L}\p{N}_-]+)");
+                    if (extMatch.Success)
+                    {
+                        extension = extMatch.Value;
+                    }
+                }
+            }
 
             var cellText = HtmlEntity.DeEntitize(fileCell.InnerText ?? string.Empty).Trim();
+            var rowText = string.Join(" ", cells
+                .Select(c => HtmlEntity.DeEntitize(c.InnerText ?? string.Empty).Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+            );
 
             string? fileName = null;
 
-            var m = regexFile.Match(cellText);
-            if (m.Success)
+            if (!string.IsNullOrWhiteSpace(rowText))
             {
-                fileName = m.Groups[1].Value;
-            }
-            else if (cellText.Contains("Файл "))
-            {
-                var idx = cellText.IndexOf("Файл ", StringComparison.OrdinalIgnoreCase);
-                if (idx >= 0)
+                var m = regexFile.Match(rowText);
+                if (m.Success)
                 {
-                    fileName = cellText[(idx + "Файл ".Length)..];
+                    fileName = m.Groups[1].Value;
+
+                    var extMatch = Regex.Match(fileName, @"\.([\p{L}\p{N}_-]+)$");
+                    if (extMatch.Success)
+                    {
+                        extension = extMatch.Value;
+                    }
                 }
+            }
+
+            if (string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(cellText))
+            {
+                fileName = cellText;
             }
 
             var linkNode = row.SelectSingleNode(".//a[@href[contains(.,'/documentation/download/single/')]]")
@@ -96,6 +123,14 @@ public sealed class DocumentationParser
             }
 
             fileName = fileName.Trim('«', '»', '"', '\'', ' ', '\u00A0', '.');
+
+            if (!string.IsNullOrWhiteSpace(extension))
+            {
+                if (!fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                {
+                    fileName = $"{fileName}{extension}";
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(fileName))
                 continue;
