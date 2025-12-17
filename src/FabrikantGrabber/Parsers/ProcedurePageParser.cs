@@ -1,13 +1,110 @@
+using FabrikantGrabber.Models;
+using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
-using FabrikantGrabber.Models;
-using HtmlAgilityPack;
+using System.Xml.Linq;
 
 namespace FabrikantGrabber.Parsers;
 
+
+public static class PriceExtractor
+{
+    private static readonly Regex PriceRegex =
+        new Regex(@"\d{1,3}(?:[\s\u00A0.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?",
+            RegexOptions.Compiled);
+
+    public static bool TryExtractPrice(HtmlNode root, out decimal price)
+    {
+        price = 0m;
+        if (root == null) return false;
+
+        // 1) Клонируем и вырезаем <script>...</script> (и <style>...</style>)
+        var cleaned = root.CloneNode(true);
+        RemoveScriptsAndStylesInPlace(cleaned);
+
+        // 2) Далее анализируем уже очищенный DOM
+        HtmlNode? context = cleaned
+            .DescendantsAndSelf()
+            .FirstOrDefault(n =>
+                (n.InnerText?.IndexOf("цена", StringComparison.OrdinalIgnoreCase) ?? -1) >= 0);
+
+        if (context?.ParentNode != null && TryFindInNode(context.ParentNode, out price))
+            return true;
+
+        return TryFindInNode(cleaned, out price);
+    }
+
+    private static void RemoveScriptsAndStylesInPlace(HtmlNode node)
+    {
+        // SelectNodes может вернуть null
+        var junk = node.SelectNodes(".//script|.//style");
+        if (junk == null) return;
+
+        foreach (var n in junk.ToList())
+            n.Remove(); // удаляет узел целиком вместе с содержимым
+    }
+
+    private static bool TryFindInNode(HtmlNode node, out decimal price)
+    {
+        price = 0m;
+
+        foreach (var n in node.DescendantsAndSelf())
+        {
+            // после удаления script/style можно не фильтровать по Name,
+            // но оставим на всякий случай
+            var name = n.Name?.ToLowerInvariant();
+            if (name is "script" or "style" or "#comment") continue;
+
+            var text = HtmlEntity.DeEntitize(n.InnerText ?? string.Empty)
+                .Replace('\u00A0', ' ');
+
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            var m = PriceRegex.Match(text);
+            if (!m.Success)
+                continue;
+
+            if (TryParseFlexibleDecimal(m.Value, out price))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseFlexibleDecimal(string raw, out decimal value)
+    {
+        value = 0m;
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+
+        var s = raw.Replace(" ", "").Replace("\u00A0", "");
+
+        int lastComma = s.LastIndexOf(',');
+        int lastDot = s.LastIndexOf('.');
+        int decPos = Math.Max(lastComma, lastDot);
+
+        string normalized;
+        if (decPos >= 0)
+        {
+            var intPart = s.Substring(0, decPos).Replace(",", "").Replace(".", "");
+            var fracPart = s.Substring(decPos + 1);
+
+            if (fracPart.Length == 3 && fracPart.All(char.IsDigit))
+                normalized = intPart + fracPart;     // это были тысячи
+            else
+                normalized = intPart + "." + fracPart; // это дробь
+        }
+        else
+        {
+            normalized = s.Replace(",", "").Replace(".", "");
+        }
+
+        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+    }
+}
 public sealed class ProcedurePageParser
 {
     public HtmlNode? ExtractColMd8Content(HtmlDocument doc, string panelGroupClass)
@@ -25,6 +122,12 @@ public sealed class ProcedurePageParser
     }
     public FabrikantProcedure Parse(string html, string procedureId)
     {
+        if(procedureId== "Y7IIaUyrdCUJvlot8E4ltw")
+        {
+            int a = 0;
+
+        }
+
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -47,8 +150,18 @@ public sealed class ProcedurePageParser
                        GetValueAfterLabel(doc, "Предмет закупки") ??
                        string.Empty;
 
+        var nn1 = ExtractColMd8Content(doc, "panel-group panel-group-element-lot_price");
+
+        if (PriceExtractor.TryExtractPrice(nn1, out var price))
+        {
+            result.Nmck = price;
+        }
+
+
 
         var nn = ExtractColMd8Content(doc, "panel-group panel-group-element-procedure_organizer");
+
+
 
         if (nn != null)
         {
@@ -94,11 +207,7 @@ public sealed class ProcedurePageParser
         result.ApplyEndDate = ParseRuDate(GetValueAfterLabel(doc, "Дата и время окончания приема заявок"));
         result.ResultDate = ParseRuDate(GetValueAfterLabel(doc, "Дата и время подведения итогов"));
 
-        var nmckText = GetValueAfterLabel(doc, "Начальная (максимальная) цена") ??
-                       GetValueAfterLabel(doc, "Цена с НДС") ??
-                       GetValueAfterLabel(doc, "Цена без НДС") ??
-                       string.Empty;
-        result.Nmck = ParseMoney(nmckText);
+  
 
         var currency = GetValueAfterLabel(doc, "Валюта") ?? "Рубль";
         result.Currency = currency.Contains("руб", StringComparison.OrdinalIgnoreCase) ? "RUB" : currency;

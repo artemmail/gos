@@ -279,7 +279,7 @@ public class FabrikantTenderSyncService
             PurchaseObjectInfo = procedure.Title,
             MaxPrice = procedure.Nmck,
             Okpd2Code = okpd2,
-            Okpd2Name = name,
+            Okpd2Name = name.Substring(0,Math.Min(510,name.Length)),
             RawJson = raw,
             Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw)),
             VersionNumber = 1,
@@ -291,38 +291,47 @@ public class FabrikantTenderSyncService
             Region = DetermineRegion(procedure, options)
         };
 
-        if (!string.IsNullOrWhiteSpace(procedure.CustomerInn))
+        if (!string.IsNullOrWhiteSpace(procedure.OrganizerInn))
         {
-            var normalizedInn = procedure.CustomerInn.Trim();
+            var normalizedInn = procedure.OrganizerInn.Trim();
 
-            var company = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == normalizedInn)
-                          ?? await _dbContext.Companies.FirstOrDefaultAsync(
-                              c => c.Inn == normalizedInn,
-                              cancellationToken);
-
-            if (company is null)
+            long a;
+            if (long.TryParse(normalizedInn, out a))
             {
-                company = new Company
+
+                var company = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == normalizedInn)
+                              ?? await _dbContext.Companies.FirstOrDefaultAsync(
+                                  c => c.Inn == normalizedInn,
+                                  cancellationToken);
+
+                if (company is null)
                 {
-                    Id = Guid.NewGuid(),
-                    Inn = normalizedInn,
-                    Name = procedure.CustomerName,
-                    Region = notice.Region
-                };
+                    company = new Company
+                    {
+                        Id = Guid.NewGuid(),
+                        Inn = normalizedInn,
+                        Name = procedure.OrganizerName,
+                        Region = notice.Region,
+                        Address = procedure.OrganizerAddress
+                    };
 
-                _dbContext.Companies.Add(company);
+                    _dbContext.Companies.Add(company);
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(company.Name) && !string.IsNullOrWhiteSpace(procedure.OrganizerName))
+                        company.Name = procedure.OrganizerName;
+
+                    if (company.Region == default)
+                        company.Region = notice.Region;
+
+                    if (!string.IsNullOrWhiteSpace(procedure.OrganizerAddress))
+                        company.Address = procedure.OrganizerAddress;
+                }
+
+                notice.CompanyId = company.Id;
+                notice.Company = company;
             }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(company.Name) && !string.IsNullOrWhiteSpace(procedure.CustomerName))
-                    company.Name = procedure.CustomerName;
-
-                if (company.Region == default)
-                    company.Region = notice.Region;
-            }
-
-            notice.CompanyId = company.Id;
-            notice.Company = company;
         }
 
         foreach (var attachment in MapAttachments(procedure, notice.Id, now))
