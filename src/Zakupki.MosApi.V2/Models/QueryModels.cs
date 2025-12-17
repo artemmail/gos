@@ -243,6 +243,9 @@ namespace Zakupki.MosApi.V2
 
         [JsonPropertyName("id")]
         public int? id { get; set; }
+
+        [JsonPropertyName("attachments")]
+        public List<GetQueryDataAttachmentDto>? attachments { get; set; }
     }
 
     public class GetQueryDataItemDto

@@ -4,11 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace Zakupki.MosApi.V2;
 
-public partial class GetQueryDataDto
-{
-    [JsonPropertyName("attachments")]
-    public List<GetQueryDataAttachmentDto>? attachments { get; set; }
-}
+
 
 public class GetQueryDataAttachmentDto
 {

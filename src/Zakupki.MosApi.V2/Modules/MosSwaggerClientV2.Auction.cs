@@ -110,10 +110,25 @@ namespace Zakupki.MosApi.V2
                 urlBuilder.Append(queryString);
             }
             using var request = new HttpRequestMessage(new HttpMethod("GET"), urlBuilder.ToString());
+
+          
             using var response = await _httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return await JsonSerializer.DeserializeAsync<GetQueryDataDto>(stream, _serializerOptions, cancellationToken);
+
+            
+
+            try
+            {
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                var rrr = await response.Content.ReadAsStringAsync();
+                throw new Exception(rrr);
+            }
+
+            string s;
+            s = await response.Content.ReadAsStringAsync(cancellationToken);
+            return  JsonSerializer.Deserialize<GetQueryDataDto>(s, _serializerOptions);
         }
 
         public async Task<SearchQueryListDto?> AuctionSearchAsync(object? query, CancellationToken cancellationToken = default)
@@ -129,7 +144,15 @@ namespace Zakupki.MosApi.V2
             }
             using var request = new HttpRequestMessage(new HttpMethod("GET"), urlBuilder.ToString());
             using var response = await _httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            try
+            {
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                var rrr = await response.Content.ReadAsStringAsync();
+                throw new Exception(rrr);
+            }
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             return await JsonSerializer.DeserializeAsync<SearchQueryListDto>(stream, _serializerOptions, cancellationToken);
         }
