@@ -65,6 +65,62 @@ public class FabrikantTenderSyncService
         _regionDeterminationService = regionDeterminationService;
     }
 
+    public async Task<Notice?> RefreshAsync(string purchaseNumber, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(purchaseNumber))
+        {
+            return null;
+        }
+
+        var normalizedNumber = purchaseNumber.Trim();
+
+        var notice = await _dbContext.Notices
+            .Include(n => n.Attachments)
+            .FirstOrDefaultAsync(
+                n => n.PurchaseNumber == normalizedNumber && n.Source == NoticeSource.Fabrikant,
+                cancellationToken);
+
+        if (notice is null)
+        {
+            return null;
+        }
+
+        var options = _optionsMonitor.CurrentValue;
+        var httpClient = _httpClientFactory.CreateClient("Fabrikant");
+        var procedureId = string.IsNullOrWhiteSpace(notice.ExternalId) ? normalizedNumber : notice.ExternalId;
+
+        var viewUrl = new Uri(options.BaseUrl + ViewPath + procedureId);
+        var docsUrl = new Uri(options.BaseUrl + DocsPath + procedureId);
+
+        var html = await httpClient.GetStringAsync(viewUrl, cancellationToken);
+        var procedure = _procedurePageParser.Parse(html, procedureId);
+
+        if (procedure is null)
+        {
+            return null;
+        }
+
+        procedure.ExternalId = procedureId;
+        procedure.ProcedureNumber = string.IsNullOrWhiteSpace(procedure.ProcedureNumber)
+            ? notice.PurchaseNumber
+            : procedure.ProcedureNumber;
+
+        try
+        {
+            var docsHtml = await httpClient.GetStringAsync(docsUrl, cancellationToken);
+            procedure.Documents = _documentationParser.ParseDocumentationLinks(docsHtml, docsUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load Fabrikant documents for {ProcedureId}", procedureId);
+        }
+
+        await UpdateNoticeAsync(notice, procedure, options, DateTime.UtcNow, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return notice;
+    }
+
     public async Task<int> SyncAsync(CancellationToken cancellationToken)
     {
         var options = _optionsMonitor.CurrentValue;
@@ -348,6 +404,99 @@ public class FabrikantTenderSyncService
             notice.Attachments.Add(attachment);
 
         return notice;
+    }
+
+    private async Task UpdateNoticeAsync(
+        Notice notice,
+        FabrikantProcedure procedure,
+        FabrikantOptions options,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var raw = JsonSerializer.Serialize(procedure, SerializerOptions);
+
+        notice.ExternalId = procedure.ExternalId;
+        notice.PurchaseNumber = !string.IsNullOrWhiteSpace(procedure.ProcedureNumber)
+            ? procedure.ProcedureNumber
+            : notice.PurchaseNumber;
+        notice.PublishDate = procedure.PublishDate;
+        notice.Href = options.BaseUrl.TrimEnd('/') + ViewPath + procedure.ExternalId;
+        notice.EtpName = "Фабрикант";
+        notice.EtpUrl = options.BaseUrl;
+        notice.PurchaseObjectInfo = procedure.Title;
+        notice.MaxPrice = procedure.Nmck;
+
+        var okpd = (procedure.Okpd2 ?? string.Empty).Trim();
+        var okpd2 = okpd;
+        var name = okpd2;
+        var i = okpd2.IndexOf(' ');
+
+        if (i < 16 && i > 0)
+        {
+            okpd2 = okpd.Substring(0, i).Trim();
+            name = okpd.Substring(i).Trim();
+        }
+        else
+        {
+            okpd2 = "0000";
+        }
+
+        notice.Okpd2Code = okpd2;
+        notice.Okpd2Name = name.Substring(0, Math.Min(510, name.Length));
+        notice.RawJson = raw;
+        notice.Hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(raw));
+        notice.VersionNumber = notice.VersionNumber == 0 ? 1 : notice.VersionNumber + 1;
+        notice.VersionReceivedAt = now;
+        notice.LastSeenAt = now;
+        notice.CollectingEnd = procedure.ApplyEndDate;
+        notice.Region = DetermineRegion(procedure, options);
+
+        if (!string.IsNullOrWhiteSpace(procedure.OrganizerInn))
+        {
+            var normalizedInn = procedure.OrganizerInn.Trim();
+
+            if (long.TryParse(normalizedInn, out _))
+            {
+                var company = _dbContext.Companies.Local.FirstOrDefault(c => c.Inn == normalizedInn)
+                              ?? await _dbContext.Companies.FirstOrDefaultAsync(
+                                  c => c.Inn == normalizedInn,
+                                  cancellationToken);
+
+                if (company is null)
+                {
+                    company = new Company
+                    {
+                        Id = Guid.NewGuid(),
+                        Inn = normalizedInn,
+                        Name = procedure.OrganizerName,
+                        Region = notice.Region,
+                        Address = procedure.OrganizerAddress
+                    };
+
+                    _dbContext.Companies.Add(company);
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(company.Name) && !string.IsNullOrWhiteSpace(procedure.OrganizerName))
+                        company.Name = procedure.OrganizerName;
+
+                    if (company.Region == default)
+                        company.Region = notice.Region;
+
+                    if (!string.IsNullOrWhiteSpace(procedure.OrganizerAddress))
+                        company.Address = procedure.OrganizerAddress;
+                }
+
+                notice.CompanyId = company.Id;
+                notice.Company = company;
+            }
+        }
+
+        _dbContext.NoticeAttachments.RemoveRange(notice.Attachments);
+        notice.Attachments.Clear();
+
+        foreach (var attachment in MapAttachments(procedure, notice.Id, now))
+            notice.Attachments.Add(attachment);
     }
 
     private byte DetermineRegion(FabrikantProcedure procedure, FabrikantOptions options)

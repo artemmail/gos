@@ -21,6 +21,7 @@ using Zakupki.Fetcher.Models.Notices;
 using Zakupki.Fetcher.Services;
 using Zakupki.Fetcher.Utilities;
 using Zakupki.EF2020;
+using FabrikantTenderSyncService = Zakupki.Fetcher.Services.FabrikantTenderSyncService;
 
 namespace Zakupki.Fetcher.Controllers;
 
@@ -40,6 +41,7 @@ public class NoticesController : ControllerBase
     private readonly UserCompanyService _userCompanyService;
     private readonly IXmlImportQueue _xmlImportQueue;
     private readonly INoticeQueryService _noticeQueryService;
+    private readonly FabrikantTenderSyncService _fabrikantTenderSyncService;
     private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
     private static readonly char[] CodeSeparators = new[] { ',', ';', '\n', '\r', '\t', ' ' };
 
@@ -55,7 +57,8 @@ public class NoticesController : ControllerBase
         ILogger<NoticesController> logger,
         UserCompanyService userCompanyService,
         IXmlImportQueue xmlImportQueue,
-        INoticeQueryService noticeQueryService)
+        INoticeQueryService noticeQueryService,
+        FabrikantTenderSyncService fabrikantTenderSyncService)
     {
         _dbContextFactory = dbContextFactory;
         _attachmentDownloadService = attachmentDownloadService;
@@ -69,6 +72,7 @@ public class NoticesController : ControllerBase
         _userCompanyService = userCompanyService;
         _xmlImportQueue = xmlImportQueue;
         _noticeQueryService = noticeQueryService;
+        _fabrikantTenderSyncService = fabrikantTenderSyncService;
     }
 
     [HttpPost("xml-import")]
@@ -565,6 +569,35 @@ public class NoticesController : ControllerBase
         var details = TryParseUndocumentedAuction(notice.RawJson);
         var result = new MosNoticeDetailsDto(notice.Id, notice.PurchaseNumber, notice.RawJson, notice.Uncompleted, details);
         return Ok(result);
+    }
+
+    [HttpPost("fab/{purchaseNumber}/refresh")]
+    public async Task<ActionResult<MosNoticeDetailsDto>> RefreshFabrikantNotice(
+        string purchaseNumber,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(purchaseNumber))
+        {
+            return BadRequest(new { message = "Не указан номер закупки." });
+        }
+
+        try
+        {
+            var notice = await _fabrikantTenderSyncService.RefreshAsync(purchaseNumber, cancellationToken);
+
+            if (notice is null)
+            {
+                return NotFound();
+            }
+
+            var details = TryParseUndocumentedAuction(notice.RawJson);
+            var result = new MosNoticeDetailsDto(notice.Id, notice.PurchaseNumber, notice.RawJson, notice.Uncompleted, details);
+            return Ok(result);
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Не удалось получить данные с Fabrikant." });
+        }
     }
 
     [HttpGet("favorites")]
