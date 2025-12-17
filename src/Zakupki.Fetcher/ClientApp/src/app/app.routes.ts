@@ -9,6 +9,7 @@ import { NoticeDetailsComponent } from './notice-details/notice-details.componen
 import { CompanyProfileComponent } from './company-profile/company-profile.component';
 import { PresentationPageComponent } from './presentation-page/presentation-page.component';
 import { TendersStartComponent } from './tenders-start/tenders-start.component';
+import { FabNoticesComponent } from './fab-notices/fab-notices.component';
 
 export const appRoutes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -42,6 +43,11 @@ export const appRoutes: Routes = [
     component: NoticesComponent,
     canActivate: [AuthGuard],
     data: { favorites: true }
+  },
+  {
+    path: 'notices-fab',
+    component: FabNoticesComponent,
+    canActivate: [AuthGuard]
   },
   { path: '**', redirectTo: '' }
 ];

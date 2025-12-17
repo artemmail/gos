@@ -1,0 +1,22 @@
+.fab-notices-container {
+  padding: 16px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.no-data,
+.error-message {
+  padding: 12px 0;
+}
+
+.error-message {
+  color: #c62828;
+}
+
+table {
+  width: 100%;
+}
