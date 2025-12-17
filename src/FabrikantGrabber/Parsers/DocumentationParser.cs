@@ -50,11 +50,6 @@ public sealed class DocumentationParser
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(fileName))
-                continue;
-
-            fileName = fileName.Trim('«', '»', '"', '\'', ' ', '\u00A0', '.');
-
             var linkNode = row.SelectSingleNode(".//a[@href[contains(.,'/documentation/download/single/')]]")
                           ?? row.SelectSingleNode(".//a[contains(., 'Скачать') and @href]");
 
@@ -62,6 +57,48 @@ public sealed class DocumentationParser
 
             var href = linkNode.GetAttributeValue("href", "");
             if (string.IsNullOrWhiteSpace(href)) continue;
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                var dataFileName = HtmlEntity.DeEntitize(linkNode.GetAttributeValue("data-file-name", string.Empty)).Trim();
+                if (!string.IsNullOrWhiteSpace(dataFileName))
+                {
+                    fileName = dataFileName;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                var linkText = HtmlEntity.DeEntitize(linkNode.InnerText ?? string.Empty).Trim();
+                if (!string.IsNullOrWhiteSpace(linkText))
+                {
+                    fileName = linkText;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                var hrefPath = href.Split('?')[0].TrimEnd('/');
+                var lastSlashIndex = hrefPath.LastIndexOf('/');
+                if (lastSlashIndex >= 0 && lastSlashIndex < hrefPath.Length - 1)
+                {
+                    fileName = hrefPath[(lastSlashIndex + 1)..];
+                }
+                else
+                {
+                    fileName = hrefPath;
+                }
+
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    fileName = Uri.UnescapeDataString(fileName);
+                }
+            }
+
+            fileName = fileName.Trim('«', '»', '"', '\'', ' ', '\u00A0', '.');
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                continue;
 
             if (!Uri.TryCreate(href, UriKind.Absolute, out var fileUri))
                 fileUri = new Uri(baseUri, href);
