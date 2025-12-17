@@ -537,7 +537,7 @@ public class NoticesController : ControllerBase
         var notice = await context.Notices
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                n => n.PurchaseNumber == trimmedPurchaseNumber && n.Source == NoticeSource.Mos,
+                n => n.PurchaseNumber == trimmedPurchaseNumber && (n.Source == NoticeSource.Mos || n.Source == NoticeSource.Fabrikant),
                 HttpContext.RequestAborted);
 
         if (notice == null)

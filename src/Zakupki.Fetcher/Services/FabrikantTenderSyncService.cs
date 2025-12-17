@@ -220,12 +220,7 @@ public class FabrikantTenderSyncService
             parsed.ExternalId = procedureId;
             parsed.Title = string.IsNullOrWhiteSpace(parsed.Title) ? procedure.Title : parsed.Title;
 
-            var purchaseNumber = !string.IsNullOrWhiteSpace(parsed.ProcedureNumber)
-                ? parsed.ProcedureNumber
-                : parsed.ExternalId;
-
-            if (!string.IsNullOrWhiteSpace(purchaseNumber) && existingPurchaseNumbers.Contains(purchaseNumber))
-                continue;
+      
 
             var docsUrl = new Uri(options.BaseUrl + DocsPath + procedureId);
             try
