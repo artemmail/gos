@@ -553,6 +553,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "countryInfo", Namespace = Ns.Common)]
@@ -671,6 +672,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "objectInfoUsingReferenceInfo", Namespace = Ns.Common)]
@@ -716,6 +718,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "MNNInfo", Namespace = Ns.Common)]
@@ -839,6 +842,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "KTRU", Namespace = Ns.Common)]
@@ -935,6 +939,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "code", Namespace = Ns.Common)]
@@ -971,6 +976,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "OKEI", Namespace = Ns.Common)]
@@ -1040,6 +1046,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "code", Namespace = Ns.Common)]
@@ -1070,6 +1077,7 @@ namespace Zakupki.EF2020
         public string Sid { get; set; }
 
         [XmlElement(ElementName = "externalSid", Namespace = Ns.Common)]
+        [XmlElement(ElementName = "externalSId", Namespace = Ns.Common)]
         public string ExternalSid { get; set; }
 
         [XmlElement(ElementName = "qualityDescription", Namespace = Ns.Common)]
