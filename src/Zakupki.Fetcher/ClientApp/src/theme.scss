@@ -1,0 +1,8 @@
+@use '@angular/material' as mat;
+@include mat.core();
+$theme: mat.define-light-theme((
+  color: (primary: mat.define-palette(mat.$teal-palette, 800), accent: mat.define-palette(mat.$teal-palette, 700), warn: mat.define-palette(mat.$red-palette, 700)),
+  typography: mat.define-typography-config($font-family: 'Roboto, Arial, sans-serif'),
+  density: -1
+));
+@include mat.all-component-themes($theme);

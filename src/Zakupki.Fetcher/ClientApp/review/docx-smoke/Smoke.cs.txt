@@ -1,0 +1,52 @@
+using System.IO.Compression;
+using System.Reflection;
+using System.Xml.Linq;
+using Zakupki.Fetcher.Data.Entities;
+using Zakupki.Fetcher.Models;
+using Zakupki.Fetcher.Services;
+
+var notice = new Notice { PurchaseNumber = "0112200000825005437", Region = 77 };
+var analysis = new NoticeAnalysis { CompletedAt = DateTime.UtcNow };
+var result = new TenderAnalysisResult
+{
+    Essence = "**Жирная суть** и обычный текст",
+    Summary = "Вывод *курсивом* и `кодом`.",
+    Scores = new TenderScores
+    {
+        Profitability = new ScoreSection
+        {
+            Score = 0.8,
+            ShortComment = "**Краткий** комментарий",
+            DetailedComment = "Первый абзац.\n\n- **Первый пункт**\n- Второй пункт\n\n1. Первый номер\n2. Второй номер"
+        }
+    }
+};
+
+var method = typeof(NoticeAnalysisReportService).GetMethod("BuildWordDocument", BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new Exception("Report builder is missing.");
+var bytes = (byte[])method.Invoke(null, [notice, analysis, result])!;
+using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+using var xmlStream = archive.GetEntry("word/document.xml")!.Open();
+var document = XDocument.Load(xmlStream);
+XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+var runs = document.Descendants(w + "r").ToList();
+var text = string.Concat(document.Descendants(w + "t").Select(t => t.Value));
+
+void Require(bool condition, string message)
+{
+    if (!condition) throw new Exception(message);
+}
+
+bool StyledRun(string content, string style) => runs.Any(run =>
+    run.Elements(w + "t").Any(t => t.Value.Contains(content, StringComparison.Ordinal)) &&
+    run.Element(w + "rPr")?.Element(w + style) is not null);
+
+Require(StyledRun("Жирная суть", "b"), "Bold essence is missing.");
+Require(StyledRun("Краткий", "b"), "Bold table comment is missing.");
+Require(StyledRun("Первый пункт", "b"), "Bold list item is missing.");
+Require(StyledRun("курсивом", "i"), "Italic summary is missing.");
+Require(!text.Contains("**", StringComparison.Ordinal), "Markdown markers remain in the document.");
+Require(text.Contains("• Первый пункт", StringComparison.Ordinal), "Bullet list is missing.");
+Require(text.Contains("1. Первый номер", StringComparison.Ordinal), "Ordered list is missing.");
+Require(document.Descendants(w + "p").Count() > 10, "Paragraph structure is missing.");
+Console.WriteLine($"DOCX OK: {bytes.Length} bytes; bold, italic, lists and paragraphs verified.");

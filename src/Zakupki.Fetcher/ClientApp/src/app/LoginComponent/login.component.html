@@ -1,0 +1,96 @@
+<section class="login-page">
+  <div class="login-story">
+    <div class="eyebrow">
+      АРТЕМ ТЕНДЕР / РАБОЧЕЕ ПРОСТРАНСТВО
+    </div>
+    <h1>
+      Ваш следующий
+      <br>
+      контракт —
+      <br>
+      <em>
+        ближе, чем кажется.
+      </em>
+    </h1>
+    <p>
+      Войдите, чтобы находить подходящие закупки и оценивать их с учётом вашего бизнеса.
+    </p>
+    <div class="login-benefits">
+      <div>
+        <mat-icon>
+          manage_search
+        </mat-icon>
+        <span>
+          Поиск по ключевым словам и по смыслу
+        </span>
+      </div>
+      <div>
+        <mat-icon>
+          auto_awesome
+        </mat-icon>
+        <span>
+          Анализ условий и документации с ИИ
+        </span>
+      </div>
+      <div>
+        <mat-icon>
+          bookmark_border
+        </mat-icon>
+        <span>
+          Избранные закупки в одном месте
+        </span>
+      </div>
+    </div>
+    <a routerLink="/presentation">
+      Подробнее о сервисе
+      <mat-icon>
+        arrow_forward
+      </mat-icon>
+    </a>
+  </div>
+  <div class="login-card">
+    <span class="login-mark">
+      <mat-icon>
+        north_east
+      </mat-icon>
+    </span>
+    <h2>
+      Добро пожаловать
+    </h2>
+    <p>
+      Выберите удобный способ входа.
+      <br>
+      При первом входе аккаунт создастся автоматически.
+    </p>
+    <div class="message error" *ngIf="authError" role="alert">
+      {{ authErrorMessage }}
+    </div>
+    <button class="provider" (click)="loginWithYandex()" [disabled]="isRedirecting">
+      <span class="yandex-symbol" aria-hidden="true">
+        Я
+      </span>
+      Войти с Яндекс ID
+      <mat-icon>
+        arrow_forward
+      </mat-icon>
+    </button>
+    <button class="provider" (click)="loginWithGoogle()" [disabled]="isRedirecting">
+      <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285f4" d="M21.6 12.2c0-.7-.1-1.4-.2-2.1H12v4h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.8 3-4.3 3-7.4Z"/>
+        <path fill="#34a853" d="M12 22c2.7 0 5-1 6.6-2.4l-3.2-2.5c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4H3v2.6A10 10 0 0 0 12 22Z"/>
+        <path fill="#fbbc05" d="M6.4 14a6 6 0 0 1 0-4V7.4H3a10 10 0 0 0 0 9.2Z"/>
+        <path fill="#ea4335" d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A9.5 9.5 0 0 0 12 2a10 10 0 0 0-9 5.4L6.4 10A6 6 0 0 1 12 6Z"/>
+      </svg>
+      Войти с Google
+      <mat-icon>
+        arrow_forward
+      </mat-icon>
+    </button>
+    <div class="login-security" aria-live="polite">
+      <mat-icon>
+        lock_outline
+      </mat-icon>
+      {{ isRedirecting ? 'Переходим на страницу входа…' : 'Вход через защищённую страницу провайдера' }}
+    </div>
+  </div>
+</section>
