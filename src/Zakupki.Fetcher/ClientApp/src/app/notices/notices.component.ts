@@ -1,11 +1,11 @@
 import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatSort, MatSortable, SortDirection } from '@angular/material/sort';
+import { MatSort, SortDirection } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
 import { NoticesService } from '../services/notices.service';
@@ -24,25 +24,36 @@ import { NoticeAnalysisNotificationsService } from '../services/notice-analysis-
 @Component({
   selector: 'app-notices',
   templateUrl: './notices.component.html',
-  styleUrls: ['./notices.component.css']
+  styleUrls: ['./notices.component.css', './tender-card.css']
 })
 export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
+  showFilters = false;
+  compactView = false;
+  private listRequest?: Subscription;
+  private vectorsInitialized = false;
+
+  get activeFilterCount(): number {
+    return [this.expiredOnlyControl.value, this.profileRegionsControl.value, this.profileOkpd2Control.value,
+      !!this.filtersForm.controls.purchaseNumber.value.trim()].filter(Boolean).length;
+  }
+
+  get sortValue(): string { return `${this.sort?.active || 'publishDate'}:${this.sort?.direction || 'desc'}`; }
+
+  changeSort(value: string): void {
+    const [active, direction] = value.split(':');
+    this.sort.active = active;
+    this.sort.direction = direction as SortDirection;
+    this.sort.sortChange.emit({ active, direction: this.sort.direction });
+  }
+
+  setCompactView(compact: boolean): void {
+    this.compactView = compact;
+    try { localStorage.setItem('tenders-compact-view', String(compact)); } catch { /* Storage is optional. */ }
+  }
+
+  trackNotice(_index: number, notice: NoticeListItem): string { return notice.id; }
   private readonly defaultSearchMode: SearchMode = 'direct';
   private readonly filtersStorageKey = 'notices-filters-v1';
-  displayedColumns: string[] = [
-    'favorite',
-    'purchaseNumber',
-    'similarity',
-    'region',
-    'purchaseObjectInfo',
-    'okpd2Code',
-    'okpd2Name',
-    'maxPrice',
-    'publishDate',
-    'collectingEnd',
-    'analysisStatus',
-    'analysis'
-  ];
 
   notices: NoticeListItem[] = [];
   totalCount = 0;
@@ -50,6 +61,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   isLoading = false;
   errorMessage = '';
   analysisProgress: Record<string, boolean> = {};
+  analysisErrors: Record<string, string> = {};
   favoriteProgress: Record<string, boolean> = {};
   isFavoritesPage = false;
   similarityOptions = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90];
@@ -77,7 +89,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   vectorSearchCriteria: Omit<NoticeVectorQuery, 'page' | 'pageSize'> | null = null;
   isAuthenticated = false;
   cachedSortState: SortState | null = null;
-  readonly starIcons = Array.from({ length: 5 });
 
   private readonly destroy$ = new Subject<void>();
 
@@ -101,6 +112,12 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.restoreFiltersFromCache();
+    try { this.compactView = localStorage.getItem('tenders-compact-view') === 'true'; } catch { /* Storage is optional. */ }
+    if (this.isFavoritesPage) {
+      this.searchModeControl.setValue('direct', { emitEvent: false });
+      this.resetVectorCriteria();
+    }
+    this.showFilters = this.activeFilterCount > 0;
     this.setupFilterPersistence();
     this.preloadRegions();
     this.analysisNotifications.analysisUpdates$
@@ -136,7 +153,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sort.sortChange
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.paginator.firstPage();
+        this.paginator.pageIndex = 0;
         this.saveFiltersToCache();
         this.loadNotices();
       });
@@ -164,6 +181,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.listRequest?.unsubscribe();
     this.analysisNotifications.disconnect();
     this.destroy$.next();
     this.destroy$.complete();
@@ -178,6 +196,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
         finalize(() => (this.queryVectorsLoading = false))
       )
       .subscribe({
+        next: vectors => {
+          this.vectorsInitialized = true;
+          this.updateQueryVectors(vectors);
+        },
         error: () => {
           this.snackBar.open('Не удалось загрузить сохранённые запросы.', 'Закрыть', { duration: 4000 });
         }
@@ -189,6 +211,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadNotices(): void {
+    this.listRequest?.unsubscribe();
     const sortField = this.sort?.active ? this.sort.active : 'publishDate';
     const sortDirection = this.sort?.direction ? this.sort.direction : 'desc';
     const pageIndex = this.paginator?.pageIndex ?? 0;
@@ -240,7 +263,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
             sortDirection
           });
 
-    request$
+    this.listRequest = request$
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -252,11 +275,18 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (response: NoticeListResponse) => {
+          if (response.totalCount > 0 && pageIndex * response.pageSize >= response.totalCount) {
+            this.paginator.pageIndex = Math.ceil(response.totalCount / response.pageSize) - 1;
+            Promise.resolve().then(() => this.loadNotices());
+            return;
+          }
           this.notices = response.items;
           this.totalCount = response.totalCount;
           this.pageSize = response.pageSize;
         },
         error: error => {
+          this.notices = [];
+          this.totalCount = 0;
           this.errorMessage = error?.error?.message ?? 'Не удалось загрузить данные. Попробуйте позже.';
         }
       });
@@ -268,9 +298,11 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.analysisProgress[notice.id] = true;
+    delete this.analysisErrors[notice.id];
 
-    this.analysisService
-      .analyze(notice.id, force)
+    const request = notice.analysisStatus === 'InProgress' && !force
+      ? this.analysisService.getStatus(notice.id) : this.analysisService.analyze(notice.id, force);
+    request
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -282,7 +314,8 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
           this.updateNoticeAnalysis(notice, response);
         },
         error: error => {
-          const message = error?.error?.message ?? 'Не удалось запустить анализ.';
+          const message = this.analysisService.describeRequestError(error);
+          this.analysisErrors[notice.id] = message;
           // Дублируем ошибку в консоль браузера для упрощения диагностики.
           // eslint-disable-next-line no-console
           console.error('Не удалось запустить анализ закупки:', message, error);
@@ -298,10 +331,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       if (notice.recommended === true) {
-        return this.formatDecisionScore(notice.decisionScore);
+        return 'Подходит компании';
       }
 
-      return 'Есть ответ';
+      return 'Анализ готов';
     }
 
     if (notice.analysisStatus === 'InProgress' || this.analysisProgress[notice.id]) {
@@ -312,7 +345,7 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       return 'Ошибка';
     }
 
-    return 'Нет ответа';
+    return 'Ожидает анализа';
   }
 
   getAnalysisStatusClass(notice: NoticeListItem): string {
@@ -339,14 +372,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     return 'analysis-status analysis-empty';
   }
 
-  isAnalysisPositive(notice: NoticeListItem): boolean {
-    return this.isAnalysisCompleted(notice) && notice.hasAnalysisAnswer && notice.recommended === true;
-  }
-
-  isAnalysisNegative(notice: NoticeListItem): boolean {
-    return this.isAnalysisCompleted(notice) && notice.hasAnalysisAnswer && notice.recommended === false;
-  }
-
   private isAnalysisCompleted(notice: NoticeListItem): boolean {
     return notice.analysisStatus === 'Completed' || notice.hasAnalysisAnswer;
   }
@@ -357,43 +382,15 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const clamped = Math.min(Math.max(score, 0), 1);
-    const scaled = Math.round(clamped * 1000) / 10;
-    return scaled.toFixed(1);
+    return (clamped * 10).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   }
 
   hasDecisionScore(notice: NoticeListItem): boolean {
     return this.isAnalysisCompleted(notice) && notice.decisionScore !== null && notice.decisionScore !== undefined;
   }
 
-  getDecisionScoreFillPercentage(notice: NoticeListItem): number {
-    if (!this.hasDecisionScore(notice) || Number.isNaN(notice.decisionScore!)) {
-      return 0;
-    }
-
-    const clamped = Math.min(Math.max(notice.decisionScore ?? 0, 0), 1);
-    return clamped * 100;
-  }
-
   applyFilters(): void {
     this.resetVectorCriteria();
-
-    this.saveFiltersToCache();
-
-    if (this.paginator && this.paginator.pageIndex !== 0) {
-      this.paginator.firstPage();
-      return;
-    }
-
-    this.loadNotices();
-  }
-
-  resetFilters(): void {
-    this.filtersForm.reset({
-      search: '',
-      purchaseNumber: ''
-    });
-    this.filtersForm.markAsPristine();
-    this.filtersForm.markAsUntouched();
 
     this.saveFiltersToCache();
 
@@ -425,10 +422,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.updateNoticeAnalysis(notice, response);
+    this.updateNoticeAnalysis(notice, response, false);
   }
 
-  private updateNoticeAnalysis(notice: NoticeListItem, response: NoticeAnalysisResponse): void {
+  private updateNoticeAnalysis(notice: NoticeListItem, response: NoticeAnalysisResponse, openResult = true): void {
     notice.analysisStatus = response.status ?? null;
     notice.hasAnalysisAnswer = response.hasAnswer;
     notice.analysisUpdatedAt = response.updatedAt ?? null;
@@ -448,21 +445,24 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
         recommended: response.recommended ?? null
       };
 
-      this.dialog.open(NoticeAnalysisDialogComponent, {
-        width: '720px',
-        data
-      });
+      const open = () => this.dialog.open(NoticeAnalysisDialogComponent, { width: '800px', data });
+      if (openResult) open();
+      else this.snackBar.open(`Анализ закупки ${notice.purchaseNumber} готов`, 'Открыть', { duration: 8000 })
+        .onAction().pipe(takeUntil(this.destroy$)).subscribe(() => open());
       return;
     }
 
     if (response.status === 'Failed') {
-      const message = response.error ?? 'Не удалось выполнить анализ.';
+      const message = this.analysisService.describeAnalysisError(response.error);
+      this.analysisErrors[notice.id] = message;
       this.snackBar.open(message, 'Закрыть', { duration: 6000 });
       return;
     }
 
+    delete this.analysisErrors[notice.id];
+
     if (response.status === 'InProgress') {
-      this.snackBar.open('Анализ выполняется. Обновите статус позже.', 'Закрыть', { duration: 4000 });
+      if (openResult) this.snackBar.open('ИИ изучает документацию. Результат появится после завершения анализа.', 'Закрыть', { duration: 4000 });
     }
   }
 
@@ -517,13 +517,13 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get pageTitle(): string {
-    return this.isFavoritesPage ? 'Избранные извещения' : 'Поиск по госзкакупкам';
+    return this.isFavoritesPage ? 'Избранное' : 'Найдите свою следующую закупку';
   }
 
   get pageSubtitle(): string {
     return this.isFavoritesPage
-      ? 'Здесь отображаются сохранённые записи из общего реестра'
-      : 'Поиск, сортировка и навигация по таблице данных о закупках';
+      ? 'Перспективные закупки и результаты анализа — всё под рукой.'
+      : 'Находите подходящие тендеры, оценивайте условия и принимайте решения.';
   }
 
   runVectorSearch(): void {
@@ -604,10 +604,6 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  onSemanticModeToggle(enabled: boolean): void {
-    this.onSearchModeChange(enabled ? 'semantic' : 'direct');
-  }
-
   onSubmitSearch(): void {
     if (this.isDirectSearch) {
       this.applyFilters();
@@ -620,39 +616,21 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
   onResetSearch(): void {
     this.expiredOnlyControl.setValue(false);
     this.profileRegionsControl.setValue(false);
+    this.profileOkpd2Control.setValue(false);
+    this.filtersForm.reset({ search: '', purchaseNumber: '' });
+    this.searchModeControl.setValue('direct');
+    this.resetVectorCriteria();
+    this.favoriteSearchForm.reset({ queryVectorId: this.queryVectors[0]?.id ?? '', similarityThreshold: 60 });
+    this.sort.active = 'publishDate';
+    this.sort.direction = 'desc';
+    this.paginator.pageIndex = 0;
     this.saveFiltersToCache();
-
-    if (this.isDirectSearch) {
-      this.resetFilters();
-      return;
-    }
-
-    this.resetFavoriteSearchForm();
+    this.loadNotices();
   }
-
-  private resetFavoriteSearchForm(): void {
-    const defaultQuery = this.queryVectors[0]?.id ?? '';
-
-    this.favoriteSearchForm.reset({
-      queryVectorId: defaultQuery,
-      similarityThreshold: 60
-    });
-
-    this.favoriteSearchForm.markAsPristine();
-    this.favoriteSearchForm.markAsUntouched();
-
-    this.clearVectorSearch();
-    this.saveFiltersToCache();
-  }
-
-  displayVectorQuery = (id: string): string => {
-    const vector = this.queryVectors.find(item => item.id === id);
-
-    return vector?.query ?? '';
-  };
 
   private updateQueryVectors(vectors: UserQueryVectorDto[]): void {
     this.queryVectors = vectors;
+    if (!this.vectorsInitialized) return;
 
     const selectedId = this.favoriteSearchForm.controls.queryVectorId.value;
     const hasSelected = !!selectedId && vectors.some(vector => vector.id === selectedId);
@@ -756,17 +734,10 @@ export class NoticesComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const sortable = this.sort.sortables.get(this.cachedSortState.active) as MatSortable | undefined;
-
-    if (!sortable) {
-      return;
+    if (['publishDate', 'maxPrice', 'collectingEnd', 'similarity'].includes(this.cachedSortState.active)) {
+      this.sort.active = this.cachedSortState.active;
+      this.sort.direction = this.cachedSortState.direction;
     }
-
-    this.sort.sort({
-      id: this.cachedSortState.active,
-      start: this.cachedSortState.direction,
-      disableClear: sortable.disableClear
-    });
   }
 }
 

@@ -1,18 +1,22 @@
 <h2 mat-dialog-title>
-  Анализ закупки 1 {{ data.purchaseNumber }}
+  Анализ закупки № {{ data.purchaseNumber }}
 </h2>
-
 <mat-dialog-content class="analysis-content">
-  <p class="entry-name">{{ data.title }}</p>
+  <p class="entry-name">
+    {{ data.title }}
+  </p>
   <p class="timestamp" *ngIf="data.completedAt">
     Получено: {{ data.completedAt | date: 'short' }}
   </p>
-
   <ng-container *ngIf="hasStructuredResult; else fallbackResult">
     <div class="analysis-overview" *ngIf="decisionScoreTen !== null || recommendation !== null">
       <div class="score-pill" *ngIf="decisionScoreTen !== null">
-        <span class="pill-label">Итоговый балл</span>
-        <span class="pill-score">{{ decisionScoreTen | number: '1.1-1' }}/10</span>
+        <span class="pill-label">
+          Итоговый балл
+        </span>
+        <span class="pill-score">
+          {{ decisionScoreTen | number: '1.1-1' }}/10
+        </span>
       </div>
       <span
         class="recommendation-chip"
@@ -22,49 +26,65 @@
         }"
         *ngIf="recommendation !== null"
       >
-        {{ recommendation ? 'Заказ подходит' : 'Заказ не подходит' }}
+        {{ recommendation ? 'Подходит компании' : 'Не подходит компании' }}
       </span>
     </div>
-
     <div class="summary-card" *ngIf="essenceText">
-      <h3>Суть закупки</h3>
-      <p>{{ essenceText }}</p>
+      <h3>
+        Суть закупки
+      </h3>
+      <div class="markdown-content" [innerHTML]="essenceHtml"></div>
     </div>
-
     <div class="summary-card" *ngIf="summaryText">
-      <h3>Краткий вывод</h3>
-      <p>{{ summaryText }}</p>
+      <h3>
+        Краткий вывод
+      </h3>
+      <div class="markdown-content" [innerHTML]="summaryHtml"></div>
     </div>
-
     <div class="score-sections" *ngIf="scoreSections.length > 0">
       <div class="score-section" *ngFor="let section of scoreSections">
         <div class="section-heading">
-          <h3>{{ section.title }}</h3>
-          <span class="section-score" *ngIf="section.score !== null">{{ section.score | number: '1.1-1' }}/10</span>
+          <h3>
+            {{ section.title }}
+          </h3>
+          <span class="section-score" *ngIf="section.score !== null">
+            {{ section.score | number: '1.1-1' }}/10
+          </span>
         </div>
-        <p class="short-comment" *ngIf="section.shortComment">{{ section.shortComment }}</p>
-        <p class="detailed-comment" *ngIf="section.detailedComment">{{ section.detailedComment }}</p>
+        <div class="short-comment markdown-content" *ngIf="section.shortComment" [innerHTML]="section.shortCommentHtml"></div>
+        <div class="detailed-comment markdown-content" *ngIf="section.detailedComment" [innerHTML]="section.detailedCommentHtml"></div>
       </div>
     </div>
   </ng-container>
-
   <ng-template #fallbackResult>
-    <div class="analysis-text" *ngIf="data.result" [innerText]="data.result"></div>
-    <p class="no-result" *ngIf="!data.result">Результат анализа пока не получен.</p>
+    <div class="analysis-text markdown-content" *ngIf="data.result" [innerHTML]="fallbackHtml">
+    </div>
+    <p class="no-result" *ngIf="!data.result">
+      Результат анализа пока не получен.
+    </p>
   </ng-template>
+  <p class="analysis-footnote">
+    Оценка подготовлена ИИ на основе документов и профиля компании. Проверьте существенные условия перед подачей заявки.
+  </p>
+  <details *ngIf="data.prompt" class="prompt-details">
+    <summary>
+      Запрос к модели
+    </summary>
+    <div class="copy-actions">
+      <button mat-stroked-button type="button" (click)="copyPrompt(data.prompt)">
+        Копировать запрос
+      </button>
+      <span *ngIf="copyStatus === 'success'">
+        Скопировано
+      </span>
+      <span *ngIf="copyStatus === 'error'">
+        Не удалось скопировать
+      </span>
+    </div>
+  </details>
 </mat-dialog-content>
-
 <mat-dialog-actions align="end">
   <div class="analysis-actions" *ngIf="data.prompt || canDownloadReport">
-    <div class="copy-actions" *ngIf="data.prompt">
-      <button mat-stroked-button color="primary" type="button" (click)="copyPrompt(data.prompt)">
-        <mat-icon fontIcon="content_copy"></mat-icon>
-        <span>Копировать запрос</span>
-      </button>
-      <span class="copy-status success" *ngIf="copyStatus === 'success'">Запрос скопирован</span>
-      <span class="copy-status error" *ngIf="copyStatus === 'error'">Не удалось скопировать</span>
-    </div>
-
     <button
       mat-flat-button
       color="primary"
@@ -74,9 +94,14 @@
       (click)="downloadReport()"
       [disabled]="reportInProgress"
     >
-      <mat-icon fontIcon="download"></mat-icon>
-      <span>{{ reportInProgress ? 'Формирование…' : 'Скачать отчёт' }}</span>
+      <mat-icon fontIcon="download">
+      </mat-icon>
+      <span>
+        {{ reportInProgress ? 'Формирование…' : 'Скачать отчёт' }}
+      </span>
     </button>
   </div>
-  <button mat-button (click)="close()">Закрыть</button>
+  <button mat-button (click)="close()">
+    Закрыть
+  </button>
 </mat-dialog-actions>

@@ -3,6 +3,7 @@ import { HttpResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize } from 'rxjs/operators';
+import { Marked } from 'marked';
 
 import { NoticeAnalysisDialogData } from './notice-analysis-dialog.models';
 import { TenderAnalysisResult, TenderScores } from '../models/notice-analysis.models';
@@ -13,6 +14,23 @@ interface ScoreSectionView {
   score: number | null;
   shortComment: string;
   detailedComment: string;
+  shortCommentHtml: string;
+  detailedCommentHtml: string;
+}
+
+const analysisMarkdown = new Marked({
+  gfm: true,
+  breaks: true,
+  renderer: {
+    // Analysis text can include content copied from external documents.
+    // Keep Markdown formatting without rendering arbitrary HTML or images.
+    html() { return ''; },
+    image() { return ''; }
+  }
+});
+
+function renderMarkdown(value: string): string {
+  return analysisMarkdown.parse(value, { async: false }).trim();
 }
 
 @Component({
@@ -28,6 +46,9 @@ export class NoticeAnalysisDialogComponent {
   recommendation: boolean | null = null;
   essenceText: string | null = null;
   summaryText: string | null = null;
+  essenceHtml: string | null = null;
+  summaryHtml: string | null = null;
+  fallbackHtml: string | null = null;
   reportInProgress = false;
 
   constructor(
@@ -45,9 +66,12 @@ export class NoticeAnalysisDialogComponent {
 
     const essence = this.structuredResult?.essence?.trim();
     this.essenceText = essence && essence.length > 0 ? essence : null;
+    this.essenceHtml = this.essenceText ? renderMarkdown(this.essenceText) : null;
 
     const summary = this.structuredResult?.summary?.trim();
     this.summaryText = summary && summary.length > 0 ? summary : null;
+    this.summaryHtml = this.summaryText ? renderMarkdown(this.summaryText) : null;
+    this.fallbackHtml = !this.structuredResult && data.result ? renderMarkdown(data.result) : null;
   }
 
   close(): void {
@@ -218,7 +242,9 @@ export class NoticeAnalysisDialogComponent {
           title,
           score,
           shortComment,
-          detailedComment
+          detailedComment,
+          shortCommentHtml: shortComment ? renderMarkdown(shortComment) : '',
+          detailedCommentHtml: detailedComment ? renderMarkdown(detailedComment) : ''
         } satisfies ScoreSectionView;
       })
       .filter((section): section is ScoreSectionView => section !== null);

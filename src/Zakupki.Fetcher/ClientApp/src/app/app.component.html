@@ -1,30 +1,162 @@
-<mat-toolbar color="primary" class="app-toolbar">
-  <button mat-button routerLink="/" class="app-title">Анализ тендеров ИИ</button>
-  <a mat-button routerLink="/presentation" routerLinkActive="active-link">Презентация</a>
-  <ng-container *ngIf="user$ | async as user; else loginLink">
-    <nav class="nav-links">
-      <a
-        mat-button
-        routerLink="/tenders"
-        routerLinkActive="active-link"
-        [routerLinkActiveOptions]="{ exact: true }"
-      >
-        Тендеры
+<a class="skip-link" href="#main-content">
+  Перейти к содержимому
+</a>
+<div class="app-shell" [class.has-sidebar]="user$ | async">
+  <ng-container *ngIf="user$ | async as user; else publicHeader">
+    <button *ngIf="menuOpen" class="sidebar-backdrop" (click)="closeMenu()" aria-label="Закрыть меню">
+    </button>
+    <aside id="workspace-navigation" class="sidebar" [class.is-open]="menuOpen" [cdkTrapFocus]="menuOpen" [cdkTrapFocusAutoCapture]="menuOpen">
+      <a routerLink="/tenders" class="brand" (click)="closeMenu()">
+        <span class="brand-mark">
+          <mat-icon>
+            north_east
+          </mat-icon>
+        </span>
+        <span>
+          артем
+          <span class="brand-secondary">
+            тендер
+          </span>
+        </span>
+        <span class="brand-ai">
+          AI
+        </span>
       </a>
-      <a mat-button routerLink="/favorites" routerLinkActive="active-link">
-        Избранное<mat-icon fontIcon="favorite"></mat-icon>
+      <button class="mobile-close icon-button" (click)="closeMenu()" aria-label="Закрыть меню">
+        <mat-icon>
+          close
+        </mat-icon>
+      </button>
+      <div class="workspace-label">
+        РАБОЧЕЕ ПРОСТРАНСТВО
+      </div>
+      <nav aria-label="Основная навигация" class="workspace-nav">
+        <a routerLink="/tenders" routerLinkActive="is-active" (click)="closeMenu()" ariaCurrentWhenActive="page">
+          <mat-icon>
+            search
+          </mat-icon>
+          Поиск закупок
+        </a>
+        <a routerLink="/favorites" routerLinkActive="is-active" (click)="closeMenu()" ariaCurrentWhenActive="page">
+          <mat-icon>
+            bookmark_border
+          </mat-icon>
+          Избранное
+        </a>
+        <div class="nav-divider">
+        </div>
+        <a routerLink="/company-profile" routerLinkActive="is-active" (click)="closeMenu()" ariaCurrentWhenActive="page">
+          <mat-icon>
+            business
+          </mat-icon>
+          Моя компания
+        </a>
+      </nav>
+      <a class="sidebar-tip" routerLink="/company-profile" (click)="closeMenu()">
+        <mat-icon>
+          auto_awesome
+        </mat-icon>
+        <strong>
+          Поиск с пониманием
+          <br>
+          вашего бизнеса
+        </strong>
+        <p>
+          Настройте профиль компании для точного подбора закупок.
+        </p>
+        <span>
+          Настроить профиль
+          <mat-icon>
+            arrow_forward
+          </mat-icon>
+        </span>
       </a>
-    </nav>
-    <span class="spacer"></span>
-    <span class="user-name">{{ user.displayName || user.email }}</span>
-    <a mat-button routerLink="/company-profile" routerLinkActive="active-link">Профиль компании</a>
-    <button mat-button (click)="onLogout()">Выйти</button>
+      <a class="sidebar-help" routerLink="/presentation" (click)="closeMenu()">
+        <mat-icon>
+          help_outline
+        </mat-icon>
+        Как это работает
+        <mat-icon>
+          north_east
+        </mat-icon>
+      </a>
+      <div class="account">
+        <span class="avatar">
+          {{ (user.displayName || user.email || 'К').slice(0, 1) | uppercase }}
+        </span>
+        <div>
+          <strong>
+            {{ user.displayName || 'Мой аккаунт' }}
+          </strong>
+          <span>
+            {{ user.email }}
+          </span>
+        </div>
+        <button class="icon-button" (click)="onLogout()" aria-label="Выйти из аккаунта" title="Выйти">
+          <mat-icon>
+            logout
+          </mat-icon>
+        </button>
+      </div>
+    </aside>
+    <header class="workspace-header">
+      <div class="header-left">
+        <button #menuButton class="mobile-toggle icon-button" (click)="menuOpen = !menuOpen" [attr.aria-expanded]="menuOpen" aria-controls="workspace-navigation" aria-label="Открыть меню">
+          <mat-icon>
+            menu
+          </mat-icon>
+        </button>
+        <span class="breadcrumb-root">
+          Рабочее пространство
+        </span>
+        <mat-icon class="breadcrumb-chevron">
+          chevron_right
+        </mat-icon>
+        <span>
+          {{ currentPage }}
+        </span>
+      </div>
+      <a routerLink="/company-profile" class="header-company">
+        <mat-icon>
+          tune
+        </mat-icon>
+        Настройки подбора
+      </a>
+    </header>
   </ng-container>
-  <ng-template #loginLink>
-    <span class="spacer"></span>
-    <button mat-button routerLink="/login">Войти</button>
+  <ng-template #publicHeader>
+    <header class="public-header">
+      <a routerLink="/" class="brand">
+        <span class="brand-mark">
+          <mat-icon>
+            north_east
+          </mat-icon>
+        </span>
+        <span>
+          артем
+          <span class="brand-secondary">
+            тендер
+          </span>
+        </span>
+        <span class="brand-ai">
+          AI
+        </span>
+      </a>
+      <nav aria-label="Навигация">
+        <a routerLink="/presentation" class="public-about">
+          О сервисе
+        </a>
+        <a routerLink="/login" class="button button-dark">
+          Войти
+          <mat-icon>
+            arrow_forward
+          </mat-icon>
+        </a>
+      </nav>
+    </header>
   </ng-template>
-</mat-toolbar>
-<main class="app-content">
-  <router-outlet></router-outlet>
-</main>
+  <main id="main-content" class="app-content" tabindex="-1">
+    <router-outlet>
+    </router-outlet>
+  </main>
+</div>

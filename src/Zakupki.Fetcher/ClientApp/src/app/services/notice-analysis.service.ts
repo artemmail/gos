@@ -26,6 +26,35 @@ export class NoticeAnalysisService {
 
   constructor(private readonly http: HttpClient) {}
 
+  describeAnalysisError(error: string | null | undefined): string {
+    const message = error?.trim();
+    if (!message) return 'Не удалось завершить анализ. Попробуйте ещё раз.';
+    if (message.includes('скачать документы') || message.includes('подготовить вложения')) {
+      return 'Не удалось загрузить документы закупки с ЕИС. Откройте «Документы», нажмите «Загрузить документы» и повторите анализ.';
+    }
+    if (message.includes('преобразовать документы') || message.includes('конвертацию')) {
+      return 'Документы скачаны, но их не удалось преобразовать в текст. Откройте «Документы», выполните конвертацию и повторите анализ.';
+    }
+    if (/timeout|timed out|истекло время ожидания/i.test(message)) {
+      return 'Сервис анализа отвечает слишком долго. Повторите попытку позже.';
+    }
+    if (/SSL connection|unexpected EOF|certificate chain|TLS handshake/i.test(message)) {
+      return 'Не удалось установить защищённое соединение с сервисом ИИ. Повторите анализ через несколько минут.';
+    }
+    if (message.includes('Сервис анализа вернул ошибку')) {
+      return 'Сервис ИИ временно недоступен. Повторите попытку позже или обратитесь к администратору.';
+    }
+    return message;
+  }
+
+  describeRequestError(error: any): string {
+    const message = error?.error?.message;
+    if (typeof message === 'string' && message.trim()) return this.describeAnalysisError(message);
+    if (error?.status === 0) return 'Нет связи с сервером. Проверьте подключение и повторите попытку.';
+    if (error?.status === 401) return 'Сессия закончилась. Войдите снова и повторите анализ.';
+    return 'Не удалось запустить анализ. Повторите попытку позже.';
+  }
+
   analyze(noticeId: string, force = false): Observable<NoticeAnalysisResponse> {
     let params = new HttpParams();
 

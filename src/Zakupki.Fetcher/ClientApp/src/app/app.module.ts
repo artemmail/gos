@@ -1,5 +1,8 @@
 import { LOCALE_ID, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { A11yModule } from '@angular/cdk/a11y';
+import { MatPaginatorIntl } from '@angular/material/paginator';
+import { RussianPaginatorIntl } from './services/russian-paginator';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientModule, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ReactiveFormsModule } from '@angular/forms';
@@ -46,6 +49,7 @@ registerLocaleData(localeRu);
   ],
   imports: [
     BrowserModule,
+    A11yModule,
     BrowserAnimationsModule,
     HttpClientModule,
     ReactiveFormsModule,
@@ -54,7 +58,8 @@ registerLocaleData(localeRu);
   ],
   providers: [
     provideHttpClient(withInterceptors([authInterceptor])),
-    { provide: LOCALE_ID, useValue: 'ru-RU' }
+    { provide: LOCALE_ID, useValue: 'ru-RU' },
+    { provide: MatPaginatorIntl, useClass: RussianPaginatorIntl }
   ],
   bootstrap: [AppComponent]
 })

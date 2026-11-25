@@ -1,79 +1,118 @@
-<div class="notice-details-page">
-  <div class="content-container page-container">
-    <mat-card>
-      <div class="page-header">
-        <button mat-button type="button" (click)="goBack()" class="back-button">
-          <mat-icon fontIcon="arrow_back"></mat-icon>
-          <span>Назад</span>
-        </button>
-
-        <div class="page-header-text">
-          <div class="notice-number">Закупка {{ details?.purchaseNumber }}</div>
-          <div class="notice-title">{{ title }}</div>
-        </div>
-
-        <div class="header-actions">
-          <button mat-stroked-button color="primary" type="button" (click)="loadNotice()" [disabled]="isLoading">
-            <mat-icon fontIcon="refresh"></mat-icon>
-            <span>Обновить</span>
-          </button>
-          <button
-            mat-stroked-button
-            color="primary"
-            type="button"
-            (click)="openAttachments()"
-          >
-            <mat-icon fontIcon="attach_file"></mat-icon>
-            <span>Вложения</span>
-          </button>
-          <button
-            mat-stroked-button
-            color="primary"
-            type="button"
-            (click)="openRawJson()"
-     
-          >
-            <mat-icon fontIcon="code"></mat-icon>
-            <span>Открыть JSON</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="loading-block" *ngIf="isLoading">
-        <mat-spinner diameter="48"></mat-spinner>
-      </div>
-
-      <div class="error-block" *ngIf="!isLoading && errorMessage">
-        <mat-icon fontIcon="error_outline"></mat-icon>
-        <p>{{ errorMessage }}</p>
-        <button mat-raised-button color="primary" type="button" (click)="loadNotice()">
-          Повторить
-        </button>
-      </div>
-
-      <ng-container *ngIf="!isLoading && !errorMessage">
-        <app-notice-common-info
-          *ngIf="parsedNotice; else parseErrorTpl"
-          [notice]="parsedNotice"
-          [attachments]="attachments"
-        ></app-notice-common-info>
-      </ng-container>
-
-      <ng-template #parseErrorTpl>
-        <div class="error-block">
-          <mat-icon fontIcon="warning"></mat-icon>
-          <p>{{ parseError }}</p>
-          <button
-            mat-stroked-button
-            color="primary"
-            type="button"
-            (click)="openRawJson()"
-        
-          >
-            Смотреть JSON
-          </button>
-        </div>
-      </ng-template>
-    </mat-card>
+<div class="page-container detail-page">
+  <div class="detail-navigation">
+    <a routerLink="/tenders">
+      <mat-icon>
+        arrow_back
+      </mat-icon>
+      К поиску закупок
+    </a>
+    <span>
+      Карточка закупки
+    </span>
   </div>
+  <div *ngIf="isLoading" class="loading-container" role="status">
+    <mat-spinner diameter="32">
+    </mat-spinner>
+    Загружаем закупку…
+  </div>
+  <div *ngIf="!isLoading && errorMessage" class="error-state" role="alert">
+    <mat-icon>
+      cloud_off
+    </mat-icon>
+    <h1>
+      Не удалось открыть закупку
+    </h1>
+    <p>
+      {{ errorMessage }}
+    </p>
+    <button class="button button-primary" (click)="loadNotice()">
+      Попробовать снова
+    </button>
+  </div>
+  <ng-container *ngIf="!isLoading && !errorMessage && details">
+    <div class="detail-toolbar">
+      <div class="detail-id">
+        <span class="eyebrow">
+          ИЗВЕЩЕНИЕ ЕИС
+        </span>
+        <span>
+          № {{ details.purchaseNumber }}
+        </span>
+      </div>
+      <div class="detail-actions">
+        <button class="button" (click)="openAttachments()">
+          <mat-icon>
+            description
+          </mat-icon>
+          Документы
+        </button>
+        <button class="icon-button" (click)="loadNotice()" aria-label="Обновить закупку" title="Обновить закупку">
+          <mat-icon>
+            refresh
+          </mat-icon>
+        </button>
+      </div>
+    </div>
+    <section class="analysis-banner">
+      <span class="analysis-banner-icon">
+        <mat-icon>
+          auto_awesome
+        </mat-icon>
+      </span>
+      <div>
+        <h2>
+          {{ analysisStatus === 'InProgress' ? 'ИИ изучает документацию' : 'Разберитесь в закупке быстрее' }}
+        </h2>
+        <p>
+          {{ analysisStatus === 'InProgress' ? 'Результат появится после завершения анализа. Можно проверить статус.' : 'Получите оценку условий, требований и соответствия вашей компании.' }}
+        </p>
+      </div>
+      <ng-container *ngIf="auth.user$ | async; else signIn">
+        <button class="button button-primary" (click)="analyze()" [disabled]="analysisLoading">
+          <mat-icon>
+            {{ analysisStatus === 'InProgress' ? 'refresh' : 'auto_awesome' }}
+          </mat-icon>
+          {{ analysisLoading ? 'Загружаем…' : analysisStatus === 'InProgress' ? 'Проверить статус' : 'Открыть анализ' }}
+        </button>
+      </ng-container>
+      <ng-template #signIn>
+        <a class="button button-primary" routerLink="/login" [queryParams]="{returnUrl: '/notices/' + purchaseNumber}">
+          Войти для анализа
+        </a>
+      </ng-template>
+    </section>
+    <div class="analysis-error-note" *ngIf="analysisErrorMessage" role="alert">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <span>{{ analysisErrorMessage }}</span>
+    </div>
+    <app-notice-common-info *ngIf="parsedNotice; else parseErrorTpl" [notice]="parsedNotice" [attachments]="attachments">
+    </app-notice-common-info>
+    <ng-template #parseErrorTpl>
+      <section class="notice-fallback">
+        <h1>
+          {{ title }}
+        </h1>
+        <p>
+          {{ parseError }}
+        </p>
+        <button class="button" (click)="openAttachments()">
+          Посмотреть документы
+        </button>
+      </section>
+    </ng-template>
+    <details class="technical-details" *ngIf="rawJsonText">
+      <summary>
+        Исходные данные извещения
+      </summary>
+      <p>
+        Данные, полученные от источника закупки.
+      </p>
+      <button class="button" (click)="openRawJson()">
+        <mat-icon>
+          data_object
+        </mat-icon>
+        Посмотреть данные
+      </button>
+    </details>
+  </ng-container>
 </div>

@@ -21,7 +21,7 @@ namespace Zakupki.Fetcher.Services;
 
 /// <summary>
 /// Persists <see cref="NoticeDocument"/> payloads into the application database.
-/// The processor performs a best-effort upsert of notices, their versions, procedure windows and attachments.
+/// Upserts notices and their versions atomically, serializing concurrent imports of the same purchase.
 /// </summary>
 public sealed class NoticeProcessor
 {
@@ -45,7 +45,7 @@ public sealed class NoticeProcessor
         _regionDeterminationService = regionDeterminationService;
     }
 
-    public async Task ProcessAsync(NoticeDocument document, CancellationToken cancellationToken)
+    public async Task<bool> ProcessAsync(NoticeDocument document, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -57,7 +57,7 @@ public sealed class NoticeProcessor
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to deserialize XML for entry {EntryName}", document.EntryName);
-            return;
+            throw;
         }
 
         var notification = export.AnyNotification;
@@ -65,28 +65,26 @@ public sealed class NoticeProcessor
         {
             if (export.Contract is not null)
             {
-                await ProcessContractAsync(export.Contract, document, cancellationToken);
+                return await ProcessContractAsync(export.Contract, document, cancellationToken);
             }
             else
             {
                 _logger.LogWarning("Document {EntryName} does not contain a supported payload", document.EntryName);
             }
 
-            return;
+            return false;
         }
 
         var commonInfo = notification.CommonInfo;
         if (commonInfo is null)
         {
-            _logger.LogWarning("Notification {EntryName} is missing the commonInfo block", document.EntryName);
-            return;
+            throw new InvalidDataException($"Notification {document.EntryName} is missing the commonInfo block.");
         }
 
         var externalId = FirstNonEmpty(notification.ExternalId, notification.Id, commonInfo.PurchaseNumber, document.EntryName);
         if (string.IsNullOrWhiteSpace(externalId))
         {
-            _logger.LogWarning("Unable to determine an external identifier for entry {EntryName}", document.EntryName);
-            return;
+            throw new InvalidDataException($"Unable to determine an external identifier for {document.EntryName}.");
         }
 
         var contractConditions = notification.NotificationInfo?.ContractConditionsInfo;
@@ -94,13 +92,23 @@ public sealed class NoticeProcessor
         var serializedNotification = JsonSerializer.Serialize(notification, JsonSerializerOptions);
 
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var purchaseNumber = commonInfo.PurchaseNumber?.Trim() ?? externalId;
+        await LockImportAsync(dbContext, "Notice:" + purchaseNumber, cancellationToken);
         var now = DateTime.UtcNow;
 
         var existingVersion = await dbContext.NoticeVersions
             .Include(v => v.Notice)
             .FirstOrDefaultAsync(v => v.ExternalId == externalId, cancellationToken);
 
-        var notice = existingVersion?.Notice;
+        // Document IDs may change between revisions of a single purchase.
+        // Contract payloads have their own notice rows and remain grouped by contract ID.
+        var notice = existingVersion?.Notice ?? await dbContext.Notices
+            .Where(n => n.PurchaseNumber == purchaseNumber &&
+                !n.Versions.Any(v => dbContext.Contracts.Any(c => c.ExternalId == v.ExternalId)))
+            .OrderByDescending(n => n.Versions.Max(v => (int?)v.VersionNumber))
+            .ThenBy(n => n.Id)
+            .FirstOrDefaultAsync(cancellationToken);
         var isNewNotice = notice is null;
         if (isNewNotice)
         {
@@ -110,16 +118,24 @@ public sealed class NoticeProcessor
             };
         }
 
-        MapNotice(
-            notice!,
-            document,
-            notification,
-            commonInfo,
-            contractConditions,
-            customerRequirements,
-            notification.NotificationInfo?.ProcedureInfo,
-            serializedNotification,
-            externalId);
+        var latestNumber = isNewNotice ? null : await dbContext.NoticeVersions
+            .Where(v => v.NoticeId == notice!.Id)
+            .MaxAsync(v => (int?)v.VersionNumber, cancellationToken);
+        var isLatest = latestNumber is null || notification.VersionNumber >= latestNumber;
+
+        if (isLatest)
+        {
+            MapNotice(
+                notice!,
+                document,
+                notification,
+                commonInfo,
+                contractConditions,
+                customerRequirements,
+                notification.NotificationInfo?.ProcedureInfo,
+                serializedNotification,
+                externalId);
+        }
 
         if (isNewNotice)
         {
@@ -133,6 +149,9 @@ public sealed class NoticeProcessor
             .FirstOrDefaultAsync(v => v.NoticeId == notice!.Id && v.VersionNumber == notification.VersionNumber, cancellationToken);
 
         var isNewVersion = version is null;
+        var hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedNotification));
+        if (version?.Hash == hash && version.IsActive == isLatest)
+            return false;
         if (isNewVersion)
         {
             version = new NoticeVersion
@@ -147,26 +166,32 @@ public sealed class NoticeProcessor
         }
 
         MapNoticeVersion(version!, document, serializedNotification, notification, externalId, now);
+        version!.IsActive = isLatest;
         UpdateProcedureWindow(version!, notification.NotificationInfo?.ProcedureInfo);
         UpdateAttachments(dbContext, version!, notification.AttachmentsInfo?.Items, document.EntryName, now);
-        await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
+        if (isLatest)
+            await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         _logger.LogInformation("Imported notice {ExternalId} version {VersionNumber}", externalId, version!.VersionNumber);
+        return true;
     }
 
-    private async Task ProcessContractAsync(ContractExport contract, NoticeDocument document, CancellationToken cancellationToken)
+    private async Task<bool> ProcessContractAsync(ContractExport contract, NoticeDocument document, CancellationToken cancellationToken)
     {
         var externalId = FirstNonEmpty(contract.RegNum, contract.Id, document.EntryName);
         if (string.IsNullOrWhiteSpace(externalId))
         {
             _logger.LogWarning("Unable to determine an external identifier for contract entry {EntryName}", document.EntryName);
-            return;
+            throw new InvalidDataException($"Unable to determine an external identifier for contract {document.EntryName}.");
         }
 
         var serializedContract = JsonSerializer.Serialize(contract, JsonSerializerOptions);
 
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await LockImportAsync(dbContext, "Contract:" + externalId, cancellationToken);
         var now = DateTime.UtcNow;
 
         var existingVersion = await dbContext.NoticeVersions
@@ -183,7 +208,12 @@ public sealed class NoticeProcessor
             };
         }
 
-        MapContractNotice(notice!, document, contract, serializedContract, externalId);
+        var latestNumber = isNewNotice ? null : await dbContext.NoticeVersions
+            .Where(v => v.NoticeId == notice!.Id)
+            .MaxAsync(v => (int?)v.VersionNumber, cancellationToken);
+        var isLatest = latestNumber is null || contract.VersionNumber >= latestNumber;
+        if (isLatest)
+            MapContractNotice(notice!, document, contract, serializedContract, externalId);
 
         if (isNewNotice)
         {
@@ -197,6 +227,9 @@ public sealed class NoticeProcessor
             .FirstOrDefaultAsync(v => v.NoticeId == notice!.Id && v.VersionNumber == contract.VersionNumber, cancellationToken);
 
         var isNewVersion = version is null;
+        var hash = HashUtilities.ComputeSha256Hex(Encoding.UTF8.GetBytes(serializedContract));
+        if (version?.Hash == hash && version.IsActive == isLatest)
+            return false;
         if (isNewVersion)
         {
             version = new NoticeVersion
@@ -211,6 +244,7 @@ public sealed class NoticeProcessor
         }
 
         MapContractNoticeVersion(version!, document, serializedContract, contract, externalId, now);
+        version!.IsActive = isLatest;
 
         var contractEntity = await dbContext.Contracts
             .FirstOrDefaultAsync(c => c.ExternalId == externalId, cancellationToken);
@@ -225,17 +259,31 @@ public sealed class NoticeProcessor
             };
         }
 
-        MapContractEntity(contractEntity!, document, contract, serializedContract, externalId, now);
+        if (isLatest)
+            MapContractEntity(contractEntity!, document, contract, serializedContract, externalId, now);
 
         if (isNewContract)
         {
             dbContext.Contracts.Add(contractEntity!);
         }
 
-        await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
+        if (isLatest)
+            await DeactivateOtherVersionsAsync(dbContext, notice!.Id, version!.Id, now, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         _logger.LogInformation("Imported contract {ExternalId} version {VersionNumber}", externalId, version!.VersionNumber);
+        return true;
+    }
+
+    private static Task<int> LockImportAsync(NoticeDbContext dbContext, string resource, CancellationToken cancellationToken)
+    {
+        return dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            DECLARE @result int;
+            EXEC @result = sys.sp_getapplock @Resource = {resource},
+                @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 15000;
+            IF @result < 0 THROW 51000, N'Не удалось получить блокировку импорта закупки.', 1;
+            """, cancellationToken);
     }
 
     private static Export LoadExport(NoticeDocument document)
@@ -264,7 +312,7 @@ public sealed class NoticeProcessor
             EnumerateFactAddresses(notification),
             EnumerateInnCandidates(notification),
             document.Region);
-        notice.PurchaseNumber = commonInfo.PurchaseNumber ?? externalId;
+        notice.PurchaseNumber = commonInfo.PurchaseNumber?.Trim() ?? externalId;
         notice.PublishDate = commonInfo.PublishDtInEis;
         notice.Href = commonInfo.Href;
         notice.PlacingWayCode = commonInfo.PlacingWay?.Code;

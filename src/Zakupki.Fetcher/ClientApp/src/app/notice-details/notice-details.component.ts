@@ -12,6 +12,10 @@ import { RawJsonDialogData } from '../models/raw-json.models';
 import { NoticesService } from '../services/notices.service';
 import { AttachmentsService } from '../services/attachments.service';
 import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-dialog.component';
+import { AuthService } from '../services/AuthService.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { NoticeAnalysisService, NoticeAnalysisResponse } from '../services/notice-analysis.service';
+import { NoticeAnalysisDialogComponent } from '../notice-analysis-dialog/notice-analysis-dialog.component';
 
 @Component({
   selector: 'app-notice-details',
@@ -19,6 +23,9 @@ import { AttachmentsDialogComponent } from '../attachments-dialog/attachments-di
   styleUrls: ['./notice-details.component.css']
 })
 export class NoticeDetailsComponent implements OnInit, OnDestroy {
+  analysisLoading = false;
+  analysisStatus: string | null = null;
+  analysisErrorMessage = '';
   noticeId = '';
   purchaseNumber = '';
   isLoading = false;
@@ -37,7 +44,10 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     private readonly attachmentsService: AttachmentsService,
     private readonly dialog: MatDialog,
     private readonly location: Location,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    public readonly auth: AuthService,
+    private readonly analysisService: NoticeAnalysisService,
+    private readonly snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
@@ -150,6 +160,35 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     });
   }
 
+  analyze(): void {
+    if (!this.noticeId || this.analysisLoading) return;
+    this.analysisLoading = true;
+    this.analysisErrorMessage = '';
+    const request = this.analysisStatus === 'InProgress'
+      ? this.analysisService.getStatus(this.noticeId) : this.analysisService.analyze(this.noticeId);
+    request.pipe(takeUntil(this.destroy$), finalize(() => this.analysisLoading = false)).subscribe({
+      next: (response: NoticeAnalysisResponse) => {
+        this.analysisStatus = response.status;
+        if (response.status === 'Completed') {
+          this.dialog.open(NoticeAnalysisDialogComponent, { width: '800px', data: {
+            noticeId: this.noticeId, purchaseNumber: this.purchaseNumber, title: this.title,
+            result: response.result, completedAt: response.completedAt, structuredResult: response.structuredResult,
+            decisionScore: response.decisionScore, recommended: response.recommended, prompt: response.prompt
+          } });
+        } else {
+          if (response.status === 'Failed') {
+            this.analysisErrorMessage = this.analysisService.describeAnalysisError(response.error);
+          } else {
+            this.snackBar.open('Анализ выполняется. Проверьте статус через некоторое время.', 'Закрыть', { duration: 5000 });
+          }
+        }
+      },
+      error: error => {
+        this.analysisErrorMessage = this.analysisService.describeRequestError(error);
+      }
+    });
+  }
+
   openAttachments(): void {
     if (!this.noticeId || !this.details) {
       return;
@@ -178,7 +217,12 @@ export class NoticeDetailsComponent implements OnInit, OnDestroy {
     }
 
     try {
-      return JSON.parse(rawJson) as NoticeCommonInfo;
+      const parsed = JSON.parse(rawJson) as NoticeCommonInfo;
+      if (!parsed?.commonInfo || typeof parsed.commonInfo !== 'object') {
+        this.parseError = 'Подробные сведения недоступны. Условия можно проверить в документах закупки.';
+        return null;
+      }
+      return parsed;
     } catch {
       this.parseError = 'Не удалось разобрать данные извещения.';
       return null;

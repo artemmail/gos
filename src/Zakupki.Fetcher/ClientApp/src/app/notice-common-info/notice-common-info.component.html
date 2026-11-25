@@ -4,11 +4,11 @@
     <div class="notice-header-main">
       <div class="notice-number">
         <span class="label">Номер извещения</span>
-        <span class="value">{{ n.commonInfo?.docNumber || n.commonInfo?.purchaseNumber }}</span>
+        <span class="value">{{ n.commonInfo.docNumber || n.commonInfo.purchaseNumber }}</span>
       </div>
 
       <h1 class="notice-title">
-        {{ n.commonInfo?.purchaseObjectInfo }}
+        {{ n.commonInfo.purchaseObjectInfo }}
       </h1>
     </div>
 
@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <div class="etp-block" *ngIf="n.commonInfo?.etp as etp">
+      <div class="etp-block" *ngIf="n.commonInfo.etp as etp">
         <div class="label">Электронная площадка</div>
         <div class="etp-name">
           <a *ngIf="etp.url" [href]="etp.url" target="_blank" rel="noopener">
@@ -41,26 +41,26 @@
     <div class="section-title">Общие сведения</div>
     <table class="info-table">
       <tbody>
-        <tr *ngIf="n.commonInfo?.placingWay as pw">
+        <tr *ngIf="n.commonInfo.placingWay as pw">
           <th>Способ определения поставщика</th>
           <td>{{ pw.name }} <span class="muted" *ngIf="pw.code">({{ pw.code }})</span></td>
         </tr>
 
-        <tr *ngIf="n.commonInfo?.plannedPublishDateRaw">
+        <tr *ngIf="n.commonInfo.plannedPublishDateRaw">
           <th>Планируемая дата публикации</th>
-          <td>{{ formatRawDate(n.commonInfo?.plannedPublishDateRaw) }}</td>
+          <td>{{ formatRawDate(n.commonInfo.plannedPublishDateRaw) }}</td>
         </tr>
 
-        <tr *ngIf="n.commonInfo?.publishDtInEis">
+        <tr *ngIf="n.commonInfo.publishDtInEis">
           <th>Дата и время размещения в ЕИС</th>
-          <td>{{ formatDateTime(n.commonInfo?.publishDtInEis) }}</td>
+          <td>{{ formatDateTime(n.commonInfo.publishDtInEis) }}</td>
         </tr>
 
-        <tr *ngIf="n.commonInfo?.href">
+        <tr *ngIf="n.commonInfo.href">
           <th>Ссылка на карточку в ЕИС</th>
           <td>
-            <a [href]="n.commonInfo?.href" target="_blank" rel="noopener">
-              {{ n.commonInfo?.href }}
+            <a [href]="n.commonInfo.href" target="_blank" rel="noopener">
+              {{ n.commonInfo.href }}
             </a>
           </td>
         </tr>
@@ -68,20 +68,20 @@
         <tr>
           <th>Статус публикации</th>
           <td>
-            <span *ngIf="n.commonInfo?.notPublishedOnEis" class="badge badge-warning">
+            <span *ngIf="n.commonInfo.notPublishedOnEis" class="badge badge-warning">
               Не опубликовано в ЕИС
             </span>
-            <span *ngIf="!n.commonInfo?.notPublishedOnEis" class="badge badge-success">
+            <span *ngIf="!n.commonInfo.notPublishedOnEis" class="badge badge-success">
               Опубликовано
             </span>
           </td>
         </tr>
 
-        <tr *ngIf="n.commonInfo?.contractConclusionOnSt83Ch2 !== undefined">
+        <tr *ngIf="n.commonInfo.contractConclusionOnSt83Ch2 !== undefined">
           <th>Заключение контракта по п. 2 ч. 1 ст. 83</th>
           <td>
-            <span *ngIf="n.commonInfo?.contractConclusionOnSt83Ch2">Да</span>
-            <span *ngIf="!n.commonInfo?.contractConclusionOnSt83Ch2">Нет</span>
+            <span *ngIf="n.commonInfo.contractConclusionOnSt83Ch2">Да</span>
+            <span *ngIf="!n.commonInfo.contractConclusionOnSt83Ch2">Нет</span>
           </td>
         </tr>
       </tbody>

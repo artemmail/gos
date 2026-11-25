@@ -1,116 +1,101 @@
 <h2 mat-dialog-title>
-  Вложения для {{ data.purchaseNumber }}
+  Документы закупки
 </h2>
-
 <mat-dialog-content>
-  <p class="dialog-subtitle">{{ data.title }}</p>
-
+  <p class="dialog-subtitle">
+    № {{ data.purchaseNumber }} · {{ data.title }}
+  </p>
   <div class="messages">
-    <div class="message info" *ngIf="infoMessage">
-      <mat-icon fontIcon="info"></mat-icon>
-      <span>{{ infoMessage }}</span>
+    <div class="message info" *ngIf="infoMessage" role="status">
+      <mat-icon>
+        info_outline
+      </mat-icon>
+      {{ infoMessage }}
     </div>
-    <div class="message error" *ngIf="errorMessage">
-      <mat-icon fontIcon="error_outline"></mat-icon>
-      <span>{{ errorMessage }}</span>
+    <div class="message error" *ngIf="errorMessage" role="alert">
+      <mat-icon>
+        error_outline
+      </mat-icon>
+      <span>
+        {{ errorMessage }}
+      </span>
+      <button mat-button (click)="loadAttachments()" [disabled]="isLoading">
+        Повторить
+      </button>
     </div>
   </div>
-
   <div class="actions-bar" *ngIf="hasAttachments">
-    <button
-      mat-raised-button
-      color="primary"
-      (click)="downloadMissing()"
-      [disabled]="isDownloadingAll || !hasMissingAttachments"
-    >
-      <mat-icon fontIcon="cloud_download"></mat-icon>
-      <span>Скачать недостающие</span>
+    <button mat-stroked-button color="primary" (click)="downloadMissing()" [disabled]="isDownloadingAll || !hasMissingAttachments">
+      <mat-icon>
+        cloud_download
+      </mat-icon>
+      {{ isDownloadingAll ? 'Загружаем…' : 'Загрузить документы' }}
     </button>
-    <button
-      mat-raised-button
-      color="accent"
-      (click)="convertAllToMarkdown()"
-      [disabled]="isConvertingAll || !hasConvertibleAttachments"
-    >
-      <mat-icon fontIcon="auto_fix_high"></mat-icon>
-      <span>Преобразовать все</span>
+    <button mat-stroked-button color="primary" (click)="convertAllToMarkdown()" [disabled]="isConvertingAll || !hasConvertibleAttachments">
+      <mat-icon>
+        auto_fix_high
+      </mat-icon>
+      {{ isConvertingAll ? 'Подготавливаем…' : 'Подготовить текст' }}
     </button>
   </div>
-
-  <div class="table-container" *ngIf="hasAttachments; else noAttachments">
-    <div class="loading-overlay" *ngIf="isLoading">
-      <mat-spinner diameter="40"></mat-spinner>
-    </div>
-
-    <table mat-table [dataSource]="attachments" class="attachments-table">
-      <ng-container matColumnDef="fileName">
-        <th mat-header-cell *matHeaderCellDef>Файл</th>
-        <td mat-cell *matCellDef="let element">
-          <div class="file-name">{{ element.fileName }}</div>
-          <div class="file-meta" *ngIf="element.description">{{ element.description }}</div>
-          <div class="file-meta" *ngIf="element.url">{{ element.url }}</div>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="documentDate">
-        <th mat-header-cell *matHeaderCellDef>Дата документа</th>
-        <td mat-cell *matCellDef="let element">
-          {{ element.documentDate ? (element.documentDate | date: 'short') : '—' }}
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>Статус</th>
-        <td mat-cell *matCellDef="let element" class="status-cell">
-          <mat-icon
-            [fontIcon]="element.hasBinaryContent ? 'cloud_done' : 'cloud_off'"
-            [ngClass]="{ downloaded: element.hasBinaryContent, missing: !element.hasBinaryContent }"
-          ></mat-icon>
+  <div class="loading-container" *ngIf="isLoading" role="status">
+    <mat-spinner diameter="30">
+    </mat-spinner>
+    Загружаем документы…
+  </div>
+  <div class="file-list" *ngIf="!isLoading">
+    <article class="file-row" *ngFor="let file of attachments">
+      <span class="file-icon">
+        <mat-icon>
+          description
+        </mat-icon>
+      </span>
+      <div class="file-body">
+        <h3>
+          {{ file.fileName }}
+        </h3>
+        <p *ngIf="file.description">
+          {{ file.description }}
+        </p>
+        <div class="file-meta">
           <span>
-            {{ element.hasBinaryContent ? 'Загружено' : 'Не загружено' }}
+            {{ file.hasBinaryContent ? 'Готов к скачиванию' : 'Ожидает загрузки' }}
           </span>
-          <div class="file-meta" *ngIf="element.fileSize">Размер: {{ element.fileSize | number: '1.0-0' }} байт</div>
-          <div class="file-meta">Markdown: {{ element.hasMarkdownContent ? 'готов' : '—' }}</div>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef>Действия</th>
-        <td mat-cell *matCellDef="let element" class="actions-cell">
-          <button
-            mat-stroked-button
-            color="primary"
-            (click)="downloadAttachment(element)"
-            [disabled]="downloadingAttachmentId === element.id || !element.hasBinaryContent"
-          >
-            <mat-icon fontIcon="download"></mat-icon>
-            <span>Скачать</span>
-          </button>
-          <button
-            mat-stroked-button
-            color="accent"
-            (click)="downloadMarkdown(element)"
-            [disabled]="downloadingMarkdownAttachmentId === element.id || !element.hasMarkdownContent"
-          >
-            <mat-icon fontIcon="article"></mat-icon>
-            <span>Скачать MD</span>
-          </button>
-        </td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-    </table>
+          <span *ngIf="file.fileSize">
+            {{ file.fileSize / 1024 | number:'1.0-0' }} КБ
+          </span>
+          <span *ngIf="file.documentDate">
+            {{ file.documentDate | date:'d MMM yyyy' }}
+          </span>
+        </div>
+      </div>
+      <div class="file-actions">
+        <button mat-stroked-button color="primary" (click)="downloadAttachment(file)" [disabled]="downloadingAttachmentId === file.id || !file.hasBinaryContent">
+          <mat-icon>
+            download
+          </mat-icon>
+          {{ downloadingAttachmentId === file.id ? 'Скачиваем…' : 'Скачать' }}
+        </button>
+        <button mat-button *ngIf="file.hasMarkdownContent" (click)="downloadMarkdown(file)" [disabled]="downloadingMarkdownAttachmentId === file.id">
+          Текст · MD
+        </button>
+      </div>
+    </article>
+  </div>
+  <div class="empty-state" *ngIf="!isLoading && !hasAttachments && !errorMessage">
+    <mat-icon>
+      folder_open
+    </mat-icon>
+    <h2>
+      Документы пока не добавлены
+    </h2>
+    <p>
+      Проверьте вложения в исходном извещении на площадке.
+    </p>
   </div>
 </mat-dialog-content>
-
 <mat-dialog-actions align="end">
-  <button mat-button (click)="close()">Закрыть</button>
+  <button mat-button (click)="close()">
+    Закрыть
+  </button>
 </mat-dialog-actions>
-
-<ng-template #noAttachments>
-  <div class="no-attachments">
-    <mat-icon fontIcon="insert_drive_file"></mat-icon>
-    <p>Нет вложений для отображения.</p>
-  </div>
-</ng-template>

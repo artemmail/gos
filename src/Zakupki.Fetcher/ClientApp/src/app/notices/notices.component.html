@@ -1,325 +1,352 @@
-<div class="notices-page">
-  <div class="content-container page-container">
-    <mat-card>
-    
-
-      <section class="search-panel">
-        <div class="search-panel-card1">
-          <div class="search-panel-row">
-              <div class="search-mode-group">
-                <div class="card-header">
-        <h1>{{ pageTitle }}</h1>
-        <p class="subtitle">{{ pageSubtitle }}</p>
+<div class="page-container notices-page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">
+        {{ isFavoritesPage ? 'ВАШ КОРОТКИЙ СПИСОК' : 'ВОЗМОЖНОСТИ ДЛЯ ВАШЕГО БИЗНЕСА' }}
       </div>
-              
-            
-            </div>
-
-            <div class="search-toggles">
-                <mat-checkbox
-                class="search-mode-toggle"
-                [checked]="isSemanticSearch"
-                (change)="onSemanticModeToggle($event.checked)">
-                Семантический поиск (ИИ)
-              </mat-checkbox>
-              <mat-checkbox [formControl]="expiredOnlyControl">
-                Искать истекшие
-              </mat-checkbox>
-              <mat-checkbox [formControl]="profileRegionsControl" [disabled]="!isAuthenticated">
-                Фильтровать по регионам профиля
-              </mat-checkbox>
-              <mat-checkbox [formControl]="profileOkpd2Control" [disabled]="!isAuthenticated">
-                Фильтровать по ОКПД2 из профиля
-              </mat-checkbox>
-            </div>
-
-             <!--mat-form-field appearance="outline" class="form-field">
-                <mat-label>Номер заявки</mat-label>
-                <input
-                  matInput
-                  formControlName="purchaseNumber"
-                  placeholder="Например, 0123456789"
-                >
-                <button
-                  mat-icon-button
-                  matSuffix
-                  type="button"
-                  *ngIf="filtersForm.controls.purchaseNumber.value"
-                  (click)="filtersForm.controls.purchaseNumber.setValue('')"
-                  aria-label="Очистить номер заявки"
-                >
-                  <mat-icon>close</mat-icon>
-                </button>
-              </mat-form-field-->
-          </div>
-
-          <form
-            *ngIf="isDirectSearch"
-            class="search-form"
-            [formGroup]="filtersForm"
-            (ngSubmit)="onSubmitSearch()">
-            
-
-            <div class="form-grid">
-              <mat-form-field appearance="outline" class="form-field full-row">
-                <mat-label>Поиск</mat-label>
-                <input
-                  matInput
-                  formControlName="search"
-                  placeholder="Введите номер закупки, площадку, название или описание предмета"
-                >
-                <button
-                  mat-icon-button
-                  matSuffix
-                  type="button"
-                  *ngIf="filtersForm.controls.search.value"
-                  (click)="filtersForm.controls.search.setValue('')"
-                  aria-label="Очистить поиск"
-                >
-                  <mat-icon>close</mat-icon>
-                </button>
-              </mat-form-field>
-
-             
-            </div>
-
-            <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
-          </form>
-
-          <form
-            *ngIf="isSemanticSearch"
-            class="search-form"
-            [formGroup]="favoriteSearchForm"
-            (ngSubmit)="onSubmitSearch()">
-         
-
-            <div class="form-grid">
-              <mat-form-field appearance="outline" class="form-field">
-                <mat-label>Сохранённый запрос</mat-label>
-                <mat-select
-                  formControlName="queryVectorId"
-                  [disabled]="queryVectorsLoading"
-                  >
-                  <mat-select-trigger>
-                    {{ displayVectorQuery(favoriteSearchForm.controls.queryVectorId.value) }}
-                  </mat-select-trigger>
-                  <mat-option *ngIf="queryVectorsLoading" value="" disabled>Загрузка…</mat-option>
-                  <mat-option *ngIf="!queryVectorsLoading && queryVectors.length === 0" value="" disabled>
-                    Нет сохранённых запросов
-                  </mat-option>
-                  <mat-option *ngFor="let vector of queryVectors" [value]="vector.id">
-                    {{ vector.query }}
-                  </mat-option>
-                </mat-select>
-                <mat-error *ngIf="favoriteSearchForm.controls.queryVectorId.hasError('required')">
-                  Выберите запрос
-                </mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="form-field">
-                <mat-label>Минимальная схожесть</mat-label>
-                <mat-select formControlName="similarityThreshold">
-                  <mat-option *ngFor="let option of similarityOptions" [value]="option">
-                    {{ option }}%
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-
-
-
-            <ng-container *ngTemplateOutlet="actionButtons"></ng-container>
-          </form>
-        </div>
-      </section>
-
-      <ng-template #actionButtons>
-        <div class="filter-actions">
-          <button mat-raised-button color="primary" type="submit" [disabled]="isLoading || vectorSearchInProgress">
-            <mat-icon fontIcon="search"></mat-icon>
-            <span *ngIf="!vectorSearchInProgress">Поиск</span>
-            <span *ngIf="vectorSearchInProgress">Процесс идёт…</span>
+      <h1>
+        {{ pageTitle }}
+      </h1>
+      <p class="subtitle">
+        {{ pageSubtitle }}
+      </p>
+    </div>
+    <a class="button" routerLink="/company-profile">
+      <mat-icon>
+        tune
+      </mat-icon>
+      Настроить подбор
+    </a>
+  </header>
+  <section class="search-panel" aria-label="Поиск и фильтры">
+    <div class="search-panel-top">
+      <div class="search-modes" aria-label="Режим поиска">
+        <button type="button" [class.selected]="isDirectSearch" [attr.aria-pressed]="isDirectSearch" (click)="onSearchModeChange('direct')">
+          <mat-icon>
+            search
+          </mat-icon>
+          По ключевым словам
+        </button>
+        <button *ngIf="!isFavoritesPage" type="button" [class.selected]="isSemanticSearch" [attr.aria-pressed]="isSemanticSearch" (click)="onSearchModeChange('semantic')">
+          <mat-icon>
+            auto_awesome
+          </mat-icon>
+          По смыслу
+          <span class="ai-tag">
+            AI
+          </span>
+        </button>
+      </div>
+      <span class="search-source">
+        {{ isFavoritesPage ? 'Сохранённые закупки' : 'Государственные закупки' }}
+      </span>
+    </div>
+    <form *ngIf="isDirectSearch" [formGroup]="filtersForm" (ngSubmit)="onSubmitSearch()" class="search-form">
+      <div class="search-input">
+        <mat-icon aria-hidden="true">
+          search
+        </mat-icon>
+        <input id="tender-search" formControlName="search" aria-label="Предмет закупки" placeholder="Что вы поставляете? Например, медицинское оборудование" autocomplete="off">
+        <button *ngIf="filtersForm.controls.search.value" class="icon-button" type="button" (click)="filtersForm.controls.search.setValue('')" aria-label="Очистить поиск">
+          <mat-icon>
+            close
+          </mat-icon>
+        </button>
+      </div>
+      <button class="button button-primary search-submit" type="submit" [disabled]="isLoading">
+        <mat-icon>
+          search
+        </mat-icon>
+        {{ isLoading ? 'Ищем…' : 'Найти закупки' }}
+      </button>
+    </form>
+    <form *ngIf="isSemanticSearch" [formGroup]="favoriteSearchForm" (ngSubmit)="onSubmitSearch()" class="semantic-form">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>
+          Направление вашей компании
+        </mat-label>
+        <mat-select formControlName="queryVectorId">
+          <mat-option *ngFor="let vector of queryVectors" [value]="vector.id">
+            {{ vector.query }}
+          </mat-option>
+        </mat-select>
+        <mat-error>
+          Выберите сохранённый запрос
+        </mat-error>
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>
+          Схожесть от
+        </mat-label>
+        <mat-select formControlName="similarityThreshold">
+          <mat-option *ngFor="let option of similarityOptions" [value]="option">
+            {{ option }}%
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      <button class="button button-primary" type="submit" [disabled]="isLoading || queryVectorsLoading || !queryVectors.length">
+        <mat-icon>
+          auto_awesome
+        </mat-icon>
+        {{ isLoading ? 'Ищем…' : 'Подобрать закупки' }}
+      </button>
+      <p class="semantic-hint" *ngIf="queryVectors.length">
+        Поиск учитывает смысл запроса, даже если в названии закупки используются другие слова.
+      </p>
+      <p class="semantic-hint" *ngIf="!queryVectors.length">
+        {{ queryVectorsLoading ? 'Загружаем направления компании…' : 'Добавьте направление, чтобы искать закупки по смыслу.' }}
+        <a *ngIf="!queryVectorsLoading" routerLink="/company-profile">
+          Настроить направления →
+        </a>
+      </p>
+    </form>
+    <div class="filter-toolbar">
+      <button class="filter-toggle" type="button" (click)="showFilters = !showFilters" [attr.aria-expanded]="showFilters" aria-controls="advanced-filters">
+        <mat-icon>
+          tune
+        </mat-icon>
+        Фильтры
+        <span *ngIf="activeFilterCount" class="filter-count">
+          {{ activeFilterCount }}
+        </span>
+        <mat-icon>
+          {{ showFilters ? 'expand_less' : 'expand_more' }}
+        </mat-icon>
+      </button>
+      <span class="filter-summary">
+        {{ expiredOnlyControl.value ? 'Включая завершённые закупки' : 'Актуальные закупки' }}
+      </span>
+      <button *ngIf="activeFilterCount || filtersForm.controls.search.value || vectorSearchCriteria" class="reset-button" type="button" (click)="onResetSearch()" [disabled]="isLoading">
+        Сбросить всё
+      </button>
+    </div>
+    <div id="advanced-filters" class="advanced-filters" [hidden]="!showFilters">
+      <div class="filter-options">
+        <mat-checkbox [formControl]="expiredOnlyControl">
+          Включать завершённые
+        </mat-checkbox>
+        <mat-checkbox [formControl]="profileRegionsControl">
+          Мои регионы
+        </mat-checkbox>
+        <mat-checkbox [formControl]="profileOkpd2Control">
+          Мои коды ОКПД2
+        </mat-checkbox>
+      </div>
+      <div class="number-filter">
+        <mat-form-field *ngIf="isDirectSearch" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>
+            Номер закупки
+          </mat-label>
+          <input matInput [formControl]="filtersForm.controls.purchaseNumber" placeholder="Введите точный номер" (keydown.enter)="onSubmitSearch()">
+        </mat-form-field>
+        <button type="button" class="button" (click)="onSubmitSearch()" [disabled]="isLoading">
+          Применить фильтры
+        </button>
+        <a routerLink="/company-profile">
+          Изменить регионы и ОКПД2
+        </a>
+      </div>
+    </div>
+  </section>
+  <section class="results" matSort matSortActive="publishDate" matSortDirection="desc" matSortDisableClear aria-label="Результаты поиска" [attr.aria-busy]="isLoading">
+    <div class="results-toolbar">
+      <div class="results-count" aria-live="polite">
+        <h2>
+          {{ isFavoritesPage ? 'Сохранённые закупки' : 'Результаты поиска' }}
+        </h2>
+        <span *ngIf="!isLoading && !errorMessage">
+          {{ totalCount | number }}
+        </span>
+        <span *ngIf="isLoading">
+          Поиск…
+        </span>
+      </div>
+      <div class="results-controls">
+        <label class="sort-control">
+          <mat-icon>
+            sort
+          </mat-icon>
+          <select aria-label="Сортировка закупок" [value]="sortValue" (change)="changeSort($any($event.target).value)">
+            <option value="publishDate:desc">
+              Сначала новые
+            </option>
+            <option value="maxPrice:desc">
+              Сначала дороже
+            </option>
+            <option value="maxPrice:asc">
+              Сначала дешевле
+            </option>
+            <option value="collectingEnd:asc">
+              Ближайший срок
+            </option>
+            <option *ngIf="vectorSearchCriteria" value="similarity:desc">
+              По схожести
+            </option>
+          </select>
+        </label>
+        <div class="view-switch" aria-label="Вид результатов">
+          <button class="icon-button" [class.selected]="!compactView" [attr.aria-pressed]="!compactView" (click)="setCompactView(false)" aria-label="Подробный вид" title="Подробный вид">
+            <mat-icon>
+              view_agenda
+            </mat-icon>
           </button>
-          <button mat-button type="button" (click)="onResetSearch()" [disabled]="isLoading || vectorSearchInProgress">
-            <span>Сбросить</span>
+          <button class="icon-button" [class.selected]="compactView" [attr.aria-pressed]="compactView" (click)="setCompactView(true)" aria-label="Компактный вид" title="Компактный вид">
+            <mat-icon>
+              view_list
+            </mat-icon>
           </button>
         </div>
-      </ng-template>
-
-
-      <ng-container *ngIf="!errorMessage; else errorBlock">
-        <div class="table-wrapper">
-          <div class="loading-overlay" *ngIf="isLoading">
-            <mat-spinner diameter="48"></mat-spinner>
-          </div>
-
-          <table mat-table [dataSource]="notices" matSort matSortActive="publishDate" matSortDirection="desc" matSortDisableClear>
-            <ng-container matColumnDef="favorite">
-              <th mat-header-cell *matHeaderCellDef class="favorite-header">
-                <mat-icon fontIcon="favorite"></mat-icon>
-              </th>
-              <td mat-cell *matCellDef="let element" class="favorite-cell">
-                <button
-                  mat-icon-button
-                  type="button"
-                  class="favorite-button"
-                  [ngClass]="{ 'favorite-active': element.isFavorite }"
-                  [disabled]="favoriteProgress[element.id]"
-                  (click)="toggleFavorite(element)"
-                  [attr.aria-label]="element.isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'"
-                >
-                  <mat-icon>{{ element.isFavorite ? 'favorite' : 'favorite_border' }}</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="purchaseNumber">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseNumber">Номер закупки</th>
-              <td mat-cell *matCellDef="let element">
-                <a [routerLink]="['/notices', element.purchaseNumber]" class="purchase-link">
-                  {{ element.purchaseNumber }}
-                </a>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="similarity">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="similarity">Схожесть</th>
-              <td mat-cell *matCellDef="let element">
-                {{ element.similarity !== null && element.similarity !== undefined ? (element.similarity | percent:'1.0-0') : '—' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="purchaseObjectInfo">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="purchaseObjectInfo">Предмет закупки</th>
-              <td mat-cell *matCellDef="let element" class="entry-name">{{ element.purchaseObjectInfo || '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="region">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="region">Регион</th>
-              <td mat-cell *matCellDef="let element">{{ getRegionLabel(element) }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="okpd2Code">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="okpd2Code">ОКПД2 (код)</th>
-              <td mat-cell *matCellDef="let element">{{ element.okpd2Code || '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="okpd2Name">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="okpd2Name">ОКПД2 (наименование)</th>
-              <td mat-cell *matCellDef="let element" class="entry-name">{{ element.okpd2Name || '—' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="maxPrice">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="maxPrice">Начальная цена</th>
-              <td mat-cell *matCellDef="let element">
-                <ng-container *ngIf="element.maxPrice !== null && element.maxPrice !== undefined; else noPrice">
-                  {{ element.maxPrice | number: '1.2-2' }}
-                  <span *ngIf="element.maxPriceCurrencyCode">
-                    {{ element.maxPriceCurrencyCode }}
-                  </span>
-                </ng-container>
-                <ng-template #noPrice>—</ng-template>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="publishDate">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="publishDate">Дата публикации</th>
-              <td mat-cell *matCellDef="let element">{{ element.publishDate | date: 'short' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="collectingEnd">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="collectingEnd">Окончание подачи заявок</th>
-              <td
-                mat-cell
-                *matCellDef="let element"
-                class="collecting-end-cell"
-                [ngClass]="{ 'collecting-end-expired': isCollectingEndExpired(element.collectingEnd) }"
-              >
-                {{ element.collectingEnd ? (element.collectingEnd | date: 'short') : '—' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="analysisStatus">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header="analysisStatus">Результат Анализа</th>
-              <td mat-cell *matCellDef="let element">
-                <div [ngClass]="getAnalysisStatusClass(element)" class="analysis-status-wrapper">
-                  <ng-container *ngIf="isAnalysisNegative(element); else nonNegativeStatus">
-                    <span class="analysis-status-icon">
-                      <mat-icon fontIcon="block"></mat-icon>
-                    </span>
-                  </ng-container>
-                  <ng-template #nonNegativeStatus>
-                    <ng-container *ngIf="hasDecisionScore(element); else statusTemplate">
-                      <div class="star-rating" [attr.aria-label]="'Оценка: ' + formatDecisionScore(element.decisionScore)">
-                        <div class="star-rating-base">
-                          <span *ngFor="let star of starIcons">&#9733;</span>
-                        </div>
-                        <div class="star-rating-fill" [style.width.%]="getDecisionScoreFillPercentage(element)">
-                          <span *ngFor="let star of starIcons">&#9733;</span>
-                        </div>
-                      </div>
-                    </ng-container>
-                    <ng-template #statusTemplate>
-                      <span class="analysis-status-text">{{ getAnalysisStatusLabel(element) }}</span>
-                    </ng-template>
-                  </ng-template>
-                </div>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="analysis">
-              <th mat-header-cell *matHeaderCellDef>Анализ ИИ</th>
-              <td mat-cell *matCellDef="let element">
-                <div class="analysis-actions">
-                  <button
-                    mat-stroked-button
-                    color="primary"
-                    (click)="runAnalysis(element)"
-                    [disabled]="analysisProgress[element.id]"
-                  >
-                    <mat-icon fontIcon="psychology"></mat-icon>
-                    <span *ngIf="!analysisProgress[element.id]">Анализ</span>
-                    <span *ngIf="analysisProgress[element.id]">Процесс идет</span>
-                  </button>
-                  <button
-                    mat-icon-button
-                    type="button"
-                    color="primary"
-                    aria-label="Обновить анализ"
-                    *ngIf="element.hasAnalysisAnswer"
-                    (click)="runAnalysis(element, true)"
-                    [disabled]="analysisProgress[element.id]"
-                  >
-                    <mat-icon fontIcon="refresh"></mat-icon>
-                  </button>
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-          </table>
-
-          <div class="empty-state" *ngIf="hasNoData">
-            <mat-icon fontIcon="search"></mat-icon>
-            <p>Нет данных по заданным условиям.</p>
-          </div>
+      </div>
+    </div>
+    <div class="results-body" [class.compact-view]="compactView">
+      <div *ngIf="isLoading" class="skeleton-list" role="status" aria-label="Загрузка закупок">
+        <div class="skeleton-card" *ngFor="let item of [1,2,3]">
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
         </div>
-
-        <mat-paginator
-          [length]="totalCount"
-          [pageSize]="pageSize"
-          [pageSizeOptions]="[10, 20, 50, 100]"
-          showFirstLastButtons>
-        </mat-paginator>
+      </div>
+      <ng-container *ngIf="!isLoading && !errorMessage">
+        <article class="tender-card" *ngFor="let notice of notices; trackBy: trackNotice">
+          <div class="tender-main">
+            <div class="tender-meta">
+              <span class="source-badge">
+                ЕИС
+              </span>
+              <a [routerLink]="['/notices', notice.purchaseNumber]">
+                № {{ notice.purchaseNumber }}
+              </a>
+              <span class="tender-published">
+                {{ notice.publishDate | date:'d MMM yyyy' }}
+              </span>
+              <span *ngIf="notice.similarity !== null" class="similarity">
+                {{ notice.similarity | percent:'1.0-0' }} совпадение
+              </span>
+            </div>
+            <h2 class="tender-title">
+              <a [routerLink]="['/notices', notice.purchaseNumber]">
+                {{ notice.purchaseObjectInfo || 'Предмет закупки не указан' }}
+              </a>
+            </h2>
+            <div class="tender-location">
+              <span>
+                <mat-icon>
+                  location_on
+                </mat-icon>
+                {{ getRegionLabel(notice) }}
+              </span>
+              <span *ngIf="notice.okpd2Code" [title]="notice.okpd2Name || ''">
+                ОКПД2 {{ notice.okpd2Code }}
+              </span>
+            </div>
+          </div>
+          <div class="tender-finance">
+            <span class="field-label">
+              Начальная цена
+            </span>
+            <strong>
+              {{ notice.maxPrice !== null ? (notice.maxPrice | number:'1.0-2') : 'Не указана' }}
+              <span *ngIf="notice.maxPrice !== null">
+                ₽
+              </span>
+            </strong>
+            <span class="deadline" [class.expired]="isCollectingEndExpired(notice.collectingEnd)">
+              <mat-icon>
+                schedule
+              </mat-icon>
+              {{ notice.collectingEnd ? ('До ' + (notice.collectingEnd | date:'d MMM, HH:mm')) : 'Срок не указан' }}
+            </span>
+            <span class="deadline-label" *ngIf="isCollectingEndExpired(notice.collectingEnd)">
+              Приём заявок завершён
+            </span>
+          </div>
+          <button class="icon-button bookmark" [class.is-saved]="notice.isFavorite" [disabled]="favoriteProgress[notice.id]" (click)="toggleFavorite(notice)" [attr.aria-label]="notice.isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'" [attr.aria-pressed]="notice.isFavorite" [title]="notice.isFavorite ? 'Удалить из избранного' : 'В избранное'">
+            <mat-icon>
+              {{ notice.isFavorite ? 'bookmark' : 'bookmark_border' }}
+            </mat-icon>
+          </button>
+          <div class="tender-footer">
+            <span [ngClass]="getAnalysisStatusClass(notice)">
+              <mat-icon>
+                {{ notice.recommended === true ? 'check_circle' : notice.recommended === false ? 'do_not_disturb_on' : 'auto_awesome' }}
+              </mat-icon>
+              {{ getAnalysisStatusLabel(notice) }}
+              <span *ngIf="hasDecisionScore(notice)" class="score">
+                {{ formatDecisionScore(notice.decisionScore) }}/10
+              </span>
+            </span>
+            <div class="tender-actions">
+              <button *ngIf="notice.hasAnalysisAnswer" class="icon-button" (click)="runAnalysis(notice, true)" [disabled]="analysisProgress[notice.id]" aria-label="Повторить анализ" title="Повторить анализ">
+                <mat-icon>
+                  refresh
+                </mat-icon>
+              </button>
+              <button class="analysis-button" (click)="runAnalysis(notice)" [disabled]="analysisProgress[notice.id]">
+                <mat-icon>
+                  auto_awesome
+                </mat-icon>
+                {{ analysisProgress[notice.id] ? 'Загружаем…' : notice.analysisStatus === 'InProgress' ? 'Проверить статус' : notice.hasAnalysisAnswer ? 'Открыть анализ' : 'Анализировать' }}
+              </button>
+              <a class="detail-link" [routerLink]="['/notices', notice.purchaseNumber]" [attr.aria-label]="'Открыть закупку ' + notice.purchaseNumber">
+                <mat-icon>
+                  arrow_forward
+                </mat-icon>
+              </a>
+            </div>
+          </div>
+          <div class="analysis-error-note" *ngIf="analysisErrors[notice.id]" role="alert">
+            <mat-icon aria-hidden="true">error_outline</mat-icon>
+            <span>{{ analysisErrors[notice.id] }}</span>
+          </div>
+        </article>
+        <div class="empty-state" *ngIf="hasNoData">
+          <mat-icon>
+            {{ isFavoritesPage ? 'bookmark_border' : 'search_off' }}
+          </mat-icon>
+          <h2>
+            {{ isFavoritesPage ? 'Здесь будут ваши закупки' : 'Закупки не найдены' }}
+          </h2>
+          <p>
+            {{ isFavoritesPage ? 'Сохраняйте интересные закупки, чтобы вернуться к ним и сравнить результаты анализа. Если вы уже сохраняли закупки, попробуйте сбросить фильтры.' : 'Попробуйте более общий запрос или отключите часть фильтров.' }}
+          </p>
+          <button class="button" (click)="onResetSearch()">
+            Сбросить фильтры
+          </button>
+          <a *ngIf="isFavoritesPage" class="button button-primary" routerLink="/tenders">
+            Перейти к поиску
+          </a>
+        </div>
       </ng-container>
-    </mat-card>
+      <div class="error-state" *ngIf="!isLoading && errorMessage" role="alert">
+        <mat-icon>
+          cloud_off
+        </mat-icon>
+        <h2>
+          Не удалось загрузить закупки
+        </h2>
+        <p>
+          {{ errorMessage }}
+        </p>
+        <button class="button button-primary" (click)="loadNotices()">
+          <mat-icon>
+            refresh
+          </mat-icon>
+          Попробовать снова
+        </button>
+      </div>
+    </div>
+    <mat-paginator [hidden]="!!errorMessage || totalCount === 0" [disabled]="isLoading" [length]="totalCount" [pageSize]="pageSize" [pageSizeOptions]="[10,20,50,100]" showFirstLastButtons aria-label="Страницы закупок">
+    </mat-paginator>
+  </section>
+  <div class="results-note">
+    <mat-icon>
+      info_outline
+    </mat-icon>
+    Рекомендации ИИ помогают оценить закупку. Перед участием проверьте условия в документации.
   </div>
 </div>
-
-<ng-template #errorBlock>
-  <div class="error-container">
-    <mat-icon fontIcon="error_outline"></mat-icon>
-    <p>{{ errorMessage }}</p>
-    <button mat-raised-button color="primary" (click)="loadNotices()">Повторить</button>
-  </div>
-</ng-template>

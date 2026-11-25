@@ -28,7 +28,7 @@ export class FabNoticesComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(params => {
         const sourceParam = params.get('source');
-        const source = sourceParam ? Number(sourceParam) : undefined;
+        const source = sourceParam ? Number(sourceParam) : 3;
 
         if (source === 3) {
           this.loadProcedures(source);
@@ -62,7 +62,10 @@ export class FabNoticesComponent implements OnInit, OnDestroy {
         finalize(() => (this.isLoading = false))
       )
       .subscribe({
-        next: procedures => (this.procedures = procedures),
+        next: procedures => {
+          if (Array.isArray(procedures)) this.procedures = procedures;
+          else this.errorMessage = 'Не удалось получить процедуры. Попробуйте обновить страницу позже.';
+        },
         error: () => {
           this.errorMessage = 'Не удалось загрузить данные о процедурах Фабрикант.';
         }

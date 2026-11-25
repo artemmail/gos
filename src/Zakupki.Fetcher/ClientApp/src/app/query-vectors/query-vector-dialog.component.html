@@ -1,20 +1,34 @@
-<h2 mat-dialog-title>Новый запрос</h2>
+<h2 mat-dialog-title>
+  Новое направление поиска
+</h2>
 <mat-dialog-content>
   <form [formGroup]="form" class="query-form">
     <mat-form-field appearance="outline" class="full-width">
-      <mat-label>Текст запроса</mat-label>
-      <textarea matInput rows="4" formControlName="query" placeholder="Введите запрос"></textarea>
-      <mat-error *ngIf="queryControl?.hasError('required')">Запрос обязателен</mat-error>
-      <mat-error *ngIf="queryControl?.hasError('minlength')">Минимум 3 символа</mat-error>
-      <mat-error *ngIf="queryControl?.hasError('maxlength')">Не больше 4000 символов</mat-error>
+      <mat-label>
+        Товары или услуги
+      </mat-label>
+      <textarea matInput rows="4" formControlName="query" placeholder="Например, поставка и обслуживание медицинского оборудования">
+      </textarea>
+      <mat-error *ngIf="queryControl?.hasError('required')">
+        Запрос обязателен
+      </mat-error>
+      <mat-error *ngIf="queryControl?.hasError('minlength')">
+        Минимум 3 символа
+      </mat-error>
+      <mat-error *ngIf="queryControl?.hasError('maxlength')">
+        Не больше 4000 символов
+      </mat-error>
     </mat-form-field>
   </form>
-
-  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="error" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-  <button mat-button (click)="close()" [disabled]="isSubmitting">Отмена</button>
+  <button mat-button (click)="close()" [disabled]="isSubmitting">
+    Отмена
+  </button>
   <button mat-raised-button color="primary" (click)="submit()" [disabled]="isSubmitting">
-    Отправить
+    {{ isSubmitting ? 'Сохраняем…' : 'Добавить направление' }}
   </button>
 </mat-dialog-actions>

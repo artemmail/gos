@@ -1,166 +1,186 @@
 .analysis-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
   max-height: 70vh;
   overflow: auto;
 }
-
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dialog-heading mat-icon {
+  color: var(--green);
+}
 .entry-name {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink);
   margin: 0;
-  font-weight: 600;
 }
-
 .timestamp {
-  margin: 0;
-  color: rgba(0, 0, 0, 0.6);
-  font-size: 13px;
+  font-size: 11px;
+  color: var(--muted);
+  margin: -8px 0 0;
 }
-
 .analysis-text {
   white-space: pre-wrap;
-  font-family: inherit;
-  line-height: 1.5;
+  font: inherit;
+  line-height: 1.85;
+  font-size: 13px;
 }
-
 .analysis-overview {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 18px;
   align-items: center;
-}
-
-.score-pill {
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: #e8eaf6;
-  color: #1a237e;
-  font-weight: 600;
-}
-
-.pill-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 2px;
-}
-
-.pill-score {
-  font-size: 18px;
-}
-
-.recommendation-chip {
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-weight: 600;
-}
-
-.recommendation-chip.positive {
-  background: #e8f5e9;
-  color: #1b5e20;
-}
-
-.recommendation-chip.negative {
-  background: #ffebee;
-  color: #b71c1c;
-}
-
-.summary-card {
+  padding: 22px;
+  background: #edf3e6;
+  border: 1px solid #dbe6d0;
   border-radius: 12px;
-  padding: 12px 16px;
-  background: #fafafa;
 }
-
-.summary-card h3 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(0, 0, 0, 0.6);
-}
-
-.summary-card p {
-  margin: 0;
-  line-height: 1.5;
-}
-
-.score-sections {
+.score-pill {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 6px;
 }
-
+.pill-label {
+  font-size: 10px;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: #68834f;
+}
+.pill-score {
+  font-size: 32px;
+  letter-spacing: -1px;
+  color: #365d33;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.recommendation-chip {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: auto;
+}
+.recommendation-chip.positive {
+  background: #dce9ce;
+  color: #426b2a;
+}
+.recommendation-chip.negative {
+  background: #fbe5df;
+  color: #a44736;
+}
+.summary-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f9fbf6;
+}
+.summary-card h3 {
+  font-size: 13px;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+.summary-card p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #5d6d5a;
+  margin: 0;
+}
+.score-sections {
+  display: grid;
+  gap: 14px;
+}
 .score-section {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
 }
-
 .section-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
 }
-
 .section-heading h3 {
   margin: 0;
+  font-size: 14px;
 }
-
 .section-score {
-  font-weight: 600;
-  font-size: 18px;
-  color: #1a237e;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--green);
+  flex: none;
 }
-
 .short-comment {
-  margin: 12px 0 6px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.8;
+  margin: 14px 0 8px;
+  color: var(--ink);
 }
-
 .detailed-comment {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
   margin: 0;
-  white-space: pre-line;
-  color: rgba(0, 0, 0, 0.74);
 }
-
 .no-result {
+  font-size: 13px;
   margin: 0;
-  color: rgba(0, 0, 0, 0.6);
-  font-style: italic;
 }
-
 .analysis-actions {
   display: flex;
-  align-items: center;
   gap: 12px;
-  margin-right: auto;
+  align-items: center;
   flex-wrap: wrap;
+  margin-right: auto;
 }
-
 .copy-actions {
   display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.download-report-button {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
-
 .copy-status {
-  font-size: 13px;
+  font-size: 11px;
 }
-
 .copy-status.success {
-  color: #2e7d32;
+  color: var(--green);
 }
-
 .copy-status.error {
-  color: #c62828;
+  color: var(--red);
+}
+.analysis-footnote {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+}
+.prompt-details {
+  font-size: 11px;
+  color: var(--muted);
+}
+.prompt-details summary {
+  cursor: pointer;
+}
+.prompt-details .copy-actions {
+  margin-top: 12px;
+}
+@media(max-width:600px) {
+  .analysis-overview {
+    padding: 18px;
+    gap: 12px;
+  }
+  .recommendation-chip {
+    margin-left: 0;
+  }
+  .summary-card,.score-section {
+    padding: 16px;
+  }
+  .entry-name {
+    font-size: 13px;
+  }
 }

@@ -1,22 +1,85 @@
-.fab-notices-container {
-  padding: 16px;
+.procedure {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
 }
-
-.loading {
+.procedure-meta {
   display: flex;
-  justify-content: center;
-  padding: 16px 0;
+  gap: 20px;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 14px;
 }
-
-.no-data,
-.error-message {
-  padding: 12px 0;
+.procedure h2 {
+  font-size: 18px;
+  line-height: 1.6;
+  margin-bottom: 10px;
 }
-
-.error-message {
-  color: #c62828;
+.procedure>p {
+  font-size: 12px;
 }
-
-table {
-  width: 100%;
+.procedure-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.procedure-facts span {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+}
+.procedure-facts strong {
+  font-size: 16px;
+  font-weight: 500;
+  display: block;
+  margin-top: 6px;
+}
+.procedure details {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 20px;
+  font-size: 12px;
+}
+.procedure summary {
+  cursor: pointer;
+  color: var(--green);
+}
+.procedure details a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.procedure details mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+.error-state .button {
+  margin: 4px;
+}
+.error-state,.empty-state {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+@media(max-width:600px) {
+  .procedure {
+    padding: 20px 16px;
+  }
+  .procedure h2 {
+    font-size: 16px;
+  }
+  .procedure-facts {
+    gap: 20px;
+  }
+  .procedure-meta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }

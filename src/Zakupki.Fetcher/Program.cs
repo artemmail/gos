@@ -65,11 +65,17 @@ builder.Services
         MaxAutomaticRedirections = 10,
         AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
         UseCookies = true,
-        CookieContainer = sp.GetRequiredService<CookieContainer>()
+        CookieContainer = sp.GetRequiredService<CookieContainer>(),
+        // EIS presents an untrusted certificate chain on this server. This
+        // exception is limited to EIS files fetched by AttachmentDownloadService.
+        ServerCertificateCustomValidationCallback = (request, _, _, errors) =>
+            errors == System.Net.Security.SslPolicyErrors.None ||
+            (request.RequestUri?.Scheme == Uri.UriSchemeHttps &&
+             string.Equals(request.RequestUri.Host, "zakupki.gov.ru", StringComparison.OrdinalIgnoreCase))
     });
 
 builder.Services.AddHttpClient<ZakupkiClient>();
-builder.Services.AddHttpClient<NoticeAnalysisService>();
+builder.Services.AddHttpClient<NoticeAnalysisService>(client => client.Timeout = TimeSpan.FromMinutes(5));
 builder.Services.AddSingleton<AttachmentContentExtractor>();
 var connectionString = builder.Configuration.GetConnectionString("Default");
 

@@ -21,6 +21,9 @@ public class Export
     [XmlElement(ElementName = "epNotificationEOK2020", Namespace = Ns.Export)]
     public EpNotificationEok2020? EpNotificationEok2020 { get; set; }
 
+    [XmlElement(ElementName = "epNotificationOK2020", Namespace = Ns.Export)]
+    public EpNotificationOk2020? EpNotificationOk2020 { get; set; }
+
     /// <summary>
     /// Notification for EZK2020 procedures.
     /// </summary>
@@ -49,6 +52,11 @@ public class Export
             if (EpNotificationEok2020 is not null)
             {
                 return EpNotificationEok2020;
+            }
+
+            if (EpNotificationOk2020 is not null)
+            {
+                return EpNotificationOk2020;
             }
 
             return EpNotificationEzk2020;
@@ -103,6 +111,10 @@ public class EpNotificationEf2020
 /// Notification wrapper for EOK2020 procedures. Contains the same payload as <see cref="EpNotificationEf2020"/>.
 /// </summary>
 public class EpNotificationEok2020 : EpNotificationEf2020
+{
+}
+
+public class EpNotificationOk2020 : EpNotificationEf2020
 {
 }
 

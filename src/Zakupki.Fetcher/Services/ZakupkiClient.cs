@@ -17,6 +17,7 @@ public class ZakupkiClient
 {
     private static readonly string[] ServiceUrls =
     {
+        "https://int.zakupki.gov.ru/eis-integration/services/getDocsIP",
         "https://zakupki.gov.ru/eis-integration/services/getDocsIP",
         "https://int44.zakupki.gov.ru/eis-integration/services/getDocsIP"
     };
@@ -37,38 +38,23 @@ public class ZakupkiClient
     {
         var requestXml = SoapBuilder.BuildGetDocsByOrgRegion(_options.Token ?? string.Empty, region, subsystem, documentType, date);
         var response = await PostSoapAsync(requestXml, cancellationToken);
-        var archiveUrl = SoapResponseParser.ParseArchiveUrl(response, out var faultMessage);
-        if (!string.IsNullOrEmpty(faultMessage))
-        {
-            throw new InvalidOperationException($"SOAP fault: {faultMessage}");
-        }
-
-        if (string.IsNullOrWhiteSpace(archiveUrl))
-        {
-            _logger.LogInformation("No archive returned for date {Date}, region {Region}, document type {DocumentType}", date, region, documentType);
-            return Array.Empty<NoticeDocument>();
-        }
-
-        return await DownloadArchiveAsync(archiveUrl!, documentType, region, date, cancellationToken);
+        return await DownloadArchivesAsync(response, documentType, region, date, cancellationToken);
     }
 
     public async Task<IReadOnlyList<NoticeDocument>> FetchByReestrNumberAsync(string purchaseNumber, CancellationToken cancellationToken)
     {
         var requestXml = SoapBuilder.BuildGetDocsByReestrNumber(_options.Token ?? string.Empty, purchaseNumber);
         var response = await PostSoapAsync(requestXml, cancellationToken);
-        var archiveUrl = SoapResponseParser.ParseArchiveUrl(response, out var faultMessage);
-        if (!string.IsNullOrEmpty(faultMessage))
-        {
-            throw new InvalidOperationException($"SOAP fault: {faultMessage}");
-        }
+        return await DownloadArchivesAsync(response, "package", 0, DateTime.UtcNow.Date, cancellationToken);
+    }
 
-        if (string.IsNullOrWhiteSpace(archiveUrl))
-        {
-            _logger.LogInformation("No archive returned for purchase {PurchaseNumber}", purchaseNumber);
-            return Array.Empty<NoticeDocument>();
-        }
-
-        return await DownloadArchiveAsync(archiveUrl!, "package", 0, DateTime.UtcNow.Date, cancellationToken);
+    private async Task<IReadOnlyList<NoticeDocument>> DownloadArchivesAsync(
+        byte[] response, string documentType, byte region, DateTime period, CancellationToken cancellationToken)
+    {
+        var documents = new List<NoticeDocument>();
+        foreach (var url in SoapResponseParser.ParseArchiveUrls(response))
+            documents.AddRange(await DownloadArchiveAsync(url, documentType, region, period, cancellationToken));
+        return documents;
     }
 
     private async Task<byte[]> PostSoapAsync(string requestXml, CancellationToken cancellationToken)
@@ -96,6 +82,9 @@ public class ZakupkiClient
 
     private async Task<IReadOnlyList<NoticeDocument>> DownloadArchiveAsync(string archiveUrl, string documentType, byte region, DateTime period, CancellationToken cancellationToken)
     {
+        using var downloadCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        downloadCancellation.CancelAfter(_httpClient.Timeout);
+        cancellationToken = downloadCancellation.Token;
         using var request = new HttpRequestMessage(HttpMethod.Get, archiveUrl);
         request.Headers.TryAddWithoutValidation("individualPerson_token", _options.Token);
 
@@ -232,13 +221,10 @@ public class ZakupkiClient
 
     private static class SoapResponseParser
     {
-        public static string? ParseArchiveUrl(byte[] response, out string? faultMessage)
+        public static IReadOnlyList<string> ParseArchiveUrls(byte[] response)
         {
-            faultMessage = null;
             if (response.Length == 0)
-            {
-                return null;
-            }
+                throw new InvalidDataException("ЕИС вернула пустой ответ.");
 
             var xml = Encoding.UTF8.GetString(response);
             var doc = XDocument.Parse(xml);
@@ -246,12 +232,24 @@ public class ZakupkiClient
             var fault = doc.Descendants(SoapNs + "Fault").FirstOrDefault();
             if (fault != null)
             {
-                faultMessage = fault.Element("faultstring")?.Value ?? fault.Value;
-                return null;
+                throw new InvalidOperationException($"SOAP fault: {fault.Element("faultstring")?.Value ?? fault.Value}");
             }
 
-            var archive = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "archiveUrl");
-            return archive?.Value?.Trim();
+            var error = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "errorInfo");
+            if (error is not null)
+                throw new InvalidOperationException("ЕИС errorInfo: " +
+                    string.Join("; ", error.Elements().Select(x => $"{x.Name.LocalName}={x.Value}")));
+
+            var urls = doc.Descendants().Where(x => x.Name.LocalName == "archiveUrl")
+                .Select(x => x.Value.Trim()).Where(x => x.Length > 0)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            if (urls.Length > 0)
+                return urls;
+
+            if (doc.Descendants().Any(x => x.Name.LocalName == "noData" && x.Value.Trim() is "true" or "1"))
+                return Array.Empty<string>();
+
+            throw new InvalidDataException("Ответ ЕИС не содержит archiveUrl или подтверждения noData=true.");
         }
     }
 }

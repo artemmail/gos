@@ -1,160 +1,287 @@
-<div class="page-container">
-  <div class="page">
-    <div class="page-header">
-      <div>
-        <h1>Профиль компании для автоматической аналитики</h1>
-        <p class="subtitle">Заполните информацию о компании для смыслового поиска и интеллектуального анализа тендерной документации. Сервис будет скачивать и анализировать приложенные к госзакупкам файлы и сопоставлять с вашим профилем</p>
+<div class="page-container company-page">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">
+        ТОЧНЫЙ ПОДБОР НАЧИНАЕТСЯ ЗДЕСЬ
       </div>
-      <div class="page-actions">
-        <button mat-stroked-button color="primary" (click)="goBack()">Назад</button>
-        <button mat-flat-button color="primary" (click)="save()" [disabled]="!canSave">Сохранить</button>
-      </div>
+      <h1>
+        Моя компания
+      </h1>
+      <p class="subtitle">
+        Расскажите о бизнесе, чтобы поиск и анализ учитывали ваши возможности.
+      </p>
     </div>
-
-  <div class="loading-container" *ngIf="isLoading">
-    <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+    <a class="button" routerLink="/tenders">
+      К закупкам
+      <mat-icon>
+        arrow_forward
+      </mat-icon>
+    </a>
+  </header>
+  <div class="loading-container" *ngIf="isLoading" role="status">
+    <mat-spinner diameter="32">
+    </mat-spinner>
+    Загружаем профиль…
   </div>
-
-  <form [formGroup]="form" *ngIf="!isLoading" class="content">
-    <section class="card">
-      <h2>Описание компаниие (будет использоваться искутвенным интеллектом для анализа тендера)</h2>
-      <p class="subtitle">Введите важную информацию о вашей компании что бы искуственный интеллект смог по содержимому тендерной документации определить на сколько подходит вам тендер</p>
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Информация о компании</mat-label>
-        <textarea
-          matInput
-          formControlName="companyInfo"
-          rows="6"
-          placeholder="Опишите вашу компанию, услуги и опыт"
-        ></textarea>
-        <mat-hint align="end">{{ form.get('companyInfo')?.value?.length || 0 }}/8000</mat-hint>
-      </mat-form-field>
-      <p class="subtitle">Регионы вашей работы для фильтрации и анализа рентабельности с помощью ИИ</p>
-      <mat-form-field appearance="outline" class="full-width region-field">
-        <mat-label>Регионы работы</mat-label>
-        <mat-chip-grid #chipGrid aria-label="Выбранные регионы">
-          <mat-chip-row *ngFor="let code of form.value.regions" [removable]="true" (removed)="removeRegion(code)">
-            {{ getRegionName(code) || code }}
-            <button matChipRemove>
-              <mat-icon>cancel</mat-icon>
+  <div class="error-state" *ngIf="!isLoading && !profileLoaded" role="alert">
+    <mat-icon>
+      cloud_off
+    </mat-icon>
+    <h2>
+      Профиль недоступен
+    </h2>
+    <p>
+      {{ errorMessage }}
+    </p>
+    <button class="button button-primary" (click)="loadProfile()">
+      Попробовать снова
+    </button>
+  </div>
+  <div class="profile-layout" *ngIf="!isLoading && profileLoaded">
+    <form [formGroup]="form" (ngSubmit)="save()" class="profile-form">
+      <section class="profile-section">
+        <div class="section-heading">
+          <span class="section-number">
+            01
+          </span>
+          <div>
+            <h2>
+              О вашем бизнесе
+            </h2>
+            <p>
+              ИИ сопоставит это описание с условиями закупки.
+            </p>
+          </div>
+        </div>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>
+            Чем занимается компания
+          </mat-label>
+          <textarea matInput formControlName="companyInfo" rows="7" maxlength="8000" placeholder="Например: поставляем и обслуживаем медицинское оборудование. Работаем с государственными клиниками, организуем доставку и обучение персонала. Опыт — 8 лет.">
+          </textarea>
+          <mat-hint>
+            Услуги, опыт, мощности и ограничения
+          </mat-hint>
+          <mat-hint align="end" class="count-hint">
+            {{ form.get('companyInfo')?.value?.length || 0 }} / 8 000
+          </mat-hint>
+          <mat-error>
+            Описание не должно превышать 8 000 символов
+          </mat-error>
+        </mat-form-field>
+      </section>
+      <section class="profile-section">
+        <div class="section-heading">
+          <span class="section-number">
+            02
+          </span>
+          <div>
+            <h2>
+              География и специализация
+            </h2>
+            <p>
+              Эти параметры можно использовать как фильтры поиска.
+            </p>
+          </div>
+        </div>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>
+            Регионы работы
+          </mat-label>
+          <mat-chip-grid #chipGrid aria-label="Выбранные регионы">
+            <mat-chip-row *ngFor="let code of form.value.regions" (removed)="removeRegion(code)">
+              {{ getRegionName(code) || code }}
+              <button type="button" matChipRemove [attr.aria-label]="'Убрать регион ' + (getRegionName(code) || code)">
+                <mat-icon>
+                  cancel
+                </mat-icon>
+              </button>
+            </mat-chip-row>
+          </mat-chip-grid>
+          <input matInput placeholder="Начните вводить название или код" [matAutocomplete]="regionAuto" [matChipInputFor]="chipGrid" [formControl]="regionSearchControl">
+          <mat-autocomplete #regionAuto="matAutocomplete" (optionSelected)="handleRegionSelected($event)">
+            <mat-option *ngFor="let region of filteredRegions" [value]="region">
+              {{ region.code }} — {{ region.name }}
+            </mat-option>
+          </mat-autocomplete>
+          <mat-hint>
+            Выберите один или несколько регионов
+          </mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width okpd-field">
+          <mat-label>
+            Коды ОКПД2
+          </mat-label>
+          <mat-chip-grid #okpd2ChipGrid aria-label="Выбранные коды ОКПД2">
+            <mat-chip-row *ngFor="let code of form.value.okpd2Codes" (removed)="removeOkpd2Code(code)">
+              {{ code }} · {{ getOkpd2Name(code) || 'Код продукции' }}
+              <button type="button" matChipRemove [attr.aria-label]="'Убрать код ' + code">
+                <mat-icon>
+                  cancel
+                </mat-icon>
+              </button>
+            </mat-chip-row>
+          </mat-chip-grid>
+          <input matInput placeholder="Название продукции или код классификатора" [matAutocomplete]="okpd2Auto" [matChipInputFor]="okpd2ChipGrid" [formControl]="okpd2SearchControl">
+          <mat-autocomplete #okpd2Auto="matAutocomplete" (optionSelected)="handleOkpd2Selected($event)">
+            <mat-option *ngFor="let item of filteredOkpd2Codes" [value]="item">
+              {{ item.code }} — {{ item.name }}
+            </mat-option>
+          </mat-autocomplete>
+          <mat-hint>
+            Необязательно. Помогает сузить подбор.
+          </mat-hint>
+        </mat-form-field>
+      </section>
+      <div class="save-bar">
+        <div aria-live="polite">
+          <span *ngIf="isSaving">
+            Сохраняем профиль…
+          </span>
+          <span *ngIf="!isSaving && form.dirty">
+            Есть несохранённые изменения
+          </span>
+          <span *ngIf="!isSaving && !form.dirty">
+            {{ successMessage || 'Профиль актуален' }}
+          </span>
+        </div>
+        <button class="button button-primary" type="submit" [disabled]="!canSave">
+          <mat-icon>
+            check
+          </mat-icon>
+          {{ isSaving ? 'Сохраняем…' : 'Сохранить профиль' }}
+        </button>
+      </div>
+      <div class="message error" *ngIf="errorMessage" role="alert">
+        {{ errorMessage }}
+      </div>
+      <section class="profile-section directions" id="directions">
+        <div class="section-heading">
+          <span class="section-number">
+            03
+          </span>
+          <div>
+            <h2>
+              Направления для поиска
+            </h2>
+            <p>
+              Сохранённые запросы для подбора закупок по смыслу.
+            </p>
+          </div>
+        </div>
+        <div class="directions-actions">
+          <button type="button" class="button" (click)="openAddVectorDialog()" [disabled]="isVectorsLoading || isVectorActionInProgress">
+            <mat-icon>
+              add
+            </mat-icon>
+            Добавить направление
+          </button>
+          <button type="button" class="icon-button" (click)="refreshVectors()" [disabled]="isVectorsLoading || isVectorActionInProgress" aria-label="Обновить направления">
+            <mat-icon>
+              refresh
+            </mat-icon>
+          </button>
+        </div>
+        <div class="message error" *ngIf="vectorsErrorMessage" role="alert">
+          {{ vectorsErrorMessage }}
+        </div>
+        <div class="loading-container" *ngIf="isVectorsLoading" role="status">
+          <mat-spinner diameter="28">
+          </mat-spinner>
+        </div>
+        <ng-container *ngIf="!isVectorsLoading">
+          <div class="direction-row" *ngFor="let vector of queryVectors">
+            <mat-icon>
+              auto_awesome
+            </mat-icon>
+            <span>
+              {{ vector.query }}
+            </span>
+            <button class="icon-button" type="button" (click)="deleteVector(vector)" [disabled]="isVectorActionInProgress" [attr.aria-label]="'Удалить направление: ' + vector.query">
+              <mat-icon>
+                delete_outline
+              </mat-icon>
             </button>
-          </mat-chip-row>
-        </mat-chip-grid>
-
-        <input
-          matInput
-          placeholder="Введите код или название региона"
-          [matAutocomplete]="regionAuto"
-          [matChipInputFor]="chipGrid"
-          [formControl]="regionSearchControl"
-        />
-        <p class="subtitle">Коды для опциональной фильтрации тендеров</p>
-        <mat-autocomplete #regionAuto="matAutocomplete" (optionSelected)="handleRegionSelected($event)">
-          <mat-option *ngFor="let region of filteredRegions" [value]="region">
-            {{ region.code }} — {{ region.name }}
-          </mat-option>
-        </mat-autocomplete>
-      </mat-form-field>
-
-      <p class="subtitle">ОКПД2 по которым (опционально) будут фильтроваться заявки в поиске</p>
-
-      <mat-form-field appearance="outline" class="full-width okpd2-field">
-        <mat-label>Коды ОКПД2</mat-label>
-        <mat-chip-grid #okpd2ChipGrid aria-label="Выбранные коды ОКПД2">
-          <mat-chip-row
-            *ngFor="let code of form.value.okpd2Codes"
-            [removable]="true"
-            (removed)="removeOkpd2Code(code)"
-          >
-            {{ getOkpd2Name(code) || code }}
-            <button matChipRemove>
-              <mat-icon>cancel</mat-icon>
-            </button>
-          </mat-chip-row>
-        </mat-chip-grid>
-
-        <input
-          matInput
-          placeholder="Введите код или название ОКПД2"
-          [matAutocomplete]="okpd2Auto"
-          [matChipInputFor]="okpd2ChipGrid"
-          [formControl]="okpd2SearchControl"
-        />
-        <mat-autocomplete #okpd2Auto="matAutocomplete" (optionSelected)="handleOkpd2Selected($event)">
-          <mat-option *ngFor="let item of filteredOkpd2Codes" [value]="item">
-            {{ item.code }} — {{ item.name }}
-          </mat-option>
-        </mat-autocomplete>
-      </mat-form-field>
-    </section>
-
-    <section class="card vector-section">
-      <div class="section-header">
+          </div>
+          <div class="directions-empty" *ngIf="!queryVectors.length && !vectorsErrorMessage">
+            <mat-icon>
+              manage_search
+            </mat-icon>
+            <p>
+              Добавьте первое направление
+            </p>
+            <span>
+              Например, «Поставка и обслуживание медицинского оборудования».
+            </span>
+          </div>
+        </ng-container>
+        <p class="saved-separately">
+          <mat-icon>
+            info_outline
+          </mat-icon>
+          Направления сохраняются сразу после добавления.
+        </p>
+      </section>
+    </form>
+    <aside class="profile-guide">
+      <span class="guide-icon">
+        <mat-icon>
+          auto_awesome
+        </mat-icon>
+      </span>
+      <h2>
+        Чем точнее профиль,
+        <br>
+        тем полезнее подбор
+      </h2>
+      <p>
+        Хорошее описание помогает ИИ оценивать закупки с учётом реальных возможностей вашей компании.
+      </p>
+      <div class="guide-item">
+        <span>
+          1
+        </span>
         <div>
-          <h2>Услуги компании</h2>
-           <p class="subtitle">Введите услуги компании для <b>смыслового</b> сопоставления с названием тендера. Появятся в выпадающем списке при выборе "Семантический поик (ИИ)"  </p>
-        </div>
-        <div class="section-actions">
-          <button
-            mat-stroked-button
-            color="primary"
-            (click)="refreshVectors()"
-            [disabled]="isVectorsLoading || isVectorActionInProgress"
-          >
-            Обновить
-          </button>
-          <button
-            mat-stroked-button
-            color="primary"
-            (click)="openAddVectorDialog()"
-            [disabled]="isVectorsLoading || isVectorActionInProgress"
-          >
-            Добавить запрос
-          </button>
+          <strong>
+            Что вы предлагаете
+          </strong>
+          <p>
+            Основные товары, услуги и специализация.
+          </p>
         </div>
       </div>
-
-      <div class="message error" *ngIf="vectorsErrorMessage">{{ vectorsErrorMessage }}</div>
-
-      <div class="loading-container" *ngIf="isVectorsLoading">
-        <mat-progress-spinner mode="indeterminate" diameter="32"></mat-progress-spinner>
-      </div>
-
-      <ng-container *ngIf="!isVectorsLoading">
-        <div class="table-wrapper" *ngIf="queryVectors.length > 0; else emptyVectors">
-          <table mat-table [dataSource]="queryVectors" class="mat-elevation-z1">
-            <ng-container matColumnDef="query">
-              <th mat-header-cell *matHeaderCellDef>Запрос</th>
-              <td mat-cell *matCellDef="let element">{{ element.query }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let element">
-                <button
-                  mat-stroked-button
-                  color="warn"
-                  (click)="deleteVector(element)"
-                  [disabled]="isVectorActionInProgress"
-                >
-                  Удалить
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="vectorColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: vectorColumns"></tr>
-          </table>
+      <div class="guide-item">
+        <span>
+          2
+        </span>
+        <div>
+          <strong>
+            В чём ваша сила
+          </strong>
+          <p>
+            Опыт, лицензии, оборудование и команда.
+          </p>
         </div>
-
-        <ng-template #emptyVectors>
-          <div class="empty-state">Нет запросов. Добавьте или обновите список при необходимости.</div>
-        </ng-template>
-      </ng-container>
-    </section>
-
-    <div class="message error" *ngIf="errorMessage">{{ errorMessage }}</div>
-    <div class="message success" *ngIf="successMessage">{{ successMessage }}</div>
-  </form>
+      </div>
+      <div class="guide-item">
+        <span>
+          3
+        </span>
+        <div>
+          <strong>
+            Что важно учесть
+          </strong>
+          <p>
+            Логистика, объёмы и ограничения.
+          </p>
+        </div>
+      </div>
+      <div class="guide-footer">
+        <mat-icon>
+          lightbulb_outline
+        </mat-icon>
+        Описывайте бизнес обычными словами — ИИ учитывает смысл.
+      </div>
+    </aside>
   </div>
 </div>

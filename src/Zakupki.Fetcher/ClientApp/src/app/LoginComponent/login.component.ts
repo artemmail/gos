@@ -1,86 +1,43 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute } from '@angular/router';
-import { Title } from '@angular/platform-browser';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   standalone: true,
   selector: 'app-login',
-  imports: [CommonModule, RouterModule],
-  template: `
-    <div class="login d-flex flex-column align-items-center mt-5">
-      <h2>Login</h2>
-
-      <div class="d-flex flex-column gap-2 mt-3 w-100" style="max-width: 320px;">
-        <button
-          class="btn btn-primary"
-          (click)="loginWithGoogle()">
-          Login with a Google ID
-        </button>
-
-        <button
-          class="btn btn-outline-secondary"
-          (click)="loginWithYandex()">
-          Login with a Yandex ID
-        </button>
-      </div>
-
-      <!-- Сообщение об ошибке из callback -->
-      <p *ngIf="authError" class="text-danger mt-2 text-center w-75">
-        {{ authErrorMessage }}
-      </p>
-    </div>
-  `
+  imports: [CommonModule, RouterModule, MatIconModule],
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
 })
 export class LoginComponent implements OnInit {
   authError = false;
   authErrorMessage = '';
-  private returnUrl: string | null = null;
+  isRedirecting = false;
+  private returnUrl = '/tenders';
 
-  constructor(
-    private route: ActivatedRoute,
-    private readonly titleService: Title
-  ) {
-    this.titleService.setTitle('Вход в YouScriptor');
-  }
+  constructor(private readonly route: ActivatedRoute) {}
 
   ngOnInit(): void {
-    // При каждом входе на страницу авторизации очищаем хранилища,
-    // чтобы сбросить устаревшие токены или пользовательские данные
-    // и избежать конфликтов при повторной авторизации.
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // Обработка error из query-params
-    this.route.queryParams.subscribe(params => {
-      const error = params['error'];
-      this.returnUrl = params['returnUrl'] ?? null;
-      if (error) {
-        this.authError = true;
-        if (error === 'interaction_required') {
-          this.authErrorMessage = 'Для входа требуется взаимодействие. Пожалуйста, войдите в аккаунт выбранного провайдера и попробуйте снова.';
-        } else {
-          this.authErrorMessage = `Ошибка авторизации: ${error}. Попробуйте войти вручную.`;
-        }
-      }
-    });
+    const params = this.route.snapshot.queryParamMap;
+    const requested = params.get('returnUrl');
+    if (requested?.startsWith('/') && !requested.startsWith('//') && !requested.includes('\\')) {
+      this.returnUrl = requested;
+    }
+    if (params.has('error')) {
+      this.authError = true;
+      this.authErrorMessage = 'Не удалось завершить вход. Попробуйте ещё раз или выберите другой способ.';
+    }
   }
 
-  /** интерактивный вход по кнопке */
-  loginWithGoogle(): void {
-    this.redirectToProvider('google');
-  }
-
-  loginWithYandex(): void {
-    this.redirectToProvider('yandex');
-  }
+  loginWithGoogle(): void { this.redirectToProvider('google'); }
+  loginWithYandex(): void { this.redirectToProvider('yandex'); }
 
   private redirectToProvider(provider: 'google' | 'yandex'): void {
-    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
-    if (this.returnUrl) {
-      callbackUrl.searchParams.set('returnUrl', this.returnUrl);
-    }
-    const redirect = encodeURIComponent(callbackUrl.toString());
-    window.location.href = `/api/account/signin-${provider}?returnUrl=${redirect}`;
+    if (this.isRedirecting) return;
+    this.isRedirecting = true;
+    const callbackUrl = new URL('/auth/callback', window.location.origin);
+    callbackUrl.searchParams.set('returnUrl', this.returnUrl);
+    window.location.href = `/api/account/signin-${provider}?returnUrl=${encodeURIComponent(callbackUrl.toString())}`;
   }
 }

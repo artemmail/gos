@@ -119,7 +119,7 @@ public sealed class NoticeAnalysisReportService
                 foreach (var section in detailedSections)
                 {
                     body.AppendChild(CreateParagraph(section.Title, bold: true));
-                    body.AppendChild(CreateParagraph(section.DetailedComment!.Trim()));
+                    AppendMarkdown(body, section.DetailedComment!.Trim());
                 }
             }
 
@@ -177,7 +177,7 @@ public sealed class NoticeAnalysisReportService
         }
 
         AppendSubHeading(body, "Суть закупки");
-        body.AppendChild(CreateParagraph(result.Essence.Trim()));
+        AppendMarkdown(body, result.Essence.Trim());
     }
 
     private static void AppendSummary(Body body, TenderAnalysisResult result)
@@ -188,7 +188,7 @@ public sealed class NoticeAnalysisReportService
         }
 
         AppendSubHeading(body, "Краткий вывод");
-        body.AppendChild(CreateParagraph(result.Summary.Trim()));
+        AppendMarkdown(body, result.Summary.Trim());
     }
 
     private static void AppendDecision(Body body, TenderAnalysisResult result)
@@ -262,7 +262,7 @@ public sealed class NoticeAnalysisReportService
             row.Append(
                 CreateCell(section.Title),
                 CreateCell(section.Score),
-                CreateCell(section.ShortComment ?? "—"));
+                CreateCell(section.ShortComment ?? "—", markdown: true));
             table.AppendChild(row);
         }
 
@@ -282,19 +282,25 @@ public sealed class NoticeAnalysisReportService
         return cell;
     }
 
-    private static TableCell CreateCell(string text)
+    private static TableCell CreateCell(string text, bool markdown = false)
     {
-        var paragraph = new Paragraph();
-        var run = new Run();
-        AppendText(run, text);
-        paragraph.Append(run);
+        var paragraphs = markdown
+            ? MarkdownDocxRenderer.CreateParagraphs(text)
+            : new[] { CreateParagraph(text) };
 
-        return new TableCell(paragraph)
+        return new TableCell(paragraphs)
         {
             TableCellProperties = new TableCellProperties(new TableCellWidth { Type = TableWidthUnitValues.Auto })
         };
     }
 
+    private static void AppendMarkdown(Body body, string markdown)
+    {
+        foreach (var paragraph in MarkdownDocxRenderer.CreateParagraphs(markdown))
+        {
+            body.AppendChild(paragraph);
+        }
+    }
     private static void AppendSubHeading(Body body, string text)
     {
         body.AppendChild(CreateParagraph(text, bold: true, fontSize: 18));
@@ -427,3 +433,4 @@ public sealed class NoticeAnalysisReportService
         string? ShortComment,
         string? DetailedComment);
 }
+

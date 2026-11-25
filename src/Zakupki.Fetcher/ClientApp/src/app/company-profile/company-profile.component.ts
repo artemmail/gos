@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
@@ -29,6 +29,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   queryVectors: UserQueryVectorDto[] = [];
   vectorColumns = ['query', 'actions'];
   isLoading = false;
+  profileLoaded = false;
   isSaving = false;
   isVectorsLoading = false;
   isVectorActionInProgress = false;
@@ -89,7 +90,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   }
 
   save(): void {
-    if (this.form.invalid || this.isSaving) {
+    if (!this.profileLoaded || this.form.invalid || this.isSaving) {
       this.form.markAllAsTouched();
       return;
     }
@@ -163,6 +164,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   get canSave(): boolean {
     return (
       !this.isSaving &&
+      this.profileLoaded &&
       !this.isLoading &&
       !this.isVectorsLoading &&
       this.form.valid
@@ -177,7 +179,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
     this.loadVectors();
   }
 
-  private loadProfile(): void {
+  loadProfile(): void {
     this.isLoading = true;
     this.errorMessage = '';
     this.successMessage = '';
@@ -231,6 +233,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   }
 
   private handleProfileLoaded(profile: UserCompanyProfile, fromSave: boolean): void {
+    this.profileLoaded = true;
     this.availableRegions = profile.availableRegions ?? [];
     this.form.setValue({
       companyInfo: profile.companyInfo ?? '',
@@ -243,6 +246,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
 
     this.isLoading = false;
     this.isSaving = false;
+    this.form.markAsPristine();
 
     if (fromSave) {
       this.successMessage = 'Данные успешно сохранены.';
@@ -262,11 +266,13 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   }
 
   removeRegion(code: number): void {
+    this.form.markAsDirty();
     const regions = this.form.value.regions ?? [];
     this.form.patchValue({ regions: regions.filter((regionCode: number) => regionCode !== code) });
   }
 
   removeOkpd2Code(code: string): void {
+    this.form.markAsDirty();
     const okpd2Codes = this.form.value.okpd2Codes ?? [];
     this.form.patchValue({ okpd2Codes: okpd2Codes.filter((okpd2Code: string) => okpd2Code !== code) });
   }
@@ -280,6 +286,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   }
 
   private addRegion(code: number): void {
+    this.form.markAsDirty();
     const regions = this.form.value.regions ?? [];
     if (!regions.includes(code)) {
       this.form.patchValue({ regions: [...regions, code] });
@@ -287,6 +294,7 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
   }
 
   private addOkpd2Code(code: string): void {
+    this.form.markAsDirty();
     const okpd2Codes = this.form.value.okpd2Codes ?? [];
     if (!okpd2Codes.includes(code)) {
       this.form.patchValue({ okpd2Codes: [...okpd2Codes, code] });
@@ -304,6 +312,15 @@ export class CompanyProfileComponent implements OnInit, OnDestroy {
       region =>
         region.name.toLowerCase().includes(query) || region.code.toString().includes(query)
     );
+  }
+
+  canLeave(): boolean {
+    return !this.form.dirty || confirm('В профиле есть несохранённые изменения. Покинуть страницу?');
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  beforeUnload(event: BeforeUnloadEvent): void {
+    if (this.form.dirty) { event.preventDefault(); event.returnValue = ''; }
   }
 
   private filterOkpd2Codes(value: string | Okpd2CodeOption | null): Okpd2CodeOption[] {

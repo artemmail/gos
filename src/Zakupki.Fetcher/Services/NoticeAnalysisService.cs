@@ -360,8 +360,11 @@ public sealed class NoticeAnalysisService
 
             if (!attachments.Any(a => !string.IsNullOrWhiteSpace(a.MarkdownContent)))
             {
+                var hasDownloadedDocument = attachments.Any(a => a.BinaryContent is { Length: > 0 });
                 throw new NoticeAnalysisException(
-                    "Не удалось подготовить вложения для анализа. Попробуйте выполнить конвертацию вручную и повторите попытку.",
+                    hasDownloadedDocument
+                        ? "Не удалось преобразовать документы закупки в текст. Откройте «Документы», выполните конвертацию и повторите анализ."
+                        : "Не удалось скачать документы закупки с ЕИС. Откройте «Документы», нажмите «Загрузить документы» и повторите анализ.",
                     true);
             }
 
@@ -684,22 +687,8 @@ public sealed class NoticeAnalysisService
             // текст вернётся по умолчанию
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "responses")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(requestBody, SerializerOptions),
-                Encoding.UTF8,
-                "application/json")
-        };
-
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
-
-        if (!string.IsNullOrWhiteSpace(_options.Organization))
-        {
-            request.Headers.Add("OpenAI-Organization", _options.Organization);
-        }
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendAnalysisRequestWithRetryAsync(
+            JsonSerializer.Serialize(requestBody, SerializerOptions), cancellationToken);
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -721,6 +710,50 @@ public sealed class NoticeAnalysisService
         }
 
         return answer.Trim();
+    }
+
+    private async Task<HttpResponseMessage> SendAnalysisRequestWithRetryAsync(
+        string body, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "responses")
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+            if (!string.IsNullOrWhiteSpace(_options.Organization))
+            {
+                request.Headers.Add("OpenAI-Organization", _options.Organization);
+            }
+
+            try
+            {
+                // Retry only connection failures before response headers arrive.
+                return await _httpClient.SendAsync(
+                    request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            }
+            catch (HttpRequestException ex) when (attempt < 3 && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "OpenAI connection failed; retry {Attempt} of 3", attempt + 1);
+                await Task.Delay(TimeSpan.FromSeconds(attempt * 2), cancellationToken);
+            }
+            catch (HttpRequestException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError(ex, "OpenAI connection failed after retries");
+                throw new NoticeAnalysisException(
+                    "Не удалось установить соединение с сервисом ИИ. Повторите анализ через несколько минут.",
+                    false, ex);
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new NoticeAnalysisException(
+                    "Сервис ИИ не ответил за отведённое время. Повторите анализ позже.",
+                    false, ex);
+            }
+        }
+
+        throw new InvalidOperationException("OpenAI retry loop ended unexpectedly.");
     }
 
     private static string ExtractAnswer(string json)

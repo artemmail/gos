@@ -1,48 +1,112 @@
-<div class="fab-notices-container">
-  <h1>Процедуры Фабрикант</h1>
-
-  <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
-
-  <div class="loading" *ngIf="isLoading">
-    <mat-progress-spinner diameter="48" mode="indeterminate"></mat-progress-spinner>
+<div class="page-container">
+  <header class="page-header">
+    <div>
+      <div class="eyebrow">
+        ЭЛЕКТРОННАЯ ТОРГОВАЯ ПЛОЩАДКА
+      </div>
+      <h1>
+        Закупки Фабрикант
+      </h1>
+      <p class="subtitle">
+        Процедуры, условия и сроки подачи заявок.
+      </p>
+    </div>
+    <button class="button" (click)="loadProcedures(3)" [disabled]="isLoading">
+      <mat-icon>
+        refresh
+      </mat-icon>
+      Обновить
+    </button>
+  </header>
+  <div class="loading-container" *ngIf="isLoading" role="status">
+    <mat-spinner diameter="32">
+    </mat-spinner>
+    Загружаем процедуры…
   </div>
-
-  <div *ngIf="!isLoading && procedures.length === 0 && !errorMessage" class="no-data">
-    Нет данных для отображения.
+  <div class="error-state" *ngIf="!isLoading && errorMessage" role="alert">
+    <mat-icon>
+      cloud_off
+    </mat-icon>
+    <h2>
+      Источник пока недоступен
+    </h2>
+    <p>
+      {{ errorMessage }}
+    </p>
+    <button class="button" (click)="loadProcedures(3)">
+      Попробовать снова
+    </button>
+    <a class="button button-primary" routerLink="/tenders">
+      Искать закупки ЕИС
+    </a>
   </div>
-
-  <table mat-table [dataSource]="procedures" class="mat-elevation-z1" *ngIf="procedures.length > 0">
-    <ng-container matColumnDef="procedureNumber">
-      <th mat-header-cell *matHeaderCellDef>Номер</th>
-      <td mat-cell *matCellDef="let procedure">{{ procedure.procedureNumber }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="title">
-      <th mat-header-cell *matHeaderCellDef>Название</th>
-      <td mat-cell *matCellDef="let procedure">{{ procedure.title }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="status">
-      <th mat-header-cell *matHeaderCellDef>Статус</th>
-      <td mat-cell *matCellDef="let procedure">{{ procedure.status }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="publishDate">
-      <th mat-header-cell *matHeaderCellDef>Публикация</th>
-      <td mat-cell *matCellDef="let procedure">{{ procedure.publishDate | date: 'shortDate' }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="applyEndDate">
-      <th mat-header-cell *matHeaderCellDef>Окончание подачи</th>
-      <td mat-cell *matCellDef="let procedure">{{ procedure.applyEndDate | date: 'shortDate' }}</td>
-    </ng-container>
-
-    <ng-container matColumnDef="nmck">
-      <th mat-header-cell *matHeaderCellDef>НМЦК</th>
-      <td mat-cell *matCellDef="let procedure">{{ procedure.nmck | number:'1.0-2' }} {{ procedure.currency }}</td>
-    </ng-container>
-
-    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-  </table>
+  <div class="empty-state" *ngIf="!isLoading && !errorMessage && !procedures.length">
+    <mat-icon>
+      inventory_2
+    </mat-icon>
+    <h2>
+      Процедур пока нет
+    </h2>
+    <p>
+      Новые закупки появятся после обновления источника.
+    </p>
+    <a class="button" routerLink="/tenders">
+      К поиску закупок
+    </a>
+  </div>
+  <ng-container *ngIf="!isLoading && !errorMessage">
+    <article class="procedure" *ngFor="let procedure of procedures">
+      <div class="procedure-meta">
+        <span>
+          № {{ procedure.procedureNumber }}
+        </span>
+        <span>
+          {{ procedure.status }}
+        </span>
+      </div>
+      <h2>
+        {{ procedure.title }}
+      </h2>
+      <p *ngIf="procedure.organizerName">
+        {{ procedure.organizerName }}
+      </p>
+      <div class="procedure-facts">
+        <div>
+          <span>
+            Начальная цена
+          </span>
+          <strong>
+            {{ procedure.nmck === null ? 'Не указана' : (procedure.nmck | number:'1.0-2') }} {{ procedure.nmck !== null ? procedure.currency : '' }}
+          </strong>
+        </div>
+        <div>
+          <span>
+            Подача заявок до
+          </span>
+          <strong>
+            {{ procedure.applyEndDate ? (procedure.applyEndDate | date:'d MMM yyyy, HH:mm') : 'Не указан срок' }}
+          </strong>
+        </div>
+        <div>
+          <span>
+            Опубликовано
+          </span>
+          <strong>
+            {{ procedure.publishDate | date:'d MMM yyyy' }}
+          </strong>
+        </div>
+      </div>
+      <details *ngIf="procedure.documents?.length">
+        <summary>
+          Документы процедуры
+        </summary>
+        <a *ngFor="let doc of procedure.documents" [href]="doc.url" target="_blank" rel="noopener">
+          {{ doc.fileName }}
+          <mat-icon>
+            open_in_new
+          </mat-icon>
+        </a>
+      </details>
+    </article>
+  </ng-container>
 </div>

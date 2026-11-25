@@ -6,12 +6,12 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:production": "ng build --configuration production",
+    "review:ui": "node review/ui-review.cjs",
     "test": "ng test",
     "lint": "ng lint"
   },
   "dependencies": {
-    "@fontsource/material-icons": "^5.0.21",
-    "@fontsource/roboto": "^5.0.21",
     "@angular/animations": "^17.3.8",
     "@angular/common": "^17.3.8",
     "@angular/compiler": "^17.3.8",
@@ -21,7 +21,10 @@
     "@angular/platform-browser": "^17.3.8",
     "@angular/platform-browser-dynamic": "^17.3.8",
     "@angular/router": "^17.3.8",
+    "@fontsource/material-icons": "^5.0.21",
+    "@fontsource/roboto": "^5.0.21",
     "@microsoft/signalr": "^8.0.5",
+    "marked": "^18.1.0",
     "rxjs": "~7.8.1",
     "tslib": "^2.6.2",
     "zone.js": "~0.14.4"

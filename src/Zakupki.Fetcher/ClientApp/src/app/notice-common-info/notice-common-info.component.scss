@@ -1,280 +1,290 @@
-.notice-common-info {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
-  color: #222;
-}
-
-.notice-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  background: #f5f5f5;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-}
-
-.notice-header-main {
-  flex: 1 1 auto;
-}
-
-.notice-number .label {
-  font-size: 12px;
-  color: #777;
+:host {
   display: block;
+  min-width: 0;
 }
-
-.notice-number .value {
-  font-weight: 600;
-  font-size: 16px;
+.notice-common-info {
+  font-size: 13px;
+  color: var(--ink);
 }
-
+.notice-header {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 260px;
+  gap: 36px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 22px;
+}
+.notice-number {
+  display: none;
+}
 .notice-title {
-  margin: 8px 0 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: -.5px;
+  margin: 0;
 }
-
 .notice-header-aside {
-  flex: 0 0 260px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
+  border-left: 1px solid var(--border);
+  padding-left: 28px;
 }
-
-.price-block {
-  padding: 8px 12px;
-  background: #fff;
-  border-radius: 4px;
-  border: 1px solid #ddd;
+.label {
+  font-size: 11px;
+  color: var(--muted);
 }
-
-.price-block .label {
+.price-value {
+  font-size: 27px;
+  letter-spacing: -.6px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-top: 5px;
+}
+.price-currency {
   font-size: 12px;
-  color: #777;
+  color: var(--muted);
 }
-
-.price-block .price-value {
-  font-size: 18px;
-  font-weight: 700;
+.etp-name {
+  font-size: 12px;
   margin-top: 4px;
 }
-
-.price-block .price-currency {
-  font-size: 12px;
-  color: #555;
-}
-
-.etp-block {
-  padding: 8px 12px;
-  background: #fff;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-}
-
-.etp-block .label {
-  font-size: 12px;
-  color: #777;
-}
-
 .etp-name a {
   text-decoration: none;
-  color: #0054a6;
 }
-
+.etp-code {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
 .section {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 18px;
+  overflow: auto;
+}
+.section-title {
+  font-weight: 500;
+  font-size: 17px;
   margin-bottom: 20px;
 }
-
-.section-title {
-  font-weight: 600;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 2px solid #0054a6;
-  font-size: 15px;
-}
-
 .subsection-title {
-  font-weight: 600;
-  margin-top: 8px;
-  margin-bottom: 4px;
+  font-weight: 500;
+  font-size: 13px;
+  margin: 18px 0 12px;
 }
-
 .info-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
-
-.info-table th,
-.info-table td {
-  border: 1px solid #e0e0e0;
-  padding: 6px 8px;
+.info-table th,.info-table td {
+  padding: 13px 0;
   vertical-align: top;
+  line-height: 1.8;
+  border-bottom: 1px solid #edf0e8;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
-
+.info-table tr:last-child th,.info-table tr:last-child td {
+  border-bottom: 0;
+}
 .info-table th {
-  width: 260px;
-  background: #fafafa;
-  font-weight: 500;
-}
-
-.info-table td {
-  background: #fff;
-}
-
-.section-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-.section-grid > .section {
-  margin-bottom: 0;
-}
-
-.muted {
-  color: #888;
+  width: 32%;
+  padding-right: 28px;
+  color: var(--muted);
   font-size: 12px;
+  font-weight: 400;
 }
-
-.badge {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.badge-success {
-  background: #e0f5e4;
-  color: #247a2f;
-}
-
-.badge-warning {
-  background: #fff4d8;
-  color: #8c6a00;
-}
-
-.pre-wrap {
-  white-space: pre-wrap;
-}
-
-/* Таблица объектов закупки */
-
-.objects-table,
-.attachments-table {
-  width: 100%;
-  border-collapse: collapse;
+.info-table td {
   font-size: 13px;
 }
-
-.objects-table th,
-.objects-table td,
-.attachments-table th,
-.attachments-table td {
-  border: 1px solid #e0e0e0;
-  padding: 4px 6px;
+.info-table a {
+  overflow-wrap: anywhere;
+}
+.section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+.section-grid>.section {
+  min-width: 0;
+  margin: 0;
+}
+.section-grid>.section:first-child {
+  grid-column: 1/-1;
+}
+.section-grid>.section:has(.info-table):last-child {
+  grid-column: 1/-1;
+}
+.section-grid>.section:not(:has(.info-table)) {
+  display: none;
+}
+.muted {
+  font-size: 11px;
+  color: var(--muted);
+}
+.badge {
+  display: inline-block;
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+}
+.badge-success {
+  background: #edf4e7;
+  color: #577640;
+}
+.badge-warning {
+  background: #fff2d9;
+  color: #956f21;
+}
+.pre-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.objects-table,.attachments-table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.objects-table th,.objects-table td,.attachments-table th,.attachments-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
+  text-align: left;
 }
-
-.objects-table thead th,
-.attachments-table thead th {
-  background: #f0f0f0;
-  font-weight: 600;
+.objects-table thead th,.attachments-table thead th {
+  background: #f3f6ee;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
 }
-
 .objects-table tfoot td {
-  font-weight: 600;
-  background: #fafafa;
+  background: #f8faf5;
+  font-weight: 500;
 }
-
 .obj-name {
   font-weight: 500;
 }
-
 .text-right {
   text-align: right;
 }
-
-/* Место оказания услуг */
-
 .place-row {
-  padding: 4px 0;
+  padding: 12px 0;
 }
-
 .place-country {
-  font-size: 12px;
-  color: #777;
+  font-size: 11px;
+  color: var(--muted);
 }
-
 .place-address {
   font-weight: 500;
 }
-
-/* Требования / преимущества */
-
 .simple-list {
   margin: 0;
   padding-left: 18px;
+  line-height: 1.9;
 }
-
 .requirements-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
-
 .requirement {
-  padding: 8px 10px;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
-  background: #fafafa;
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid #e5eade;
+  background: #f9fbf6;
+  font-size: 12px;
+  line-height: 1.8;
 }
-
 .requirement-header {
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 500;
+  margin-bottom: 8px;
 }
-
 .requirement-add-item {
-  margin-top: 6px;
+  margin-top: 12px;
 }
-
 .requirement-add-title {
   font-weight: 500;
 }
-
-/* Вложения */
-
 .btn-print-form {
   display: inline-block;
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid #0054a6;
-  color: #0054a6;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--green);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 12px;
 }
-
 .btn-print-form:hover {
-  background: #0054a6;
-  color: #fff;
+  background: var(--green-soft);
 }
-
-/* Адаптив */
-
-@media (max-width: 768px) {
+@media(max-width:1100px) {
   .notice-header {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .notice-header-aside {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 20px 0 0;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .notice-title {
+    font-size: 23px;
+  }
+  .section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media(max-width:600px) {
+  .notice-header {
+    padding: 22px 18px;
+  }
+  .notice-title {
+    font-size: 21px;
+  }
+  .notice-header-aside {
     flex-direction: column;
   }
-
-  .notice-header-aside {
-    flex: 1 1 auto;
+  .section {
+    padding: 22px 18px;
   }
-
+  .section-title {
+    font-size: 16px;
+  }
+  .info-table,.info-table tbody,.info-table tr,.info-table th,.info-table td {
+    display: block;
+    width: 100%;
+  }
   .info-table th {
-    width: 40%;
+    padding: 14px 0 2px;
+    border: 0;
+  }
+  .info-table td {
+    padding: 3px 0 14px;
+  }
+  .info-table tr:last-child td {
+    padding-bottom: 0;
+  }
+  .section-grid {
+    padding: 0;
+  }
+  .section-grid>.section {
+    padding: 22px 18px;
+  }
+  .price-value {
+    font-size: 25px;
   }
 }

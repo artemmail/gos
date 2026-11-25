@@ -36,18 +36,22 @@ export class AuthService {
     // 2) Если уже был сохранён userInfo (например, после перезагрузки)
     const saved = this.readStorage('userInfo');
     if (saved) {
-      const parsed = JSON.parse(saved) as Partial<UserInfo> & { name?: string };
-      const roles = Array.isArray(parsed.roles) ? parsed.roles : parsed.roles ? [parsed.roles] : [];
-      const displayName = parsed.displayName ?? parsed.name ?? '';
-      const restored: UserInfo = {
-        id: parsed.id ?? '',
-        name: displayName,
-        displayName,
-        email: parsed.email ?? '',
-        roles,
-        canHideCaptions: !!parsed.canHideCaptions,
-      };
-      this.userSubject.next(restored);
+      try {
+        const parsed = JSON.parse(saved) as Partial<UserInfo> & { name?: string };
+        const roles = Array.isArray(parsed.roles) ? parsed.roles : parsed.roles ? [parsed.roles] : [];
+        const displayName = parsed.displayName ?? parsed.name ?? '';
+        const restored: UserInfo = {
+          id: parsed.id ?? '',
+          name: displayName,
+          displayName,
+          email: parsed.email ?? '',
+          roles,
+          canHideCaptions: !!parsed.canHideCaptions,
+        };
+        this.userSubject.next(restored);
+      } catch {
+        this.removeStorageItem('userInfo');
+      }
     }
   }
 
@@ -136,7 +140,8 @@ export class AuthService {
     }
 
     try {
-      return JSON.parse(decoded);
+      const utf8 = new TextDecoder().decode(Uint8Array.from(decoded, char => char.charCodeAt(0)));
+      return JSON.parse(utf8);
     } catch {
       return null;
     }

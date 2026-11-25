@@ -1,178 +1,273 @@
-<div class="page-container">
-<section class="hero">
-  <div class="hero__badge">ИИ-сервис по госзакупкам</div>
-  <h1>«Этот тендер ваш, а этот — проходите мимо»</h1>
-  <p class="hero__lead">
-    Превращаем хаотичный поток закупок в понятную воронку: ИИ сам находит «свои» тендеры,
-    оценивает выгоду и объясняет, куда заходить, а где только лишние хлопоты.
-  </p>
-  <div class="hero__actions">
-    <a mat-flat-button color="primary" routerLink="/login">Попробовать сейчас</a>
-    <a mat-stroked-button color="primary" href="#slides">Посмотреть слайды</a>
-  </div>
-  <div class="hero__meta">
-    <div class="metric-card">
-      <span class="metric-card__label">Экономия времени</span>
-      <span class="metric-card__value">часы → секунды</span>
-    </div>
-    <div class="metric-card">
-      <span class="metric-card__label">Меньше минусов</span>
-      <span class="metric-card__value">рисковые тендеры под контролем</span>
-    </div>
-    <div class="metric-card">
-      <span class="metric-card__label">Больше побед</span>
-      <span class="metric-card__value">находим скрытые закупки по смыслу</span>
-    </div>
-  </div>
-</section>
-
-<section class="grid" id="slides">
-  <article class="card highlight">
-    <div class="card__tag">01 · Проблема</div>
-    <h2>Бесконечные поиски и ошибки</h2>
-    <p>
-      Тысячи объявлений, названия без смысла, требования спрятаны в длинных ТЗ. Менеджеры скачивают, читают
-      «простыни» текста и всё равно промахиваются — заходят в нерентабельные закупки и пропускают свои.
-    </p>
-    <p>
-      Собственник не видит целостной картины: где компания зарабатывает, а где тратит ресурсы «ради опыта».
-    </p>
-  </article>
-
-  <article class="card highlight">
-    <div class="card__tag">02 · Решение</div>
-    <h2>Личный ИИ-аналитик вместо ручной рутины</h2>
-    <ul class="list">
-      <li><strong>Профиль компании</strong>: чем занимаетесь, регионы, ОКПД2 и услуги — всё учитывается в поиске.</li>
-      <li><strong>Семантический поиск</strong>: находит тендеры по смыслу, даже если в названии это не видно.</li>
-      <li><strong>Автоскачивание документов</strong>: переходит по ссылкам, собирает вложения, готовит их для анализа.</li>
-      <li><strong>Понятные выводы ИИ</strong>: вердикт «подходит / спорно / отказаться», рентабельность, риски и причины.</li>
-    </ul>
-  </article>
-</section>
-
-<section class="slides">
-  <div class="slide">
-    <div class="slide__number">Шаг 1</div>
-    <h3>Профиль компании</h3>
-    <p>
-      Описываете бизнес, регионы, ОКПД2 и типовые запросы («Поставка металлопластиковых окон», «Изготовление и монтаж окон ПВХ»).
-      ИИ понимает, какие закупки искать и как их оценивать.
-    </p>
-  </div>
-  <div class="slide">
-    <div class="slide__number">Шаг 2</div>
-    <h3>Поиск тендеров по смыслу</h3>
-    <p>
-      Включаете семантический поиск, можно фильтровать по регионам и ОКПД2 из профиля. На экране — только закупки, похожие на ваши услуги.
-    </p>
-  </div>
-  <div class="slide">
-    <div class="slide__number">Шаг 3</div>
-    <h3>Таблица закупок</h3>
-    <p>
-      Видны номер, регион, предмет закупки, ОКПД2, цена, сроки и статус анализа. Сразу можно добавить в избранное или запустить анализ.
-    </p>
-  </div>
-  <div class="slide">
-    <div class="slide__number">Шаг 4</div>
-    <h3>Анализ ИИ</h3>
-    <p>
-      Сервис сам скачивает вложения, выделяет важные фрагменты и даёт балл, вердикт и пояснения: объёмы, маржа, конкуренция, логистика и риски.
-    </p>
-  </div>
-  <div class="slide">
-    <div class="slide__number">Шаг 5</div>
-    <h3>Решение и воронка</h3>
-    <p>
-      «Подходит» — в работу, спорные — по ситуации, слабые — отбросили. Из сотен закупок остаётся короткий список реально выгодных.
-    </p>
-  </div>
-</section>
-
-<section class="case">
-  <div class="case__header">
-    <div>
-      <div class="case__badge">Пример: оконная компания · Вологда</div>
-      <h2>Как выглядит работа в сервисе</h2>
-      <p>Реальный интерфейс, настроенный под производителя и установщика металлопластиковых окон.</p>
-    </div>
-    <div class="case__actions">
-      <span class="pill">Семантический поиск</span>
-      <span class="pill">Региональные фильтры</span>
-      <span class="pill">Автоанализ документов</span>
-    </div>
-  </div>
-  <div class="case__grid">
-    <div class="case-card">
-      <h3>Профиль настроен один раз</h3>
+<div class="landing">
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow">
+        <span>
+        </span>
+        ИНТЕЛЛЕКТУАЛЬНЫЙ ПОИСК ЗАКУПОК
+      </div>
+      <h1>
+        Хорошие тендеры.
+        <br>
+        <em>
+          Ваши возможности.
+        </em>
+      </h1>
       <p>
-        Описание компании, регионы работы, коды ОКПД2 и сохранённые запросы («Поставка металлопластиковых окон», «Замена окон»,
-        «Изготовление и монтаж окон ПВХ»). Дальше поиск и аналитика идут автоматически.
+        Находите закупки, которые подходят вашему бизнесу. Поручите ИИ изучить документы, а себе оставьте главное — решение об участии.
       </p>
+      <div class="hero-actions">
+        <a routerLink="/tenders" class="button button-dark">
+          Найти свою закупку
+          <mat-icon>
+            arrow_forward
+          </mat-icon>
+        </a>
+        <a routerLink="/presentation" fragment="how-it-works" class="how-link" (click)="scrollToSteps()">
+          Как это работает
+          <mat-icon>
+            south
+          </mat-icon>
+        </a>
+      </div>
+      <div class="hero-points">
+        <span>
+          <mat-icon>
+            check
+          </mat-icon>
+          Поиск по смыслу
+        </span>
+        <span>
+          <mat-icon>
+            check
+          </mat-icon>
+          Анализ документации
+        </span>
+        <span>
+          <mat-icon>
+            check
+          </mat-icon>
+          Под ваш бизнес
+        </span>
+      </div>
     </div>
-    <div class="case-card">
-      <h3>Список закупок «по смыслу»</h3>
-      <p>
-        Сохранённый запрос + галочка «Семантический поиск (ИИ)» — и сервис показывает закупки, где в документах действительно нужны окна,
-        даже если в названии это не очевидно.
-      </p>
+    <div class="hero-visual" aria-label="Пример интерфейса подбора закупок">
+      <div class="visual-caption">
+        <span class="visual-dot">
+        </span>
+        ОТ ЗАПРОСА К РЕШЕНИЮ
+        <span>
+          ПРИМЕР
+        </span>
+      </div>
+      <div class="demo-search">
+        <mat-icon>
+          search
+        </mat-icon>
+        Поставка медицинского оборудования
+        <mat-icon>
+          auto_awesome
+        </mat-icon>
+      </div>
+      <div class="demo-card">
+        <div class="demo-meta">
+          <span>
+            ЕИС
+          </span>
+          Подбор по профилю компании
+          <mat-icon>
+            bookmark
+          </mat-icon>
+        </div>
+        <h3>
+          Оснащение медицинского центра диагностическим оборудованием
+        </h3>
+        <div class="demo-fields">
+          <div>
+            <small>
+              Начальная цена
+            </small>
+            <strong>
+              2 450 000 ₽
+            </strong>
+          </div>
+          <div>
+            <small>
+              Направление
+            </small>
+            <strong class="demo-category">
+              Медицинское оборудование
+            </strong>
+          </div>
+        </div>
+        <div class="demo-match">
+          <mat-icon>
+            check_circle
+          </mat-icon>
+          Соответствует направлению компании
+        </div>
+      </div>
+      <div class="demo-analysis">
+        <span class="analysis-symbol">
+          <mat-icon>
+            auto_awesome
+          </mat-icon>
+        </span>
+        <div>
+          <strong>
+            Вся суть — в одном анализе
+          </strong>
+          <p>
+            Условия, требования и риски закупки
+          </p>
+        </div>
+        <mat-icon>
+          arrow_forward
+        </mat-icon>
+      </div>
+      <div class="visual-grid" aria-hidden="true">
+      </div>
     </div>
-    <div class="case-card">
-      <h3>Карточка анализа</h3>
-      <p>
-        Итоговый балл и статус («подходит / спорно / отказаться»), отдельные оценки рентабельности и привлекательности, объяснения причин
-        и кнопка «Скачать отчёт».
-      </p>
-    </div>
-    <div class="case-card">
-      <h3>Воронка решения</h3>
-      <p>
-        Избранное + статусы анализа превращают поток ЕИС в управляемую воронку: в работу идут только заказчики с понятной маржой и логистикой.
-      </p>
-    </div>
-  </div>
-</section>
-
-<section class="benefits">
-  <h2>Что получает клиент</h2>
-  <div class="benefits__grid">
-    <div class="benefit">
-      <div class="benefit__icon" aria-hidden="true">⏱️</div>
-      <h3>Экономия времени</h3>
-      <p>Из «нескольких часов на тендер» в «несколько секунд на первичную оценку» — работаете только с теми закупками, которые прошли фильтр ИИ.</p>
-    </div>
-    <div class="benefit">
-      <div class="benefit__icon" aria-hidden="true">📉</div>
-      <h3>Меньше минусовых контрактов</h3>
-      <p>ИИ заранее подсвечивает низкую маржинальность и рискованные условия — участвуете осознанно, а не «на удачу».</p>
-    </div>
-    <div class="benefit">
-      <div class="benefit__icon" aria-hidden="true">🏆</div>
-      <h3>Больше выигранных тендеров</h3>
-      <p>Семантический поиск находит «скрытые» закупки, которые идеально подходят под профиль, но не ловятся простыми ключами.</p>
-    </div>
-    <div class="benefit">
-      <div class="benefit__icon" aria-hidden="true">📊</div>
-      <h3>Прозрачная аналитика</h3>
-      <p>Вместо субъективных оценок — баллы, аргументы и выводы. Собственник видит картину, контролирует менеджеров и стратегию участия.</p>
-    </div>
-    <div class="benefit">
-      <div class="benefit__icon" aria-hidden="true">🖥️</div>
-      <h3>Удобство в одном окне</h3>
-      <p>Поиск, карточка закупки, ссылки на ЕИС, вложения, ИИ-анализ и экспорт отчёта — без десятка вкладок и хаоса в файлах.</p>
-    </div>
-  </div>
-</section>
-
-<section class="cta">
-  <div>
-    <p class="cta__label">Готовы увидеть свой список «идеальных» тендеров?</p>
-    <h2>Создайте профиль, запустите семантический поиск и получите рекомендации ИИ.</h2>
-  </div>
-  <div class="cta__actions">
-    <a mat-flat-button color="accent" routerLink="/login">Начать работу</a>
-    <a mat-stroked-button color="accent" routerLink="/notices">К списку закупок</a>
-  </div>
   </section>
+  <section class="value-strip" aria-label="Возможности">
+    <span>
+      Меньше рутины.
+      <br>
+      <strong>
+        Больше ясности.
+      </strong>
+    </span>
+    <div>
+      <mat-icon>
+        travel_explore
+      </mat-icon>
+      Поиск закупок ЕИС
+    </div>
+    <div>
+      <mat-icon>
+        description
+      </mat-icon>
+      Работа с документами
+    </div>
+    <div>
+      <mat-icon>
+        auto_awesome
+      </mat-icon>
+      Оценка с помощью ИИ
+    </div>
+  </section>
+  <section class="steps-section" id="how-it-works">
+    <div class="section-heading">
+      <div>
+        <div class="eyebrow">
+          ПРОСТОЙ ПУТЬ К УЧАСТИЮ
+        </div>
+        <h2>
+          От потока закупок
+          <br>
+          к понятному решению
+        </h2>
+      </div>
+      <p>
+        Все этапы в одном рабочем пространстве.
+        <br>
+        С контекстом вашей компании на каждом шаге.
+      </p>
+    </div>
+    <div class="steps-grid">
+      <article>
+        <span class="step-number">
+          01
+          <mat-icon>
+            business
+          </mat-icon>
+        </span>
+        <h3>
+          Расскажите о бизнесе
+        </h3>
+        <p>
+          Добавьте услуги, регионы работы и опыт компании. Это основа для подбора и анализа.
+        </p>
+        <a routerLink="/company-profile">
+          Настроить профиль
+          <mat-icon>
+            arrow_forward
+          </mat-icon>
+        </a>
+      </article>
+      <article>
+        <span class="step-number">
+          02
+          <mat-icon>
+            manage_search
+          </mat-icon>
+        </span>
+        <h3>
+          Найдите подходящие закупки
+        </h3>
+        <p>
+          Ищите по ключевым словам или по смыслу. Сохраняйте интересное в избранное.
+        </p>
+        <a routerLink="/tenders">
+          Перейти к поиску
+          <mat-icon>
+            arrow_forward
+          </mat-icon>
+        </a>
+      </article>
+      <article>
+        <span class="step-number">
+          03
+          <mat-icon>
+            auto_awesome
+          </mat-icon>
+        </span>
+        <h3>
+          Оцените условия с ИИ
+        </h3>
+        <p>
+          Получите разбор документации, оценку соответствия и аргументы для решения.
+        </p>
+        <a routerLink="/favorites">
+          Открыть избранное
+          <mat-icon>
+            arrow_forward
+          </mat-icon>
+        </a>
+      </article>
+    </div>
+  </section>
+  <section class="landing-cta">
+    <div>
+      <span>
+        СЛЕДУЮЩИЙ КОНТРАКТ НАЧИНАЕТСЯ С ПОИСКА
+      </span>
+      <h2>
+        Сосредоточьтесь
+        <br>
+        на перспективных закупках.
+      </h2>
+      <p>
+        Настройте компанию и соберите свой первый короткий список.
+      </p>
+    </div>
+    <a class="button button-lime" routerLink="/company-profile">
+      Начать работу
+      <mat-icon>
+        arrow_forward
+      </mat-icon>
+    </a>
+  </section>
+  <footer class="landing-footer">
+    <span>
+      Артем Тендер
+      <span class="footer-dot">
+        ·
+      </span>
+      Поиск и анализ закупок
+    </span>
+    <span>
+      Решения принимаете вы. ИИ помогает разобраться.
+    </span>
+  </footer>
 </div>
